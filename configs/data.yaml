@@ -1,0 +1,10 @@
+# Ultralytics dataset config. No `path:` key, so paths resolve relative to this file's folder.
+train: train/images
+val: val/images
+nc: 5
+names:
+  0: Cargo Truck
+  1: Truck w/Box
+  2: Truck w/Flatbed
+  3: Truck Tractor
+  4: Truck w/Liquid
