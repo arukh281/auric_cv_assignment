@@ -43,7 +43,7 @@ def tile_one(job):
             tot[k] += st[k]
         name = f"{img_path.stem}__x{win[0]}_y{win[1]}"
         rows.append(dict(tile=name, source=img_path.name, x0=win[0], y0=win[1], x1=win[2], y1=win[3],
-                         n_boxes=len(c), empty=empty, kept=keep, **st))
+                         n_boxes=len(c), is_empty=empty, kept=keep, **st))
         if not keep:
             continue
         tw, th = win[2] - win[0], win[3] - win[1]
@@ -92,8 +92,8 @@ def main():
     idx = pd.DataFrame(rows)
     idx.to_csv(out / "tiles_index.csv", index=False)
     params["counts"] = dict(
-        tiles_total=len(idx), tiles_written=int(idx.kept.sum()), tiles_with_boxes=int((~idx.empty).sum()),
-        empty_tiles_kept=int((idx.empty & idx.kept).sum()), empty_tiles_dropped=int((idx.empty & ~idx.kept).sum()),
+        tiles_total=len(idx), tiles_written=int(idx.kept.sum()), tiles_with_boxes=int((~idx.is_empty).sum()),
+        empty_tiles_kept=int((idx.is_empty & idx.kept).sum()), empty_tiles_dropped=int((idx.is_empty & ~idx.kept).sum()),
         box_instances_in_written_tiles=int(idx[idx.kept].n_boxes.sum()), **{f"box_tile_{k}": v for k, v in tot.items()})
     (out / "tiling_params.json").write_text(json.dumps(params, indent=2))
     write_resolved_data_yaml(out / "data.yaml", out, "train/images", (root / "val" / "images").resolve(),

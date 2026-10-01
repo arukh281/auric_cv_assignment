@@ -1,5 +1,12 @@
-numpy
-pandas
-matplotlib
-pillow
-imagehash
+# Pinned to the versions the pipeline was tested with (Python 3.11, 2026-10-02).
+# torch / torchvision / numpy / opencv are deliberately NOT pinned: on Colab they come preinstalled as a
+# matched CUDA build, and reinstalling them breaks that stack. Their exact versions are recorded per run
+# in <run>/env/*_pip_freeze.txt and *_hardware.json (GPU, CUDA, cuDNN).
+ultralytics==8.4.171
+ensemble-boxes==1.0.9
+imagehash==4.3.2
+pandas==3.0.6
+matplotlib==3.11.2
+pillow==12.3.0
+pyyaml==6.0.3
+scipy==1.17.1
