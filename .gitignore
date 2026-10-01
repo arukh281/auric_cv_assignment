@@ -1,0 +1,7 @@
+data
+CV_Assignment_AAL/
+.venv/
+*.pt
+.DS_Store
+__pycache__/
+*.pdf

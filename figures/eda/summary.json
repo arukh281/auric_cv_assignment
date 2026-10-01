@@ -1,0 +1,31 @@
+{
+  "classes": {
+    "0": "Cargo Truck",
+    "1": "Truck w/Box",
+    "2": "Truck w/Flatbed",
+    "3": "Truck Tractor",
+    "4": "Truck w/Liquid"
+  },
+  "n_images": {
+    "train": 443,
+    "val": 22
+  },
+  "n_boxes": {
+    "train": 7618,
+    "val": 1552
+  },
+  "cross_split_near_duplicate_pairs": 0,
+  "within_split_near_duplicate_pairs": {
+    "train": 0,
+    "val": 0
+  },
+  "phash_threshold": 8,
+  "label_issues": {
+    "empty_image": 1,
+    "tiny_side_lt_4px": 36
+  },
+  "median_sqrt_area_px": {
+    "train": 22.05,
+    "val": 25.5
+  }
+}

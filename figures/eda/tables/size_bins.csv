@@ -1,0 +1,11 @@
+split,class_name,small,medium,large
+train,Cargo Truck,3474,298,1
+train,Truck Tractor,562,63,0
+train,Truck w/Box,1229,1136,1
+train,Truck w/Flatbed,473,189,0
+train,Truck w/Liquid,143,49,0
+val,Cargo Truck,672,127,1
+val,Truck Tractor,100,17,0
+val,Truck w/Box,223,270,0
+val,Truck w/Flatbed,78,44,0
+val,Truck w/Liquid,8,12,0

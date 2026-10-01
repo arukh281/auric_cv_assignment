@@ -1,0 +1,6 @@
+class_name,instances_train,instances_val,images_train,images_val,instance_share_train,instance_share_val
+Cargo Truck,3773,800,368,19,0.4953,0.5155
+Truck Tractor,625,117,128,11,0.082,0.0754
+Truck w/Box,2366,493,261,17,0.3106,0.3177
+Truck w/Flatbed,662,122,195,14,0.0869,0.0786
+Truck w/Liquid,192,20,99,8,0.0252,0.0129
