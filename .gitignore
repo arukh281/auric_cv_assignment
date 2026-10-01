@@ -7,3 +7,7 @@ __pycache__/
 *.pdf
 *.zip
 data_small/
+.claude/
+tmp_test/
+work/
+.claude/
