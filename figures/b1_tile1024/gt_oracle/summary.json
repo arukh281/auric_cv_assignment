@@ -1,0 +1,46 @@
+{
+  "modes": {
+    "pool/all": {
+      "n_gt": 1552,
+      "accuracy": 0.553479381443299,
+      "mean_class_accuracy": 0.3866951876502221
+    },
+    "pool/unflagged": {
+      "n_gt": 1449,
+      "accuracy": 0.549344375431332,
+      "mean_class_accuracy": 0.38797340731164265
+    },
+    "pool/flagged": {
+      "n_gt": 103,
+      "accuracy": 0.6116504854368932,
+      "mean_class_accuracy": 0.3145299145299145
+    },
+    "best/all": {
+      "n_gt": 1552,
+      "accuracy": 0.5483247422680413,
+      "mean_class_accuracy": 0.3614433147148207
+    },
+    "best/unflagged": {
+      "n_gt": 1449,
+      "accuracy": 0.5438233264320221,
+      "mean_class_accuracy": 0.3610391079508727
+    },
+    "best/flagged": {
+      "n_gt": 103,
+      "accuracy": 0.6116504854368932,
+      "mean_class_accuracy": 0.3145299145299145
+    }
+  },
+  "agreement_pool_vs_best": {
+    "n": 1552,
+    "n_agree": 1306,
+    "agreement": 0.8414948453608248,
+    "n_agree_unflagged": 1203,
+    "n_unflagged": 1449
+  },
+  "n_flagged_no_anchor_at_iou": 103,
+  "n_unflagged": 1449,
+  "iou": 0.5,
+  "weights": "/content/drive/MyDrive/auric/runs/b1_tile1024/train/weights/last.pt",
+  "mode": "sliced"
+}

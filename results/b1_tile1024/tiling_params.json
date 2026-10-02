@@ -1,0 +1,23 @@
+{
+  "tile": 1024,
+  "overlap": 256,
+  "empty_keep": 0.2,
+  "min_vis": 0.5,
+  "seed": 0,
+  "ext": ".png",
+  "max_images": null,
+  "max_train_box_side_px": 161.0000000253,
+  "data_root": "/content/data",
+  "n_source_images": 443,
+  "counts": {
+    "tiles_total": 7900,
+    "tiles_written": 3785,
+    "tiles_with_boxes": 2772,
+    "empty_tiles_kept": 1013,
+    "empty_tiles_dropped": 4115,
+    "box_instances_in_written_tiles": 14033,
+    "box_tile_kept_whole": 13475,
+    "box_tile_kept_clipped": 558,
+    "box_tile_dropped_partial": 499
+  }
+}

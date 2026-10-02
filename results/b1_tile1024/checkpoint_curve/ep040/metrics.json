@@ -1,0 +1,29 @@
+{
+  "weights": "/content/drive/MyDrive/auric/runs/b1_tile1024/train/weights/epoch040.pt",
+  "weights_sha256": "5592a5a130b7f7e777b45b34250a0d37e510f458d5a598115a2dbd9a189be292",
+  "n_images": 22,
+  "mAP50": 0.05634645938287782,
+  "mAP50_ultralytics_interp": 0.07485137995437686,
+  "per_class_AP50": {
+    "Cargo Truck": 0.09326915551230924,
+    "Truck w/Box": 0.11413333214991146,
+    "Truck w/Flatbed": 0.05916365595007083,
+    "Truck Tractor": 0.01516615330209757,
+    "Truck w/Liquid": 0.0
+  },
+  "per_class_AP50_ultralytics_interp": {
+    "Cargo Truck": 0.1125304328977969,
+    "Truck w/Box": 0.15457538618432418,
+    "Truck w/Flatbed": 0.08256282523026215,
+    "Truck Tractor": 0.024588255459501083,
+    "Truck w/Liquid": 0.0
+  },
+  "n_gt": {
+    "Cargo Truck": 800,
+    "Truck w/Box": 493,
+    "Truck w/Flatbed": 122,
+    "Truck Tractor": 117,
+    "Truck w/Liquid": 20
+  },
+  "bootstrap": null
+}
