@@ -1,0 +1,36 @@
+{
+  "results": [
+    {
+      "classifier": "image stats (a), logistic regression, leave-one-image-out",
+      "unit": "image",
+      "auc": 0.33636363636363636,
+      "ci95_lo": 0.16775316944959803,
+      "ci95_hi": 0.5154091121859884,
+      "n": 42,
+      "n_groups": 42
+    },
+    {
+      "classifier": "ResNet18 crop embeddings, logistic regression, GroupKFold(5) by image",
+      "unit": "crop",
+      "auc": 0.45259764522349105,
+      "ci95_lo": 0.3338803482334612,
+      "ci95_hi": 0.56418308234216,
+      "n": 1356,
+      "n_groups": 42
+    },
+    {
+      "classifier": "ResNet18 crop embeddings, mean crop probability per image",
+      "unit": "image",
+      "auc": 0.36818181818181817,
+      "ci95_lo": 0.20912166950113378,
+      "ci95_hi": 0.5491990846681922,
+      "n": 42,
+      "n_groups": 42
+    }
+  ],
+  "caveat": "20 train vs 22 val images from data_small; the train images are a 20-image subset of 443. Bootstrap resamples images, so CIs reflect image-level variability only. Out-of-fold AUC can fall below 0.5 with no signal: holding a sample out removes it from its own class, shifting the training class balance against it (strongest for leave-one-out on small balanced samples).",
+  "seed": 0,
+  "crops_per_image_max": 60,
+  "n_crops_train": 373,
+  "n_crops_val": 983
+}

@@ -1,0 +1,4 @@
+classifier,unit,auc,ci95_lo,ci95_hi,n,n_groups
+"image stats (a), logistic regression, leave-one-image-out",image,0.33636363636363636,0.16775316944959803,0.5154091121859884,42,42
+"ResNet18 crop embeddings, logistic regression, GroupKFold(5) by image",crop,0.45259764522349105,0.3338803482334612,0.56418308234216,1356,42
+"ResNet18 crop embeddings, mean crop probability per image",image,0.36818181818181817,0.20912166950113378,0.5491990846681922,42,42
