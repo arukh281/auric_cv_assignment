@@ -1,0 +1,46 @@
+{
+  "modes": {
+    "pool/all": {
+      "n_gt": 1552,
+      "accuracy": 0.6005154639175257,
+      "mean_class_accuracy": 0.4358578260847323
+    },
+    "pool/unflagged": {
+      "n_gt": 1455,
+      "accuracy": 0.593127147766323,
+      "mean_class_accuracy": 0.4281520858583251
+    },
+    "pool/flagged": {
+      "n_gt": 97,
+      "accuracy": 0.711340206185567,
+      "mean_class_accuracy": 0.5411371237458193
+    },
+    "best/all": {
+      "n_gt": 1552,
+      "accuracy": 0.5889175257731959,
+      "mean_class_accuracy": 0.41342971404909024
+    },
+    "best/unflagged": {
+      "n_gt": 1455,
+      "accuracy": 0.5807560137457045,
+      "mean_class_accuracy": 0.40364679868992004
+    },
+    "best/flagged": {
+      "n_gt": 97,
+      "accuracy": 0.711340206185567,
+      "mean_class_accuracy": 0.5411371237458193
+    }
+  },
+  "agreement_pool_vs_best": {
+    "n": 1552,
+    "n_agree": 1325,
+    "agreement": 0.8537371134020618,
+    "n_agree_unflagged": 1228,
+    "n_unflagged": 1455
+  },
+  "n_flagged_no_anchor_at_iou": 97,
+  "n_unflagged": 1455,
+  "iou": 0.5,
+  "weights": "/kaggle/working/runs/b1h_tile1024_holdout40/train/weights/last.pt",
+  "mode": "sliced"
+}

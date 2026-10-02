@@ -1,0 +1,7 @@
+,pred Cargo Truck,pred Truck w/Box,pred Truck w/Flatbed,pred Truck Tractor,pred Truck w/Liquid,pred background
+gt Cargo Truck,253,61,13,2,3,468
+gt Truck w/Box,83,145,11,2,0,252
+gt Truck w/Flatbed,13,8,18,0,0,83
+gt Truck Tractor,5,13,2,5,0,92
+gt Truck w/Liquid,3,3,0,0,3,11
+gt background,951,285,89,52,8,0
