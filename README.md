@@ -17,7 +17,8 @@ YOLO11s (COCO-pretrained) on a 5-class overhead truck dataset. Target: mAP50 ≥
 | `tests/test_analysis.py` | Known-answer tests: TIDE error types and oracle fixes, GT-box oracle |
 | `analysis/errors.py` | Phase 3: TIDE-style error bins + oracle dAP50, sliced FN/FP rates, confusion, crops (reads saved predictions) |
 | `analysis/gt_box_oracle.py` | 5.1: classify GT boxes from the raw head's class scores, pooled and best-anchor modes (needs weights + GPU) |
-| `scripts/run_analysis.sh` | Runs both analysis scripts for a finished run on Colab; log in `<run>/analysis.log` |
+| `scripts/run_analysis.sh` | Runs both analysis scripts for a finished run on Colab or Kaggle; log in `<run>/analysis.log` |
+| `scripts/kaggle_setup.sh`, `scripts/kaggle_push_results.sh`, `notebooks/kaggle_train.ipynb` | Kaggle: setup, push of small result files, end-to-end notebook |
 | `runs/<run>/` | Config, command, env, metrics, training curves per run. Not in git (`.gitignore`); kept on Drive with the weights |
 | `analysis/merge_sensitivity.py` | Re-scores saved raw tile predictions under other merge settings (no re-inference) |
 | `EXPERIMENTS.md`, `REPORT.md` | Experiment log and report |
@@ -94,6 +95,50 @@ exporting it first).
    - `../runs_export.zip`: everything except weights
 8. **After a disconnect:** reconnect, re-run the setup cells, then re-run the same training cell. It resumes from
    the last saved epoch on Drive. B1 tiles are rebuilt identically from the seed.
+
+## Run on Kaggle (end to end, background mode)
+
+`scripts/_env.sh` picks the platform by itself. It uses Kaggle paths if `KAGGLE_KERNEL_RUN_TYPE` is set or
+`/kaggle/input` exists, and the Colab paths otherwise, which are unchanged.
+
+| | Colab | Kaggle |
+|---|---|---|
+| dataset source | `/content/drive/MyDrive/auric/cv_dataset.zip` | `/kaggle/input/<dataset>/cv_dataset.zip`, or the extracted folder Kaggle makes from it |
+| `DATA_ROOT` | `/content/data` | `/kaggle/tmp/data` |
+| `RUNS` (`FIGS` = `$RUNS/figures`) | `/content/drive/MyDrive/auric/runs` | `/kaggle/working/runs` (saved as notebook output) |
+| `WORK_DIR` | `/content/work` | `/kaggle/tmp/work` |
+| setup | `scripts/colab_setup.sh` | `scripts/kaggle_setup.sh` |
+| env lock | `$RUNS/colab_env_lock.txt` | `$RUNS/kaggle_env_lock.txt` |
+
+**Steps:**
+1. Create a Kaggle notebook from `notebooks/kaggle_train.ipynb`.
+2. Add the dataset with **Add Data**.
+3. Add a secret `GH_TOKEN` (a GitHub token with push access) under **Add-ons → Secrets** and attach it to the
+   notebook.
+4. Set Accelerator = GPU and Internet = On.
+5. Set `RUN = "b0"` or `"b1"` in the first code cell.
+6. Choose **Save Version → Save & Run All**.
+
+**What the notebook does:**
+1. Clones the repo to `/kaggle/tmp/repo`.
+2. Runs `scripts/kaggle_setup.sh`, which:
+   - `git pull`s with the secret;
+   - installs `requirements.txt` with Kaggle's torch / torchvision / numpy / opencv pinned as constraints, the same
+     logic as Colab;
+   - prepares `/kaggle/tmp/data`;
+   - writes the env lock;
+   - runs every `tests/test_*.py` and stops unless all pass.
+3. Runs `scripts/run_<RUN>.sh`, which trains and evaluates as on Colab.
+4. Optionally runs `scripts/run_analysis.sh`.
+5. Runs `scripts/kaggle_push_results.sh <run>`, which copies CSV/JSON/PNG files (no `weights/`, nothing over 20 MB)
+   into `results/<run>/` and `figures/<run>/`, commits, and pushes.
+
+The token is read with `kaggle_secrets` inside each command and is never printed or written to `.git/config`.
+Weights stay in the notebook's output, under `/kaggle/working/runs/<run>/train/weights/`.
+
+**Limits:** a Kaggle session is capped at 12 h. A new session starts with an empty `/kaggle/working`, so `last.pt`
+resume across sessions only works if the previous version's output is attached as input and copied to
+`/kaggle/working/runs` first.
 
 ## Run locally
 ```bash
