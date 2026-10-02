@@ -14,6 +14,9 @@ YOLO11s (COCO-pretrained) on a 5-class overhead truck dataset. Target: mAP50 ≥
 | `configs/` | `b0.yaml`, `b1.yaml`, `data.yaml` |
 | `notebooks/colab_train.ipynb` | Colab driver for B0 and B1 |
 | `tests/test_pipeline.py` | Known-answer tests: scoring, tiling, merging |
+| `tests/test_analysis.py` | Known-answer tests: TIDE error types and oracle fixes, GT-box oracle |
+| `analysis/errors.py` | Phase 3: TIDE-style error bins + oracle dAP50, sliced FN/FP rates, confusion, crops (reads saved predictions) |
+| `analysis/gt_box_oracle.py` | 5.1: classify GT boxes from the raw head's class scores (needs weights + GPU) |
 | `runs/<run>/` | Config, command, env, metrics, training curves per run. Not in git (`.gitignore`); kept on Drive with the weights |
 | `analysis/merge_sensitivity.py` | Re-scores saved raw tile predictions under other merge settings (no re-inference) |
 | `EXPERIMENTS.md`, `REPORT.md` | Experiment log and report |
@@ -95,6 +98,9 @@ exporting it first).
 ```bash
 uv venv -p 3.11 .venv && uv pip install -p .venv -r requirements.txt torch torchvision
 .venv/bin/python tests/test_pipeline.py                     # known-answer tests
+.venv/bin/python tests/test_analysis.py                     # Phase 3 analysis known-answer tests
+# after a run: python analysis/errors.py --preds runs/<name>/eval/predictions.csv --name <name>
+#              python analysis/gt_box_oracle.py --config configs/<cfg>.yaml --runs-root <runs>
 .venv/bin/python train.py --config configs/b0.yaml          # data/ = dataset root, outputs to runs/b0_full640
 .venv/bin/python eval.py  --config configs/b0.yaml          # evaluates runs/b0_full640/train/weights/last.pt
 .venv/bin/python eval.py  --config configs/b1.yaml --weights path/to/last.pt   # any checkpoint, sliced

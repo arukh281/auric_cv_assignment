@@ -96,7 +96,9 @@ Auric AI computer-vision take-home (brief: `Computer_Vision_Assignment_Auric_AI_
    including the Ultralytics cross-check.
 4. Copy the run folders (without weights) and figures from Drive into the repo docs. Fill the Results sections in
    EXPERIMENTS.md. The user fills Hypothesis and Conclusion. **STOP (end of Phase 2).**
-5. Phase 3, only on the user's go-ahead: `analysis/errors.py`.
+5. Phase 3, only on the user's go-ahead. `analysis/errors.py` and `analysis/gt_box_oracle.py` (5.1) are written and
+   tested on synthetic predictions and a random-weight model (`tests/test_analysis.py`); not yet run on a trained model.
+   They are not wired into `scripts/_run.sh`. `analysis/errors.py`:
    - TIDE-style error bins: classification, localization, both, duplicate, background FP, missed GT, each with the
      mAP50 gain from oracle-fixing it.
    - FN/FP rates sliced by class, size bin, objects per image and brightness, plus size × class tables.
