@@ -191,10 +191,12 @@ Classification remains the biggest bottleneck, consistent with B1. More training
 ## LC: learning curves (§5.3), runs b1h_f25 / b1h_f50 / b1h_f75 + b1h_seed1
 
 **Pre-registration (written by the author before any learning-curve result was seen)**
-- Written at: <timestamp>
+- Written at: 2 Oct 2026, 7:06 PM IST, before any learning-curve run
 - Question: would 500 more labelled images meaningfully raise mAP50?
-- Prediction (does the curve still rise steeply at 100%, i.e. more data helps, or is it already flattening, i.e. data
-  isn't the bottleneck?):
-- Predicted held-out mAP50 at 25%:
+- Prediction: the curve is still rising at 100%. The big gap between seen (0.38) and unseen (0.15) images is a classic
+  sign the model is still data-hungry.
+- Predicted held-out mAP50 at 25% (about 100 images): 0.07–0.12. Learning curves usually bend: the first images teach
+  the most, so a quarter of the data typically gives more than a quarter of the score (well above 0.038, pure
+  proportion) but still clearly below 0.151.
 - Decision rule: if the extrapolated gain at +500 images is smaller than the seed-to-seed noise, more labels alone
   won't help.
