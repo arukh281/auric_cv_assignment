@@ -6,9 +6,11 @@ from it) to /kaggle/working/repo, runs scripts/kaggle_setup.sh with SKIP_PULL=1 
                   holdout/subset lists), into /kaggle/working/smoke_runs (setup + tests + a short GPU check)
   MODE = "full":  SCRIPT (e.g. scripts/run_b1h.sh or scripts/run_lc.sh <config>), then scripts/run_analysis.sh RUN,
                   into /kaggle/working/runs
-MODE, CONFIG, RUN and SCRIPT are filled in by scripts/kaggle_cli_kernel.sh.
+  MODE = "script": any shell command (scripts/kaggle_cli_script_kernel.sh), run in the repo after setup
+MODE, CONFIG, RUN and SCRIPT are filled in by scripts/kaggle_cli_kernel.sh / kaggle_cli_script_kernel.sh.
 The code commit is written to <run folder>/code_commit.txt. Weights stay in the kernel output.
 """
+import base64
 import os
 import shutil
 import subprocess
@@ -19,6 +21,8 @@ from pathlib import Path
 MODE = "__MODE__"
 CONFIG = "__CONFIG__"
 SCRIPT = "__SCRIPT__"
+if SCRIPT.startswith("b64:"):  # MODE "script": arbitrary shell command, base64 so quotes and $ survive templating
+    SCRIPT = base64.b64decode(SCRIPT[4:]).decode()
 # smoke: first N train images before the config's lists. b1h: N = 10 -> 7 images, 47 tiles; with a train_list
 # (learning-curve subsets) N = 30 -> 6 images of train_f25, 41 tiles (tools/make_holdout.expected_tiles)
 SMOKE_IMAGES = 10
@@ -37,7 +41,9 @@ def sh(cmd, check=True):
 
 def install_code():
     marks = sorted(Path("/kaggle/input").rglob("CODE_COMMIT"))
-    src = next((m.parent for m in marks if (m.parent / "code.tar.gz").exists() or (m.parent / "scripts").is_dir()), None)
+    # prefer the packaged dataset (code.tar.gz); a mounted kernel output (kernel_sources) also holds an older repo/ copy
+    src = next((m.parent for m in marks if (m.parent / "code.tar.gz").exists()), None) or \
+        next((m.parent for m in marks if (m.parent / "scripts").is_dir()), None)
     if src is None:
         sys.exit(f"code dataset not found under /kaggle/input (CODE_COMMIT files: {marks})")
     if REPO.exists():
@@ -69,6 +75,9 @@ def main():
         sh(f"cat {out}/tiling_params.json; cat {out}/training_summary.json; ls -la {out}/train/weights; "
            f"grep -h -i 'name\\|gpu' {out}/env/*hardware.json | head -20", check=False)
         print("SMOKE DONE", flush=True)
+    elif MODE == "script":
+        sh(SCRIPT)
+        print("SCRIPT DONE", flush=True)
     elif MODE == "full":
         runs = Path("/kaggle/working/runs") / RUN
         runs.mkdir(parents=True, exist_ok=True)
