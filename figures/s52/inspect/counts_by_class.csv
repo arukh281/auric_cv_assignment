@@ -1,0 +1,6 @@
+class_name,learned-early,learned-late,forgotten,never-learned,never-detected,total
+Cargo Truck,1,831,45,66,846,1789
+Truck Tractor,0,188,26,40,95,349
+Truck w/Box,167,385,183,46,195,976
+Truck w/Flatbed,1,137,12,60,123,333
+Truck w/Liquid,0,6,0,29,29,64
