@@ -103,6 +103,8 @@ def main():
                       n_excluded_found=sum(p.name in set(excl) for p in imgs))
     # index = position in the full list, so excluding images never changes the other images' random streams
     jobs = [(i, p, root / "train" / "labels", out, params) for i, p in enumerate(imgs) if p.name not in set(excl)]
+    if not jobs:
+        sys.exit("no train images selected (check --max-images / --exclude-list / --include-list)")
     rows, tot = [], dict.fromkeys(STAT_KEYS, 0)
     with ProcessPoolExecutor(a.workers) as ex:
         for r, t in ex.map(tile_one, jobs):

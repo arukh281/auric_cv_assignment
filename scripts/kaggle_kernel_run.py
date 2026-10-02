@@ -19,7 +19,10 @@ from pathlib import Path
 MODE = "__MODE__"
 CONFIG = "__CONFIG__"
 SCRIPT = "__SCRIPT__"
-SMOKE_IMAGES = 10  # first 10 train images, 3 are held out -> 7 images, 47 tiles expected (tools/make_holdout.expected_tiles)
+# smoke: first N train images before the config's lists. b1h: N = 10 -> 7 images, 47 tiles; with a train_list
+# (learning-curve subsets) N = 30 -> 6 images of train_f25, 41 tiles (tools/make_holdout.expected_tiles)
+SMOKE_IMAGES = 10
+SMOKE_IMAGES_WITH_TRAIN_LIST = 30
 RUN = "__RUN__"
 REPO = Path("/kaggle/working/repo")
 
@@ -56,12 +59,13 @@ def main():
     sh("nvidia-smi; df -h /kaggle/working /kaggle/input /tmp / | sort -u; nproc; free -g", check=False)
     sh("bash scripts/kaggle_setup.sh")
     if MODE == "smoke":
+        n_smoke = SMOKE_IMAGES_WITH_TRAIN_LIST if "train_list:" in (REPO / CONFIG).read_text() else SMOKE_IMAGES
         out = Path("/kaggle/working/smoke_runs") / RUN
         out.mkdir(parents=True, exist_ok=True)
         (out / "code_commit.txt").write_text(commit + "\n")
         sh(f"source scripts/_env.sh && $PY train.py --config {CONFIG} --data-root \"$DATA_ROOT\" "
            f"--runs-root /kaggle/working/smoke_runs --work-dir /kaggle/tmp/smoke_work --epochs 1 "
-           f"--max-tile-images {SMOKE_IMAGES} --oom-fallback-batch 8")
+           f"--max-tile-images {n_smoke} --oom-fallback-batch 8")
         sh(f"cat {out}/tiling_params.json; cat {out}/training_summary.json; ls -la {out}/train/weights; "
            f"grep -h -i 'name\\|gpu' {out}/env/*hardware.json | head -20", check=False)
         print("SMOKE DONE", flush=True)
