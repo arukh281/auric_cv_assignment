@@ -43,6 +43,23 @@ def test_kcenter_picks_farthest():
     assert lst[0] == "a" and n_cover == 1 and lst[1:] == ["c", "d"]   # farthest from a is c, then d
 
 
+def test_s54_configs_and_lists():
+    import yaml
+    base = yaml.safe_load((REPO / "configs" / "b1h.yaml").read_text())
+    for f, n in ((50, 202), (75, 302)):
+        lst = (REPO / "splits" / f"train_smart{f}_seed0.txt").read_text().split()
+        assert len(set(lst)) == n and EMPTY not in lst and not set(lst) & set(
+            (REPO / "splits" / "holdout40_seed0.txt").read_text().split())
+        c = yaml.safe_load((REPO / "configs" / f"b1h_smart{f}.yaml").read_text())
+        assert {k for k in set(c) | set(base) if c.get(k) != base.get(k)} == {"name", "train_list", "epochs",
+                                                                             "checkpoint_every", "train_args"}
+        assert {k for k in set(c["train_args"]) | set(base["train_args"])
+                if c["train_args"].get(k) != base["train_args"].get(k)} == {"warmup_epochs", "close_mosaic"}
+        r = yaml.safe_load((REPO / "configs" / f"b1h_f{f}.yaml").read_text())
+        r1 = yaml.safe_load((REPO / "configs" / f"b1h_f{f}_seed1.yaml").read_text())
+        assert {k for k in set(r) | set(r1) if r.get(k) != r1.get(k)} == {"name", "seed"} and r1["seed"] == 1
+
+
 if __name__ == "__main__":
     tests = sorted(k for k, v in dict(globals()).items() if k.startswith("test_") and callable(v))
     for k in tests:

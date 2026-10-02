@@ -1,0 +1,8 @@
+{
+  "model": "facebook/dinov2-small (transformers, CLS of last_hidden_state)",
+  "n_images": 402,
+  "tile": 1024,
+  "overlap": 256,
+  "resize": 224,
+  "device": "cuda"
+}

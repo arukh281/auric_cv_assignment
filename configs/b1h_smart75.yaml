@@ -1,0 +1,42 @@
+# b1h_smart75: configs/b1h.yaml trained on the 302 'smart' images of splits/train_smart75_seed0.txt
+# (tools/make_smart_subsets.py; S54 pre-registration), epochs = round(10750 / ceil(2594 tiles / 16)) = 66 -> 10758 iterations;
+# warmup_epochs / close_mosaic / checkpoint_every rescaled to cover the same iterations as in B1h.
+batch: 16
+checkpoint_every: 13
+deterministic: true
+epochs: 66
+eval:
+  conf: 0.001
+  imgsz: 1024
+  max_det: 902
+  merge: nms
+  merge_metric: ios
+  merge_thr: 0.6
+  mode: sliced
+  nms_iou: 0.7
+  overlap: 256
+  tile: 1024
+holdout_list: splits/holdout40_seed0.txt
+imgsz: 1024
+model: yolo11s.pt
+name: b1h_smart75
+seed: 0
+tiling:
+  empty_keep: 0.2
+  min_vis: 0.5
+  overlap: 256
+  seed: 0
+  tile: 1024
+train_args:
+  amp: true
+  cache: disk
+  lr0: 0.01
+  momentum: 0.937
+  optimizer: SGD
+  plots: true
+  save_period: -1
+  val: true
+  warmup_epochs: 3.9571
+  close_mosaic: 13
+workers: 8
+train_list: splits/train_smart75_seed0.txt
