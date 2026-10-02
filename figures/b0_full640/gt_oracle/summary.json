@@ -1,0 +1,46 @@
+{
+  "modes": {
+    "pool/all": {
+      "n_gt": 1552,
+      "accuracy": 0.48131443298969073,
+      "mean_class_accuracy": 0.21507190004322813
+    },
+    "pool/unflagged": {
+      "n_gt": 396,
+      "accuracy": 0.46464646464646464,
+      "mean_class_accuracy": 0.22451042771297275
+    },
+    "pool/flagged": {
+      "n_gt": 1156,
+      "accuracy": 0.4870242214532872,
+      "mean_class_accuracy": 0.2048275427995972
+    },
+    "best/all": {
+      "n_gt": 1552,
+      "accuracy": 0.48195876288659795,
+      "mean_class_accuracy": 0.21532190004322813
+    },
+    "best/unflagged": {
+      "n_gt": 396,
+      "accuracy": 0.4671717171717172,
+      "mean_class_accuracy": 0.22595970307529162
+    },
+    "best/flagged": {
+      "n_gt": 1156,
+      "accuracy": 0.4870242214532872,
+      "mean_class_accuracy": 0.2048275427995972
+    }
+  },
+  "agreement_pool_vs_best": {
+    "n": 1552,
+    "n_agree": 1547,
+    "agreement": 0.9967783505154639,
+    "n_agree_unflagged": 391,
+    "n_unflagged": 396
+  },
+  "n_flagged_no_anchor_at_iou": 1156,
+  "n_unflagged": 396,
+  "iou": 0.5,
+  "weights": "/content/drive/MyDrive/auric/runs/b0_full640/train/weights/last.pt",
+  "mode": "full"
+}

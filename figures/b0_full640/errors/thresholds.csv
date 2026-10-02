@@ -1,0 +1,6 @@
+cls,class_name,threshold,source,precision,recall,f1,n_gt
+0,Cargo Truck,0.0061553893610835,F1-optimal on val,0.02343211578221916,0.0425,0.030208796090626395,800
+1,Truck w/Box,0.0159473922103643,F1-optimal on val,0.04,0.05273833671399594,0.045494313210848646,493
+2,Truck w/Flatbed,0.25,fallback (no GT or no predictions),,,,122
+3,Truck Tractor,0.25,fallback (no GT or no predictions),,,,117
+4,Truck w/Liquid,0.25,fallback (no GT or no predictions),,,,20
