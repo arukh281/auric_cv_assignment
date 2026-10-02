@@ -1,0 +1,25 @@
+{
+  "train_images_or_tiles": 861,
+  "batch_used": 16,
+  "imgsz": 1024,
+  "epochs_configured": 199,
+  "epochs_completed": 199,
+  "iterations_per_epoch": 54,
+  "total_iterations": 10746,
+  "images_seen": 171339,
+  "optimizer": "SGD",
+  "lr0": 0.01,
+  "momentum": 0.937,
+  "cache": "disk",
+  "amp": true,
+  "seed": 0,
+  "deterministic": true,
+  "kept_checkpoints": [
+    "epoch039.pt",
+    "epoch078.pt",
+    "epoch117.pt",
+    "epoch156.pt",
+    "epoch195.pt"
+  ],
+  "note": "per-epoch val metrics are Ultralytics' own val on un-sliced full val images; for curves only, not the reported metric and not used to pick a checkpoint (last.pt is evaluated)"
+}
