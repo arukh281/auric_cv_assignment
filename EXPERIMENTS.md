@@ -59,7 +59,9 @@ Pending Colab. Fill from:
 - `figures/b0_full640/` (TP/FP/FN grids, confusion matrix)
 
 **Conclusion**
-TODO (me)
+**Result:** mAP50 = 0.002, indicating almost no useful detection.
+
+At 640 px, only 26% of trucks aligned sufficiently with a prediction slot, compared with 93% using 1024 px tiles. This confirms that tiling was necessary, although it did not solve every problem.
 
 **Next step**
 Pending results.
@@ -117,7 +119,23 @@ Per-epoch val curves for B1 come from Ultralytics' val on un-sliced full images 
 dynamics only and are not comparable with the sliced metric.
 
 **Conclusion**
-TODO (me)
+**Result:** mAP50 = 0.071 on validation (95% CI: 0.042–0.124), well below my predicted 0.40–0.60.
+
+I was right about classification being a major problem: the model often confuses Cargo and Box trucks. However, overall performance was much worse than expected. Tiling fixed the image-resolution issue, but trucks between 8 and 48 px are still missed about 71–79% of the time (at per-class F1-optimal thresholds). Only the largest trucks (48–96 px) perform somewhat better, with a miss rate of about 52%.
+
+Rejection condition (b) was met: on validation, truck size is no longer the main limitation.
+
+**Diagnosis log**
+
+* **Scoring bug?** Unlikely. The pipeline scored 0.40 on 40 training images the model had already seen.
+* **Tile merging?** Helps rather than hurts. Disabling it dropped the score from 0.071 to 0.048.
+* **Detection limit?** Minor effect; increasing it improved the score by just 0.006.
+* **Domain shift?** No clear evidence. AUCs were 0.34–0.45, with all 95% confidence intervals including 0.5.
+* **Poor image quality?** Not the main cause; normal and blurry/hazy images performed similarly.
+
+*What we found:* The model misses about 42% of trucks and correctly classifies their type only 55% of the time, barely above always predicting Cargo (51.5%). Average per-class accuracy is 39%, compared with 20% for random guessing, suggesting it has learned something but remains weak.
+
+**Open question:** Is the validation score unusually low, or does the model perform similarly on any unseen image? B1h tests this using 40 held-out training images.
 
 **Next step**
 Pending results.
