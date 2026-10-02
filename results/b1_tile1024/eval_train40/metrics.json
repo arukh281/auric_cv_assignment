@@ -1,0 +1,103 @@
+{
+  "weights": "/content/drive/MyDrive/auric/runs/b1_tile1024/train/weights/last.pt",
+  "weights_sha256": "f827ba43c9cf652470b4f19639a71dea93b361b7b4143e134d6743b0a193a6ed",
+  "n_images": 40,
+  "mAP50": 0.4026725099396028,
+  "mAP50_ultralytics_interp": 0.41768531788375346,
+  "per_class_AP50": {
+    "Cargo Truck": 0.46826698560633134,
+    "Truck w/Box": 0.6269350861116552,
+    "Truck w/Flatbed": 0.49473776070830033,
+    "Truck Tractor": 0.2771080858085809,
+    "Truck w/Liquid": 0.14631463146314633
+  },
+  "per_class_AP50_ultralytics_interp": {
+    "Cargo Truck": 0.4691188640118721,
+    "Truck w/Box": 0.6315933434703944,
+    "Truck w/Flatbed": 0.5037537972699678,
+    "Truck Tractor": 0.27163953203495367,
+    "Truck w/Liquid": 0.21232105263157897
+  },
+  "n_gt": {
+    "Cargo Truck": 289,
+    "Truck w/Box": 81,
+    "Truck w/Flatbed": 59,
+    "Truck Tractor": 16,
+    "Truck w/Liquid": 12
+  },
+  "bootstrap": {
+    "n": 1000,
+    "seed": 0,
+    "unit": "val image",
+    "ci": "percentile 95%"
+  },
+  "split": "train",
+  "sample_seed": 0,
+  "max_images": 40,
+  "sampled_images": [
+    "1036.png",
+    "105.png",
+    "1053.png",
+    "1067.png",
+    "107.png",
+    "1118.png",
+    "1126.png",
+    "1133.png",
+    "131.png",
+    "136.png",
+    "1472.png",
+    "1523.png",
+    "1586.png",
+    "1608.png",
+    "1858.png",
+    "1982.png",
+    "2072.png",
+    "2124.png",
+    "2142.png",
+    "2301.png",
+    "2320.png",
+    "2334.png",
+    "2389.png",
+    "2416.png",
+    "2497.png",
+    "2507.png",
+    "2542.png",
+    "282.png",
+    "310.png",
+    "372.png",
+    "389.png",
+    "42.png",
+    "433.png",
+    "537.png",
+    "569.png",
+    "574.png",
+    "669.png",
+    "756.png",
+    "905.png",
+    "926.png"
+  ],
+  "excluded_images": [
+    "1938.png"
+  ],
+  "bootstrap_unit_note": "train image",
+  "pycocotools": {
+    "mAP50": 0.4026725099396028,
+    "per_class_AP50": {
+      "Cargo Truck": 0.46826698560633134,
+      "Truck w/Box": 0.6269350861116552,
+      "Truck w/Flatbed": 0.49473776070830033,
+      "Truck Tractor": 0.2771080858085809,
+      "Truck w/Liquid": 0.14631463146314633
+    },
+    "params": "iouThrs=[0.5], areaRng=all, maxDets=max_det, 101 recall points"
+  },
+  "scorer_comparison": {
+    "ours_coco101": 0.4026725099396028,
+    "pycocotools": 0.4026725099396028,
+    "ours_ultralytics_interp": 0.41768531788375346,
+    "ultralytics_val": "n/a (sliced mode or --ultra-crosscheck not set)",
+    "abs_diff_ours_vs_pycocotools": 0.0,
+    "tolerance": 0.005,
+    "flag": false
+  }
+}

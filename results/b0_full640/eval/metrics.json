@@ -1,0 +1,65 @@
+{
+  "weights": "/content/drive/MyDrive/auric/runs/b0_full640/train/weights/last.pt",
+  "weights_sha256": "7fb56c3ca3e8a707df835fd2f4b953007dff2af0a6bc423a32589b0f9154a480",
+  "n_images": 22,
+  "mAP50": 0.001986463498503182,
+  "mAP50_ultralytics_interp": 0.004518652477912568,
+  "per_class_AP50": {
+    "Cargo Truck": 0.0022237240201476473,
+    "Truck w/Box": 0.007708593472368263,
+    "Truck w/Flatbed": 0.0,
+    "Truck Tractor": 0.0,
+    "Truck w/Liquid": 0.0
+  },
+  "per_class_AP50_ultralytics_interp": {
+    "Cargo Truck": 0.006609548060774464,
+    "Truck w/Box": 0.015983714328788375,
+    "Truck w/Flatbed": 0.0,
+    "Truck Tractor": 0.0,
+    "Truck w/Liquid": 0.0
+  },
+  "n_gt": {
+    "Cargo Truck": 800,
+    "Truck w/Box": 493,
+    "Truck w/Flatbed": 122,
+    "Truck Tractor": 117,
+    "Truck w/Liquid": 20
+  },
+  "bootstrap": {
+    "n": 1000,
+    "seed": 0,
+    "unit": "val image",
+    "ci": "percentile 95%"
+  },
+  "ultralytics_val": {
+    "note": "Ultralytics val: rect letterbox batches, its own matching; expect small differences",
+    "mAP50": 0.00238924334141303,
+    "per_class_AP50": {
+      "Cargo Truck": 0.001910852681667851,
+      "Truck w/Box": 0.010035364025397297,
+      "Truck w/Flatbed": 0.0,
+      "Truck Tractor": 0.0,
+      "Truck w/Liquid": 0.0
+    }
+  },
+  "pycocotools": {
+    "mAP50": 0.001986463498503182,
+    "per_class_AP50": {
+      "Cargo Truck": 0.0022237240201476473,
+      "Truck w/Box": 0.007708593472368263,
+      "Truck w/Flatbed": 0.0,
+      "Truck Tractor": 0.0,
+      "Truck w/Liquid": 0.0
+    },
+    "params": "iouThrs=[0.5], areaRng=all, maxDets=max_det, 101 recall points"
+  },
+  "scorer_comparison": {
+    "ours_coco101": 0.001986463498503182,
+    "pycocotools": 0.001986463498503182,
+    "ours_ultralytics_interp": 0.004518652477912568,
+    "ultralytics_val": 0.00238924334141303,
+    "abs_diff_ours_vs_pycocotools": 0.0,
+    "tolerance": 0.005,
+    "flag": false
+  }
+}

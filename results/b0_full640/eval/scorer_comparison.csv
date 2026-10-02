@@ -1,0 +1,2 @@
+ours_coco101,pycocotools,ours_ultralytics_interp,ultralytics_val,abs_diff_ours_vs_pycocotools,tolerance,flag
+0.001986463498503182,0.001986463498503182,0.004518652477912568,0.00238924334141303,0.0,0.005,False

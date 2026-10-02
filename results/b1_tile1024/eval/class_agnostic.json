@@ -1,0 +1,23 @@
+{
+  "input": "/content/drive/MyDrive/auric/runs/b1_tile1024/eval/predictions.csv",
+  "split": "val",
+  "n_images": 22,
+  "conf_floor": 0.001,
+  "iou": 0.5,
+  "ap_method": "coco 101-point (detlib/scoring.py)",
+  "mAP50_per_class": 0.07147762081931593,
+  "per_class_AP50": {
+    "Cargo Truck": 0.08892788692602227,
+    "Truck w/Box": 0.12987512345124713,
+    "Truck w/Flatbed": 0.053020572048671666,
+    "Truck Tractor": 0.006356600878559398,
+    "Truck w/Liquid": 0.0792079207920792
+  },
+  "AP50_class_agnostic": 0.23736384482019882,
+  "eval_metrics_mAP50": 0.07147762081931593,
+  "recall_agnostic_conf0.25": 0.21585051546391754,
+  "n_matched_gt_conf0.25": 335,
+  "recall_agnostic_conf0.001": 0.5837628865979382,
+  "n_matched_gt_conf0.001": 906,
+  "n_gt": 1552
+}

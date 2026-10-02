@@ -1,0 +1,11 @@
+{
+  "note": "Ultralytics val: rect letterbox batches, its own matching; expect small differences",
+  "mAP50": 0.00238924334141303,
+  "per_class_AP50": {
+    "Cargo Truck": 0.001910852681667851,
+    "Truck w/Box": 0.010035364025397297,
+    "Truck w/Flatbed": 0.0,
+    "Truck Tractor": 0.0,
+    "Truck w/Liquid": 0.0
+  }
+}
