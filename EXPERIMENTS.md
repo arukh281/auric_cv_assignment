@@ -45,6 +45,9 @@ First run. Starts from COCO-pretrained YOLO11s (`yolo11s.pt`).
 - Run order: B1 first, then B0.
 - `val=true` only to log per-epoch val losses and Ultralytics val mAP (`training_curves.png/.csv`). `last.pt` is
   evaluated; no checkpoint is selected on val.
+- Compute: 443 images x 50 epochs, batch=16 (`configs/b0.yaml`) -> ceil(443/16) x 50 = 28 x 50 = 1400 total
+  iterations. B1 sees ~8.5x more iterations (11850 / 1400 = 8.46), so the comparison is "equal epochs, not equal
+  compute"; this is a known confound.
 - Eval: `eval.py`, full image at 640, conf 0.001, NMS IoU 0.7, max_det 334.
 
 **Results**
@@ -72,6 +75,15 @@ Pending results.
   `tests/test_pipeline.py` verifies this on the local val labels.
 
 **Hypothesis**
+
+*Pre-registration (written by the author before any sliced B1 metric was seen):*
+- Written at: <timestamp>  (before any sliced B1 metric was seen)
+- Hypothesis:
+- Predicted overall mAP50 range:
+- Predicted best class / worst class and why:
+- Predicted dominant error type (Loc/Cls/Dupe/Bkg/Both/Miss):
+- What result would make me reject the hypothesis:
+
 TODO (me)
 
 **Changes vs. previous run (B0)**
@@ -84,6 +96,10 @@ TODO (me)
   written tile (many per source image), not over 443 whole images. So equal epochs are not equal gradient steps.
   The actual counts are in each run's `training_summary.json` (`iterations_per_epoch`, `total_iterations`), and any
   B0-vs-B1 difference has to be read with that in mind.
+- Compute: 3785 tiles x 50 epochs, batch=16 (`configs/b1.yaml`) -> ceil(3785/16) x 50 = 237 x 50 = 11850 total
+  iterations. B1 sees ~8.5x more iterations than B0 (11850 / 1400 = 8.46), so the comparison is "equal epochs, not
+  equal compute"; this is a known confound. (If the out-of-memory fallback to batch 8 triggers, the batch actually
+  used is in `training_summary.json`.)
 - Eval: sliced inference on full-res val with the same tile geometry.
   - Class-wise NMS across tiles, using intersection-over-smaller at 0.6.
   - conf 0.001, max_det 334.
