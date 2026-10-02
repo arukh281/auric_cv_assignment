@@ -77,14 +77,14 @@ Pending results.
 **Hypothesis**
 
 *Pre-registration (written by the author before any sliced B1 metric was seen):*
-- Written at: <timestamp>  (before any sliced B1 metric was seen)
-- Hypothesis:
-- Predicted overall mAP50 range:
+- Written at: 2 Oct 2026, 1:35 pm IST, before seeing any sliced B1 result
+- Hypothesis: Trucks are tiny objects in huge 3000 px images. Shrinking to 640 px makes a truck about 5 px, too small to learn: B0's training error started extremely high (cls_loss 146.7). Tiling at full resolution keeps trucks at about 22 px, so B1 should find far more trucks than B0.
+- Predicted overall mAP50 range: 0.40–0.60, below the 0.75 target. 22 px is still small for YOLO's finest level (stride 8 means about 3 grid cells per truck), and val images are 10× denser than train.
 - Predicted best class / worst class and why:
-- Predicted dominant error type (Loc/Cls/Dupe/Bkg/Both/Miss):
-- What result would make me reject the hypothesis:
-
-TODO (me)
+  - Best: Cargo Truck: about half of all training data and the most val instances (800).
+  - Worst: Truck w/Liquid: only 2.5% of training data and 20 val instances, so its score will be low and very uncertain (wide CI).
+- Predicted dominant error type (Loc/Cls/Dupe/Bkg/Both/Miss): Classification error (Cls): the model will find most trucks but often name the wrong type, because from above at 22 px the five types look similar.
+- What result would make me reject the hypothesis: (a) B1 is not clearly better than B0, with confidence intervals that don't overlap, or (b) small trucks are missed about as often as large ones.
 
 **Changes vs. previous run (B0)**
 - Train on 1024 x 1024 tiles cut from full-resolution train images, at imgsz 1024 (no downscaling).
