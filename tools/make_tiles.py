@@ -5,6 +5,10 @@ Usage:
   python tools/make_tiles.py --data-root data --out work/tiles_1024_256 \
       --tile 1024 --overlap 256 --empty-keep 0.2 --min-vis 0.5 --seed 0
 
+--exclude-list FILE (one image file name per line, e.g. splits/holdout40_seed0.txt) leaves those train images out of
+tiling entirely. Every other image keeps its index in the full train list, so its tiles (including the seeded
+empty-tile choices) are identical to a run without the list.
+
 Outputs in --out: train/images, train/labels, data.yaml (train = tiles, val = full-res val images),
 tiling_params.json (params + counts), tiles_index.csv (tile -> source image and offset), _COMPLETE.
 """
@@ -24,6 +28,10 @@ from detlib.data import (eda_max_box_side, list_images, load_classes, read_yolo_
 from detlib.tiling import clip_boxes, tile_windows  # noqa: E402
 
 STAT_KEYS = ("kept_whole", "kept_clipped", "dropped_partial")
+
+
+def read_list(path):
+    return [l.strip() for l in Path(path).read_text().splitlines() if l.strip() and not l.startswith("#")]
 
 
 def tile_one(job):
@@ -65,6 +73,7 @@ def main():
     ap.add_argument("--workers", type=int, default=4)
     ap.add_argument("--max-images", type=int, default=None, help="testing only: tile the first N train images")
     ap.add_argument("--allow-small-overlap", action="store_true")
+    ap.add_argument("--exclude-list", help="file with train image names to leave out (held-out experiments)")
     a = ap.parse_args()
 
     max_side = eda_max_box_side("train")
@@ -79,10 +88,15 @@ def main():
     (out / "train" / "images").mkdir(parents=True, exist_ok=True)
     (out / "train" / "labels").mkdir(parents=True, exist_ok=True)
     imgs = list_images(root / "train" / "images")[: a.max_images]
+    excl = read_list(a.exclude_list) if a.exclude_list else []
     params = dict(tile=a.tile, overlap=a.overlap, empty_keep=a.empty_keep, min_vis=a.min_vis, seed=a.seed,
                   ext=a.ext, max_images=a.max_images, max_train_box_side_px=max_side,
-                  data_root=str(root.resolve()), n_source_images=len(imgs))
-    jobs = [(i, p, root / "train" / "labels", out, params) for i, p in enumerate(imgs)]
+                  data_root=str(root.resolve()), n_source_images=sum(p.name not in set(excl) for p in imgs))
+    if a.exclude_list:
+        params.update(exclude_list=str(a.exclude_list), excluded_images=excl,
+                      n_excluded_found=sum(p.name in set(excl) for p in imgs))
+    # index = position in the full list, so excluding images never changes the other images' random streams
+    jobs = [(i, p, root / "train" / "labels", out, params) for i, p in enumerate(imgs) if p.name not in set(excl)]
     rows, tot = [], dict.fromkeys(STAT_KEYS, 0)
     with ProcessPoolExecutor(a.workers) as ex:
         for r, t in ex.map(tile_one, jobs):

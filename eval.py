@@ -16,6 +16,9 @@ inference, merge and scorer as val. --max-images N then samples N images with --
 train image, is never sampled); the sampled list goes into metrics.json. --out is required and may not be the
 run's eval/ folder. Defaults (--split val) are unchanged.
   python eval.py --config configs/b1.yaml --split train --max-images 40 --out runs/b1_tile1024/eval_train40
+Held-out train images (--split holdout): every image named in the config's holdout_list (or --holdout-list), at full
+resolution from train/images + train/labels, same inference, merge and scorer; --out required. When the config
+has a holdout_list, --split train never samples those images. Both record the image list in metrics.json.
 
 mAP50 here = mean over classes of AP at IoU 0.5 (COCO 101-point interpolation) at conf >= --conf.
 The Ultralytics-interpolated value is also reported; see detlib/scoring.py for the difference.
@@ -237,7 +240,8 @@ def main():
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--max-images", type=int,
                     help="val: first N images (testing only); train: N images sampled with --sample-seed")
-    ap.add_argument("--split", choices=["val", "train"], default="val",
+    ap.add_argument("--holdout-list", help="--split holdout: image list (default: the config's holdout_list)")
+    ap.add_argument("--split", choices=["val", "train", "holdout"], default="val",
                     help="train = sanity check on full-resolution train images; requires --out")
     ap.add_argument("--sample-seed", type=int, default=0, help="--split train: seed for sampling --max-images")
     ap.add_argument("--from-preds", help="skip inference; score this predictions.csv")
@@ -253,18 +257,22 @@ def main():
             setattr(a, k, v)
     run_dir = Path(a.run_dir) if a.run_dir else Path(a.runs_root) / cfg.get("name", "adhoc")
     a.weights = a.weights or str(run_dir / "train" / "weights" / "last.pt")
-    if a.split == "train":
+    if a.split != "val":
         if not a.out:
-            sys.exit("--split train requires an explicit --out (never the run's eval/ folder)")
+            sys.exit(f"--split {a.split} requires an explicit --out (never the run's eval/ folder)")
         if Path(a.out).resolve() == (run_dir / "eval").resolve():
-            sys.exit("--split train must not write into the run's eval/ folder")
+            sys.exit(f"--split {a.split} must not write into the run's eval/ folder")
+    holdout_file = a.holdout_list or cfg.get("holdout_list")
+    holdout = [l.strip() for l in Path(holdout_file).read_text().splitlines() if l.strip()] if holdout_file else []
+    if a.split == "holdout" and not holdout:
+        sys.exit("--split holdout needs a holdout list (config holdout_list or --holdout-list)")
     out = Path(a.out) if a.out else run_dir / "eval"
     out.mkdir(parents=True, exist_ok=True)
 
     max_gt = eda_max_boxes_per_image("val")
     if a.max_det is None:
         a.max_det = max(300, 2 * max_gt)
-    if a.split == "train":  # keep val's max_det unless a train image has more GT than it allows
+    if a.split != "val":  # keep val's max_det unless a train image has more GT than it allows
         max_gt = max(max_gt, eda_max_boxes_per_image("train"))
         a.max_det = max(a.max_det, 2 * max_gt)
     print(f"[eval] max GT boxes in one val image (EDA table): {max_gt}; max_det = {a.max_det}")
@@ -274,15 +282,22 @@ def main():
     root = Path(a.data_root)
     names = load_classes(root)
     sampled = None
-    if a.split == "train":
-        pool = [p for p in list_images(root / "train" / "images") if p.name != TRAIN_EMPTY_IMAGE]
+    if a.split == "holdout":
+        images = [root / "train" / "images" / n for n in holdout]
+        missing = [p.name for p in images if not p.exists()]
+        if missing:
+            sys.exit(f"holdout images not found in {root / 'train' / 'images'}: {missing[:5]}")
+        sampled = list(holdout)
+    elif a.split == "train":
+        pool = [p for p in list_images(root / "train" / "images")
+                if p.name != TRAIN_EMPTY_IMAGE and p.name not in set(holdout)]
         if a.max_images is not None and a.max_images < len(pool):
             idx = np.sort(np.random.default_rng(a.sample_seed).choice(len(pool), a.max_images, replace=False))
             pool = [pool[i] for i in idx]
         images, sampled = pool, [p.name for p in pool]
     else:
         images = list_images(root / "val" / "images")[: a.max_images]
-    log_env(run_dir, "eval" if a.split == "val" else "eval_train")
+    log_env(run_dir, "eval" if a.split == "val" else f"eval_{a.split}")
 
     sizes = image_sizes(images)
     if a.from_preds:  # a predictions_raw.csv (re-merged here) or an already-merged predictions.csv
@@ -300,7 +315,7 @@ def main():
     preds.to_csv(out / "predictions.csv", index=False)
     preds = preds[preds.conf >= a.conf]
 
-    per = collect(preds, images, root / a.split / "labels", sizes)
+    per = collect(preds, images, root / ("val" if a.split == "val" else "train") / "labels", sizes)
     recs = score_images(per, len(names))
     res = {m: ap_from_records(recs, len(names), m) for m in AP_METHODS}
     boot = {m: bootstrap(recs, len(names), a.bootstrap, a.seed, m) for m in AP_METHODS} if a.bootstrap else {}
@@ -341,7 +356,12 @@ def main():
     )
     if a.split == "train":
         metrics.update(split="train", sample_seed=a.sample_seed, max_images=a.max_images, sampled_images=sampled,
-                       excluded_images=[TRAIN_EMPTY_IMAGE], bootstrap_unit_note="train image")
+                       excluded_images=[TRAIN_EMPTY_IMAGE] + list(holdout), bootstrap_unit_note="train image")
+    elif a.split == "holdout":
+        metrics.update(split="holdout", holdout_list=str(holdout_file), sampled_images=sampled,
+                       bootstrap_unit_note="held-out train image")
+    if a.split != "val" or holdout_file:
+        metrics["max_det"] = a.max_det
     args = {k: v for k, v in vars(a).items()}
     (out / "eval_args.json").write_text(json.dumps(args, indent=2, default=str))
     if a.ultra_crosscheck and a.mode == "full" and not a.from_preds and a.split == "val":

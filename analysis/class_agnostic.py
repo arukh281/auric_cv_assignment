@@ -57,7 +57,7 @@ def main():
     root = Path(a.data_root)
     mj = json.loads((src / "metrics.json").read_text()) if (src / "metrics.json").exists() else {}
     ea = json.loads((src / "eval_args.json").read_text()) if (src / "eval_args.json").exists() else {}
-    if mj.get("sampled_images"):
+    if mj.get("sampled_images"):  # --split train or holdout: labels live in train/
         split = "train"
         images = [root / "train" / "images" / n for n in mj["sampled_images"]]
     else:
@@ -69,7 +69,7 @@ def main():
     preds = preds[preds.conf >= conf_floor]
     per = collect(preds, images, root / split / "labels")
     aps, m, m_ag, rec = scores(per, len(names))
-    res = dict(input=str(a.preds), split=split, n_images=len(images), conf_floor=conf_floor, iou=0.5,
+    res = dict(input=str(a.preds), split=mj.get("split", split), n_images=len(images), conf_floor=conf_floor, iou=0.5,
                ap_method="coco 101-point (detlib/scoring.py)",
                mAP50_per_class=m, per_class_AP50={names[c]: aps[c] for c in names}, AP50_class_agnostic=m_ag,
                eval_metrics_mAP50=mj.get("mAP50"))
