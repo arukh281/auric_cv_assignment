@@ -234,3 +234,26 @@ By my pre-registered rule: the projected held-out gain at +500 images (+0.080 mA
 ### Smallest useful training subset
 
 No random subset tested retained 90% of full-data performance. Even 75% of the images achieved 0.105, about 74% of the full-data held-out mAP50 (0.142, the mean of both seeds). For detection alone (class-agnostic) it retained 81%. The remaining question is whether a carefully selected subset can retain more performance than a random sample of the same size.
+
+---
+
+## §5.1 If locations were perfect
+
+Method: for every true truck box in val, I took the model's own class scores at that
+location and checked whether its top class was right. This removes detection from the
+picture and tests classification alone.
+
+Results (val, 1,552 trucks):
+- B1: 55% correct (39% averaged per class). B1h: 60% (44%).
+- Always answering "Cargo" would give 51.5%; random guessing gives 20% per class.
+
+Conclusion: even with perfect locations, the model names the truck type correctly only
+slightly more often than always saying "Cargo". It has learned something (44% vs 20%
+per class), but not much. The error breakdown (B1h) agrees: fixing wrong-class errors would
+add +0.147 mAP50, far more than fixing box positions (+0.022) or missed trucks (+0.044).
+So classification, not localization, is the main ceiling on performance.
+Main confusion: Cargo Truck vs Truck w/Box.
+
+Sources: `figures/{b1_tile1024,b1h_tile1024_holdout40}/gt_oracle/comparison.csv` and `confusion_pool.csv` (pooled-anchor
+mode, all GT), `figures/b1h_tile1024_holdout40/errors/tide_dAP.csv`. For B1 the same fixes give +0.190 / +0.014 / +0.041
+(`figures/b1_tile1024/errors/tide_dAP.csv`).
