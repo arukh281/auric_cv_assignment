@@ -200,3 +200,37 @@ Classification remains the biggest bottleneck, consistent with B1. More training
   proportion) but still clearly below 0.151.
 - Decision rule: if the extrapolated gain at +500 images is smaller than the seed-to-seed noise, more labels alone
   won't help.
+
+### Results
+
+All runs used the same number of training iterations (~10,750), with warmup and close-mosaic scaled to match, so data size is the only variable.
+
+| Training images | Held-out mAP50 | Held-out class-agnostic AP50 |
+| --------------: | -------------: | ---------------------------: |
+|       101 (25%) |          0.061 |                        0.160 |
+|       202 (50%) |          0.095 |                        0.232 |
+|       302 (75%) |          0.105 |                        0.293 |
+|      403 (100%) |  0.151 / 0.133 |                0.362 / 0.362 |
+
+403 row: seed 0 (B1h) / seed 1. Sources: `figures/learning_curve/learning_curve.csv` and `power_law_fit.csv`
+(Kaggle kernels `aradhya1211/auric-b1h-{f25,f50,f75,seed1}`, code `ab32af2`; B1h as the 100% seed-0 point).
+
+### Conclusion
+
+The learning curve is still rising, with no clear sign of flattening. As training data increases, both overall performance and truck detection improve. My prediction that the curve would keep rising was correct.
+
+At 25% of the data, mAP50 reached 0.061, slightly below my predicted range of 0.07–0.12. However, the 95% confidence interval (0.012–0.090) overlaps that range, so the result is reasonably close to the prediction.
+
+A comparison between two runs revealed that the random seed affects classification much more than detection. The validation mAP50 differed by 0.043, while class-agnostic AP50 differed by only 0.004. This suggests that finding trucks is relatively stable, but predicting their types remains unreliable. Class-agnostic metrics are therefore a more consistent signal of detection performance than per-class mAP from a single run.
+
+### Would 500 additional labels help?
+
+The learning curve suggests that more labelled data would improve performance, particularly truck detection. However, extrapolating beyond the current 403 images is uncertain, and even an optimistic projection falls well short of the target mAP50 of 0.75.
+
+By my pre-registered rule: the projected held-out gain at +500 images (+0.080 mAP50) is larger than the seed-to-seed noise (0.017), so more labels should help. But the projection (0.215, interval 0.076–0.276) extrapolates 2.24× beyond the data and was flagged unreliable, so only the direction is trustworthy, not the size.
+
+**Conclusion:** More data should help, but additional labels alone are unlikely to achieve the target. Classification needs a separate improvement strategy.
+
+### Smallest useful training subset
+
+No random subset tested retained 90% of full-data performance. Even 75% of the images achieved 0.105, about 74% of the full-data held-out mAP50 (0.142, the mean of both seeds). For detection alone (class-agnostic) it retained 81%. The remaining question is whether a carefully selected subset can retain more performance than a random sample of the same size.
