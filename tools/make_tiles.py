@@ -74,6 +74,7 @@ def main():
     ap.add_argument("--max-images", type=int, default=None, help="testing only: tile the first N train images")
     ap.add_argument("--allow-small-overlap", action="store_true")
     ap.add_argument("--exclude-list", help="file with train image names to leave out (held-out experiments)")
+    ap.add_argument("--include-list", help="file with the only train image names to tile (learning-curve subsets)")
     a = ap.parse_args()
 
     max_side = eda_max_box_side("train")
@@ -89,9 +90,14 @@ def main():
     (out / "train" / "labels").mkdir(parents=True, exist_ok=True)
     imgs = list_images(root / "train" / "images")[: a.max_images]
     excl = read_list(a.exclude_list) if a.exclude_list else []
+    if a.include_list:  # tile only the listed images; everything else counts as excluded (indices unchanged)
+        incl = set(read_list(a.include_list))
+        excl = sorted(set(excl) | {p.name for p in imgs if p.name not in incl})
     params = dict(tile=a.tile, overlap=a.overlap, empty_keep=a.empty_keep, min_vis=a.min_vis, seed=a.seed,
                   ext=a.ext, max_images=a.max_images, max_train_box_side_px=max_side,
                   data_root=str(root.resolve()), n_source_images=sum(p.name not in set(excl) for p in imgs))
+    if a.include_list:
+        params.update(include_list=str(a.include_list), n_included_found=sum(p.name in incl for p in imgs))
     if a.exclude_list:
         params.update(exclude_list=str(a.exclude_list), excluded_images=excl,
                       n_excluded_found=sum(p.name in set(excl) for p in imgs))

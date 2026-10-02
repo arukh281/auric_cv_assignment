@@ -63,12 +63,16 @@ def main():
     if tiling:
         t = tiling
         holdout = cfg.get("holdout_list")
-        tiles = (Path(a.work_dir) / tiles_dir_name(t, REPO / holdout if holdout else None)).resolve()
+        subset = cfg.get("train_list")
+        tiles = (Path(a.work_dir) / tiles_dir_name(t, REPO / holdout if holdout else None,
+                                                   REPO / subset if subset else None)).resolve()
         cmd = [sys.executable, str(REPO / "tools" / "make_tiles.py"), "--data-root", str(root), "--out", str(tiles),
                "--tile", str(t["tile"]), "--overlap", str(t["overlap"]), "--empty-keep", str(t["empty_keep"]),
                "--min-vis", str(t["min_vis"]), "--seed", str(t["seed"])]
         if holdout:
             cmd += ["--exclude-list", str(REPO / holdout)]
+        if subset:
+            cmd += ["--include-list", str(REPO / subset)]
         if a.max_tile_images:
             cmd += ["--max-images", str(a.max_tile_images)]
             cfg["overrides"]["max_tile_images"] = a.max_tile_images
@@ -77,8 +81,8 @@ def main():
         data_yaml = write_resolved_data_yaml(run_dir / "data.yaml", tiles, "train/images",
                                              str(root / "val" / "images"), names)
     else:
-        if cfg.get("holdout_list"):
-            sys.exit("holdout_list is only supported for tiled configs (tiling: ...)")
+        if cfg.get("holdout_list") or cfg.get("train_list"):
+            sys.exit("holdout_list / train_list are only supported for tiled configs (tiling: ...)")
         data_yaml = write_resolved_data_yaml(run_dir / "data.yaml", root, "train/images", "val/images", names)
 
     last = run_dir / "train" / "weights" / "last.pt"
@@ -123,12 +127,14 @@ def main():
     print("[train] summary:", json.dumps(summarize_training(run_dir)))
 
 
-def tiles_dir_name(t, holdout=None):
+def tiles_dir_name(t, holdout=None, subset=None):
     """Tile cache folder name. Without a holdout list it is the original B1 name, so B1's cache is reused as before;
     with one, the list's content hash is appended, so a holdout run never reuses (or overwrites) full-train tiles."""
     name = f"tiles_{t['tile']}_ov{t['overlap']}_e{t['empty_keep']}_v{t['min_vis']}_s{t['seed']}"
     if holdout:
         name += "_ho" + hashlib.sha256(Path(holdout).read_bytes()).hexdigest()[:10]
+    if subset:
+        name += "_in" + hashlib.sha256(Path(subset).read_bytes()).hexdigest()[:10]
     return name
 
 

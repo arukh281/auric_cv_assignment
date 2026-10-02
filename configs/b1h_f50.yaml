@@ -1,0 +1,43 @@
+# b1h_f50: configs/b1h.yaml with training restricted to 202 of the 403 non-holdout images
+# (splits/train_f50_seed0.txt, nested + class-stratified, tools/make_subsets.py seed 0) and the epoch count set so the total
+# iterations match B1h's 10750: epochs = round(10750 / ceil(1690 tiles / 16)) = 101 -> 10706 iterations.
+# warmup_epochs / close_mosaic / checkpoint_every rescaled so they cover the same iterations as in B1h.
+name: b1h_f50
+model: yolo11s.pt
+holdout_list: splits/holdout40_seed0.txt
+seed: 0
+deterministic: true
+epochs: 101
+imgsz: 1024
+batch: 16
+workers: 8
+tiling:
+  tile: 1024
+  overlap: 256
+  empty_keep: 0.2
+  min_vis: 0.5
+  seed: 0
+checkpoint_every: 20
+train_args:
+  val: true
+  plots: true
+  amp: true
+  save_period: -1
+  optimizer: SGD
+  lr0: 0.01
+  momentum: 0.937
+  cache: disk
+  warmup_epochs: 6.0849
+  close_mosaic: 20
+eval:
+  mode: sliced
+  imgsz: 1024
+  tile: 1024
+  overlap: 256
+  merge: nms
+  merge_metric: ios
+  merge_thr: 0.6
+  conf: 0.001
+  nms_iou: 0.7
+  max_det: 902
+train_list: splits/train_f50_seed0.txt

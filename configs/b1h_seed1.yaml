@@ -1,0 +1,38 @@
+# b1h_seed1: exact copy of configs/b1h.yaml with training seed 1 (tiling seed unchanged), to measure
+# run-to-run noise.
+name: b1h_seed1
+model: yolo11s.pt
+holdout_list: splits/holdout40_seed0.txt
+seed: 1
+deterministic: true
+epochs: 50
+imgsz: 1024
+batch: 16
+workers: 8
+tiling:
+  tile: 1024
+  overlap: 256
+  empty_keep: 0.2
+  min_vis: 0.5
+  seed: 0
+checkpoint_every: 10
+train_args:
+  val: true
+  plots: true
+  amp: true
+  save_period: -1
+  optimizer: SGD
+  lr0: 0.01
+  momentum: 0.937
+  cache: disk
+eval:
+  mode: sliced
+  imgsz: 1024
+  tile: 1024
+  overlap: 256
+  merge: nms
+  merge_metric: ios
+  merge_thr: 0.6
+  conf: 0.001
+  nms_iou: 0.7
+  max_det: 902

@@ -2,9 +2,11 @@
 
 Copies the packaged code (private dataset auric-cv-code: code.tar.gz + CODE_COMMIT, or the folder Kaggle extracted
 from it) to /kaggle/working/repo, runs scripts/kaggle_setup.sh with SKIP_PULL=1 (no GitHub token on Kaggle), then:
-  MODE = "smoke": a 1-epoch B1h training on the tiles of the first SMOKE_IMAGES train images, into
-                  /kaggle/working/smoke_runs (setup + tests + a short GPU check)
-  MODE = "full":  scripts/run_b1h.sh, then scripts/run_analysis.sh b1h_tile1024_holdout40, into /kaggle/working/runs
+  MODE = "smoke": a 1-epoch training of CONFIG on the tiles of the first SMOKE_IMAGES train images (after the config's
+                  holdout/subset lists), into /kaggle/working/smoke_runs (setup + tests + a short GPU check)
+  MODE = "full":  SCRIPT (e.g. scripts/run_b1h.sh or scripts/run_lc.sh <config>), then scripts/run_analysis.sh RUN,
+                  into /kaggle/working/runs
+MODE, CONFIG, RUN and SCRIPT are filled in by scripts/kaggle_cli_kernel.sh.
 The code commit is written to <run folder>/code_commit.txt. Weights stay in the kernel output.
 """
 import os
@@ -15,8 +17,10 @@ import tarfile
 from pathlib import Path
 
 MODE = "__MODE__"
+CONFIG = "__CONFIG__"
+SCRIPT = "__SCRIPT__"
 SMOKE_IMAGES = 10  # first 10 train images, 3 are held out -> 7 images, 47 tiles expected (tools/make_holdout.expected_tiles)
-RUN = "b1h_tile1024_holdout40"
+RUN = "__RUN__"
 REPO = Path("/kaggle/working/repo")
 
 
@@ -55,7 +59,7 @@ def main():
         out = Path("/kaggle/working/smoke_runs") / RUN
         out.mkdir(parents=True, exist_ok=True)
         (out / "code_commit.txt").write_text(commit + "\n")
-        sh(f"source scripts/_env.sh && $PY train.py --config configs/b1h.yaml --data-root \"$DATA_ROOT\" "
+        sh(f"source scripts/_env.sh && $PY train.py --config {CONFIG} --data-root \"$DATA_ROOT\" "
            f"--runs-root /kaggle/working/smoke_runs --work-dir /kaggle/tmp/smoke_work --epochs 1 "
            f"--max-tile-images {SMOKE_IMAGES} --oom-fallback-batch 8")
         sh(f"cat {out}/tiling_params.json; cat {out}/training_summary.json; ls -la {out}/train/weights; "
@@ -65,7 +69,7 @@ def main():
         runs = Path("/kaggle/working/runs") / RUN
         runs.mkdir(parents=True, exist_ok=True)
         (runs / "code_commit.txt").write_text(commit + "\n")
-        sh("bash scripts/run_b1h.sh")
+        sh(f"bash {SCRIPT}")
         sh(f"bash scripts/run_analysis.sh {RUN}")
         print("FULL DONE", flush=True)
     else:
