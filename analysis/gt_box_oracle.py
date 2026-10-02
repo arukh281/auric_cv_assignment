@@ -5,10 +5,13 @@ Usage:
   python analysis/gt_box_oracle.py --config configs/b1.yaml --runs-root runs [--weights .../last.pt]
 
 For every val GT box, the detector's per-class scores at that box are read from the raw (pre-NMS,
-pre-threshold) detection head: sigmoid class scores of every anchor whose decoded box has IoU >= --iou with
-the GT, max-pooled per class. If no anchor reaches --iou, the anchor with the highest IoU is used and the
-box is flagged (no_anchor_at_iou). The predicted class is the argmax. Localization and recall are taken out,
-so what remains is classification only.
+pre-threshold) detection head (sigmoid class scores per anchor, with the anchor's decoded box). Two modes:
+  pool  max-pooled per class over every anchor whose box has IoU >= --iou with the GT; if none reaches --iou,
+        the best-IoU anchor is used
+  best  the single anchor with the highest IoU with the GT
+A GT is flagged (no_anchor_at_iou) when no anchor reaches --iou; then both modes use the same anchor.
+The predicted class is the argmax. Localization and recall are taken out, so what remains is classification only.
+Accuracy is reported per mode for all, unflagged and flagged GT (with counts), plus the agreement between modes.
 
 Input to the network, same geometry as eval.py:
   sliced (B1): the val image is cut with detlib.tiling.tile_windows(tile, overlap); each GT is read from the
@@ -16,9 +19,11 @@ Input to the network, same geometry as eval.py:
   full (B0):   the whole image, letterboxed to imgsz.
   Letterbox: aspect-preserving resize to imgsz, centered gray (114) padding, RGB / 255, float32.
 
-Writes figures/<name>/gt_oracle/: gt_scores.csv (one row per GT: scores, argmax, IoU of the best anchor),
-confusion.csv / confusion_norm.csv / confusion.png (rows = GT class, cols = argmax class), per_class.csv
-(n, correct, accuracy = recall of the class; precision of the argmax), summary.json, oracle_args.json.
+Writes figures/<name>/gt_oracle/: gt_scores.csv (one row per GT: both modes' scores and argmax, best-anchor IoU,
+flag), confusion_<mode>.csv / confusion_<mode>_norm.csv (rows = GT class, cols = argmax class), confusion.png
+(both modes side by side), per_class.csv (per mode and subset: n, correct, accuracy = recall of the class,
+precision of the argmax), comparison.csv (mode x subset all/unflagged/flagged: n, accuracy, mean class accuracy),
+summary.json (incl. mode agreement), oracle_args.json.
 """
 import argparse
 import json
@@ -74,17 +79,18 @@ def head_outputs(net, crops, size, device="cpu"):
 
 
 def scores_at_boxes(anchors_xyxy, anchor_scores, gt_xyxy, iou_thr=0.5):
-    """Per GT: class scores max-pooled over anchors with IoU >= iou_thr (else the best-IoU anchor),
-    best anchor IoU, number of anchors at iou_thr."""
+    """Per GT: class scores max-pooled over anchors with IoU >= iou_thr (else the best-IoU anchor), class scores
+    of the best-IoU anchor alone, best anchor IoU, number of anchors at iou_thr."""
     iou = box_iou(gt_xyxy, anchors_xyxy)
     nc = anchor_scores.shape[1]
-    s = np.zeros((len(gt_xyxy), nc))
+    pool, best_s = np.zeros((len(gt_xyxy), nc)), np.zeros((len(gt_xyxy), nc))
     best = iou.max(1) if iou.size else np.zeros(len(gt_xyxy))
     n_at = (iou >= iou_thr).sum(1) if iou.size else np.zeros(len(gt_xyxy), int)
     for g in range(len(gt_xyxy)):
         sel = iou[g] >= iou_thr
-        s[g] = anchor_scores[sel].max(0) if sel.any() else anchor_scores[int(iou[g].argmax())]
-    return s, best, n_at
+        best_s[g] = anchor_scores[int(iou[g].argmax())]
+        pool[g] = anchor_scores[sel].max(0) if sel.any() else best_s[g]
+    return pool, best_s, best, n_at
 
 
 def assign_tiles(gt_xyxy, wins):
@@ -104,7 +110,8 @@ def image_scores(net, img, gt_xyxy, mode, imgsz, tile, overlap, iou_thr, batch=8
     h, w = img.shape[:2]
     wins = tile_windows(w, h, tile, overlap) if mode == "sliced" else [(0, 0, w, h)]
     asg = assign_tiles(gt_xyxy, wins)
-    nc_scores, best, n_at = None, np.zeros(len(gt_xyxy)), np.zeros(len(gt_xyxy), int)
+    pool = best_s = None
+    best, n_at = np.zeros(len(gt_xyxy)), np.zeros(len(gt_xyxy), int)
     used = sorted(set(asg.tolist()))
     for s in range(0, len(used), batch):
         chunk = used[s:s + batch]
@@ -112,11 +119,12 @@ def image_scores(net, img, gt_xyxy, mode, imgsz, tile, overlap, iou_thr, batch=8
         for k, (xyxy, sc) in zip(chunk, outs):
             g = np.where(asg == k)[0]
             local = gt_xyxy[g] - np.array([wins[k][0], wins[k][1], wins[k][0], wins[k][1]], float)
-            sg, bg, ng = scores_at_boxes(xyxy, sc, local, iou_thr)
-            if nc_scores is None:
-                nc_scores = np.zeros((len(gt_xyxy), sc.shape[1]))
-            nc_scores[g], best[g], n_at[g] = sg, bg, ng
-    return (nc_scores if nc_scores is not None else np.zeros((0, 0))), best, n_at
+            sp, sb, bi, ng = scores_at_boxes(xyxy, sc, local, iou_thr)
+            if pool is None:
+                pool, best_s = np.zeros((len(gt_xyxy), sc.shape[1])), np.zeros((len(gt_xyxy), sc.shape[1]))
+            pool[g], best_s[g], best[g], n_at[g] = sp, sb, bi, ng
+    empty = np.zeros((0, 0))
+    return (pool if pool is not None else empty), (best_s if best_s is not None else empty), best, n_at
 
 
 def oracle_tables(gt_cls, scores, names):
@@ -135,6 +143,29 @@ def oracle_tables(gt_cls, scores, names):
     summary = dict(n_gt=int(cm.sum()), accuracy=float(np.trace(cm) / cm.sum()) if cm.sum() else float("nan"),
                    mean_class_accuracy=float(per.accuracy.mean(skipna=True)))
     return cm, per, summary
+
+
+MODES = ("pool", "best")
+
+
+def compare_modes(gt_cls, scores, flagged, names):
+    """scores: {mode: (n, nc)}. Per mode x subset (all / unflagged / flagged): confusion, per-class rows, summary
+    rows; plus the agreement of the argmax between modes."""
+    subsets = {"all": np.ones(len(gt_cls), bool), "unflagged": ~flagged, "flagged": flagged}
+    cms, per_rows, comp = {}, [], []
+    for mode in scores:
+        for sub, m in subsets.items():
+            cm, per, summ = oracle_tables(gt_cls[m], scores[mode][m].reshape(-1, len(names)), names)
+            if sub == "all":
+                cms[mode] = cm
+            per.insert(0, "subset", sub); per.insert(0, "mode", mode)
+            per_rows.append(per)
+            comp.append(dict(mode=mode, subset=sub, n_gt=summ["n_gt"], accuracy=summ["accuracy"],
+                             mean_class_accuracy=summ["mean_class_accuracy"]))
+    a, b = (scores[k].argmax(1) if len(scores[k]) else np.zeros(0, int) for k in MODES)
+    agree = dict(n=int(len(a)), n_agree=int((a == b).sum()), agreement=float((a == b).mean()) if len(a) else float("nan"),
+                 n_agree_unflagged=int((a == b)[~flagged].sum()), n_unflagged=int((~flagged).sum()))
+    return cms, pd.concat(per_rows, ignore_index=True), pd.DataFrame(comp), agree
 
 
 def main():
@@ -169,38 +200,51 @@ def main():
         gc, gb = read_yolo_labels(root / "val" / "labels" / f"{p.stem}.txt", w, h)
         if not len(gc):
             continue
-        s, best, n_at = image_scores(net, img, gb, ev["mode"], ev["imgsz"], ev["tile"], ev["overlap"], a.iou,
-                                     a.batch, device)
+        sp, sb, best, n_at = image_scores(net, img, gb, ev["mode"], ev["imgsz"], ev["tile"], ev["overlap"], a.iou,
+                                          a.batch, device)
         for j in range(len(gc)):
-            rows.append(dict(image=p.name, gt_idx=j, gt_cls=int(gc[j]), pred_cls=int(s[j].argmax()),
-                             best_anchor_iou=best[j], n_anchors_at_iou=int(n_at[j]),
-                             no_anchor_at_iou=bool(n_at[j] == 0), **{f"s_{names[c]}": s[j, c] for c in names}))
+            rows.append(dict(image=p.name, gt_idx=j, gt_cls=int(gc[j]), pred_pool=int(sp[j].argmax()),
+                             pred_best=int(sb[j].argmax()), best_anchor_iou=best[j], n_anchors_at_iou=int(n_at[j]),
+                             no_anchor_at_iou=bool(n_at[j] == 0), **{f"pool_{names[c]}": sp[j, c] for c in names},
+                             **{f"best_{names[c]}": sb[j, c] for c in names}))
         print(f"[oracle] {i + 1} {p.name}: {len(gc)} GT", flush=True)
     t = pd.DataFrame(rows)
     t.to_csv(out / "gt_scores.csv", index=False)
-    scores = t[[f"s_{names[c]}" for c in names]].to_numpy()
-    cm, per, summary = oracle_tables(t.gt_cls.to_numpy(int), scores, names)
-    summary.update(n_no_anchor_at_iou=int(t.no_anchor_at_iou.sum()), weights=weights, mode=ev["mode"])
+    gt_cls, flagged = t.gt_cls.to_numpy(int), t.no_anchor_at_iou.to_numpy(bool)
+    scores = {m: t[[f"{m}_{names[c]}" for c in names]].to_numpy() for m in MODES}
+    cms, per, comp, agree = compare_modes(gt_cls, scores, flagged, names)
     lab = list(names.values())
-    pd.DataFrame(cm, index=[f"gt {n}" for n in lab], columns=[f"pred {n}" for n in lab]).to_csv(out / "confusion.csv")
-    norm = cm / np.maximum(cm.sum(1, keepdims=True), 1)
-    pd.DataFrame(norm, index=[f"gt {n}" for n in lab], columns=[f"pred {n}" for n in lab]).to_csv(
-        out / "confusion_norm.csv")
+    for mode, cm in cms.items():
+        idx, cols = [f"gt {n}" for n in lab], [f"pred {n}" for n in lab]
+        pd.DataFrame(cm, index=idx, columns=cols).to_csv(out / f"confusion_{mode}.csv")
+        pd.DataFrame(cm / np.maximum(cm.sum(1, keepdims=True), 1), index=idx, columns=cols).to_csv(
+            out / f"confusion_{mode}_norm.csv")
     per.to_csv(out / "per_class.csv", index=False)
+    comp.to_csv(out / "comparison.csv", index=False)
+    summary = dict(modes={r.mode + "/" + r.subset: dict(n_gt=int(r.n_gt), accuracy=r.accuracy,
+                                                       mean_class_accuracy=r.mean_class_accuracy)
+                          for r in comp.itertuples()},
+                   agreement_pool_vs_best=agree, n_flagged_no_anchor_at_iou=int(flagged.sum()),
+                   n_unflagged=int((~flagged).sum()), iou=a.iou, weights=weights, mode=ev["mode"])
     (out / "summary.json").write_text(json.dumps(summary, indent=2))
     (out / "oracle_args.json").write_text(json.dumps(dict(vars(a), weights=weights, eval=ev), indent=2))
 
-    fig, ax = plt.subplots(figsize=(6, 5))
-    ax.imshow(norm, cmap="Blues", vmin=0, vmax=1)
-    for (r, c), v in np.ndenumerate(cm):
-        ax.text(c, r, f"{v}\n{norm[r, c]:.2f}", ha="center", va="center", fontsize=7)
-    ax.set_xticks(range(len(lab)), lab, rotation=45, ha="right", fontsize=7)
-    ax.set_yticks(range(len(lab)), lab, fontsize=7)
-    ax.set(xlabel="argmax class at GT box", ylabel="GT class",
-           title=f"GT-box oracle: accuracy {summary['accuracy']:.3f} (n={summary['n_gt']})")
+    fig, axes = plt.subplots(1, 2, figsize=(11, 5))
+    for ax, mode in zip(axes, MODES):
+        cm = cms[mode]
+        norm = cm / np.maximum(cm.sum(1, keepdims=True), 1)
+        ax.imshow(norm, cmap="Blues", vmin=0, vmax=1)
+        for (r, c), v in np.ndenumerate(cm):
+            ax.text(c, r, f"{v}\n{norm[r, c]:.2f}", ha="center", va="center", fontsize=7)
+        ax.set_xticks(range(len(lab)), lab, rotation=45, ha="right", fontsize=7)
+        ax.set_yticks(range(len(lab)), lab, fontsize=7)
+        acc = comp[(comp["mode"] == mode) & (comp.subset == "all")].accuracy.iloc[0]
+        ax.set(xlabel="argmax class at GT box", ylabel="GT class", title=f"{mode}: accuracy {acc:.3f} (n={len(t)})")
+    fig.suptitle(f"GT-box oracle; agreement pool vs best {agree['agreement']:.3f}; "
+                 f"{int(flagged.sum())} GT without an anchor at IoU >= {a.iou}", fontsize=9)
     fig.tight_layout(); fig.savefig(out / "confusion.png", dpi=120); plt.close(fig)
-    print(per.to_string(index=False, float_format=lambda v: f"{v:.4f}"))
-    print(f"[oracle] {json.dumps(summary)}\n[oracle] wrote {out}")
+    print(comp.to_string(index=False, float_format=lambda v: f"{v:.4f}"))
+    print(f"[oracle] agreement {json.dumps(agree)}\n[oracle] wrote {out}")
 
 
 if __name__ == "__main__":

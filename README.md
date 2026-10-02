@@ -16,7 +16,8 @@ YOLO11s (COCO-pretrained) on a 5-class overhead truck dataset. Target: mAP50 ≥
 | `tests/test_pipeline.py` | Known-answer tests: scoring, tiling, merging |
 | `tests/test_analysis.py` | Known-answer tests: TIDE error types and oracle fixes, GT-box oracle |
 | `analysis/errors.py` | Phase 3: TIDE-style error bins + oracle dAP50, sliced FN/FP rates, confusion, crops (reads saved predictions) |
-| `analysis/gt_box_oracle.py` | 5.1: classify GT boxes from the raw head's class scores (needs weights + GPU) |
+| `analysis/gt_box_oracle.py` | 5.1: classify GT boxes from the raw head's class scores, pooled and best-anchor modes (needs weights + GPU) |
+| `scripts/run_analysis.sh` | Runs both analysis scripts for a finished run on Colab; log in `<run>/analysis.log` |
 | `runs/<run>/` | Config, command, env, metrics, training curves per run. Not in git (`.gitignore`); kept on Drive with the weights |
 | `analysis/merge_sensitivity.py` | Re-scores saved raw tile predictions under other merge settings (no re-inference) |
 | `EXPERIMENTS.md`, `REPORT.md` | Experiment log and report |
@@ -106,4 +107,33 @@ uv venv -p 3.11 .venv && uv pip install -p .venv -r requirements.txt torch torch
 .venv/bin/python eval.py  --config configs/b1.yaml --weights path/to/last.pt   # any checkpoint, sliced
 .venv/bin/python analysis/pred_review.py --preds runs/b0_full640/eval/predictions.csv --name b0_full640
 ```
+
+### After a run finishes: Phase 3 analysis and bringing results back
+
+Run these in the Colab Terminal after `run.log` shows `<run> DONE`. Drive must be mounted from a notebook cell, and
+`/content/data` must be prepared (re-run `bash scripts/colab_setup.sh` in a new session). Example for `b1_tile1024`:
+
+```bash
+# (a) update the clone (the token is used once, never stored), then run the analysis
+cd /content/repo && read -rsp "GitHub token: " T && echo && \
+  git pull -q "https://$T@github.com/arukh281/auric_cv_assignment.git" main; unset T; git log -1 --oneline
+nohup bash scripts/run_analysis.sh b1_tile1024 > /dev/null 2>&1 &
+tail -f /content/drive/MyDrive/auric/runs/b1_tile1024/analysis.log      # Ctrl-C stops watching, not the job
+
+# (b) after "analysis b1_tile1024 DONE": copy CSV/JSON/PNG (no weights, nothing over 20 MB) into the repo, push
+cd /content/repo && R=b1_tile1024 && A=/content/drive/MyDrive/auric/runs && \
+  rsync -a --prune-empty-dirs --max-size=20m --exclude='weights/' --include='*/' \
+    --include='*.csv' --include='*.json' --include='*.png' --exclude='*' "$A/$R/" "results/$R/" && \
+  rsync -a --prune-empty-dirs --max-size=20m --include='*/' \
+    --include='*.csv' --include='*.json' --include='*.png' --exclude='*' "$A/figures/$R/" "figures/$R/" && \
+  find "$A/$R" "$A/figures/$R" -type f \( -name '*.csv' -o -name '*.json' -o -name '*.png' \) -size +20M \
+    -printf 'SKIPPED (over 20 MB): %p\n' && du -sh "results/$R" "figures/$R"
+git add "results/$R" "figures/$R" && \
+  git -c user.name="aradhya khandelwal" -c user.email="arukhandelwal281@gmail.com" \
+    commit -q -m "Results: $R (CSV/JSON/PNG from Drive)" && git log -1 --oneline
+read -rsp "GitHub token: " T && echo && \
+  git push -q "https://$T@github.com/arukh281/auric_cv_assignment.git" HEAD:main; unset T
+```
+Then `git pull` locally. Nothing on Drive is deleted or modified; rsync only reads from it.
+
 Re-score saved predictions without inference: `eval.py --config ... --from-preds <predictions.csv>`.

@@ -14,8 +14,8 @@ REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO))
 sys.path.insert(0, str(REPO / "analysis"))
 from detlib.scoring import ap_from_records, score_images  # noqa: E402
-from errors import annotate, apply_fix, tide_image, tide_table  # noqa: E402
-from gt_box_oracle import assign_tiles, letterbox, oracle_tables, scores_at_boxes  # noqa: E402
+from errors import annotate, apply_fix, f1_thresholds, tide_image, tide_table  # noqa: E402
+from gt_box_oracle import assign_tiles, compare_modes, letterbox, oracle_tables, scores_at_boxes  # noqa: E402
 from test_pipeline import DATA, NC, real_gt  # noqa: E402
 
 NAMES = {c: f"c{c}" for c in range(NC)}
@@ -94,6 +94,56 @@ def test_oracle_fix_restores_perfect_score():
         assert all(abs(t.loc[k, "dAP50"]) < 1e-12 for k in others), (kind, t.dAP50)
 
 
+def test_tide_priority_matches_reference():
+    """tidecv/quantify.py order: Loc before Cls; IoU exactly fg with a used GT is Loc; max IoU exactly bg is Bkg."""
+    gt = [[0, 0, 10, 10], [4, 0, 14, 10]]                                  # class 0 and class 1, overlapping
+    # class-0 box on GT1: same-class IoU 6/14 = 0.43 (GT0), other-class IoU 1.0 (GT1) -> loc wins over cls
+    k = tide_image(B([4, 0, 14, 10]), np.array([0]), np.array([.9]), B(*gt), np.array([1, 1]))[0]
+    assert list(k) == ["cls"]  # sanity: no same-class GT -> cls
+    k = tide_image(B([0, 0, 10, 10], [4, 0, 14, 10]), np.array([0, 0]), np.array([.9, .8]), B(*gt),
+                   np.array([0, 1]))[0]
+    assert list(k) == ["TP", "loc"], k
+    # IoU exactly 0.5 with an already matched GT -> loc (TIDE uses <= fg), not dupe
+    k = tide_image(B([0, 0, 10, 10], [0, 0, 10, 20]), np.array([0, 0]), np.array([.9, .8]), B([0, 0, 10, 10]),
+                   np.array([0]))[0]
+    assert list(k) == ["TP", "loc"], k
+    # max IoU exactly bg (0.1) with any GT -> bkg; just above with another class -> both
+    k = tide_image(B([0, 0, 10, 10]), np.array([1]), np.array([.9]), B([0, 0, 10, 2]), np.array([0]))[0]
+    assert list(k) == ["both"], k  # other-class IoU 0.2
+    k = tide_image(B([0, 0, 10, 10]), np.array([1]), np.array([.9]), B([0, 0, 10, 1]), np.array([0]))[0]
+    assert list(k) == ["bkg"], k  # other-class IoU exactly 0.1
+
+
+def test_f1_threshold_known():
+    # class 0: 4 GT; predictions by confidence: TP .9, TP .8, FP .7, TP .6, FP .1
+    # F1 at each cut: .4, .667, .571, .75, .667 -> threshold .6 with P = R = .75
+    gb = B([0, 0, 10, 10], [20, 0, 30, 10], [40, 0, 50, 10], [60, 0, 70, 10])
+    pb = B([0, 0, 10, 10], [20, 0, 30, 10], [500, 0, 510, 10], [40, 0, 50, 10], [600, 0, 610, 10])
+    per = [dict(image="x", p_xyxy=pb, p_cls=np.zeros(5, int), p_conf=np.array([.9, .8, .7, .6, .1]),
+                g_xyxy=gb, g_cls=np.zeros(4, int))]
+    t = f1_thresholds(per, NAMES, 0.25).set_index("cls")
+    assert t.loc[0, "threshold"] == 0.6 and abs(t.loc[0, "f1"] - 0.75) < 1e-12 and t.loc[0, "recall"] == 0.75
+    assert t.loc[1, "threshold"] == 0.25 and t.loc[1, "source"].startswith("fallback")
+    # ties: two predictions at the same confidence are kept or dropped together
+    per[0]["p_conf"] = np.array([.9, .8, .6, .6, .1])
+    t = f1_thresholds(per, NAMES, 0.25).set_index("cls")
+    assert t.loc[0, "threshold"] == 0.6 and abs(t.loc[0, "precision"] - 0.75) < 1e-12
+
+
+def test_compare_modes_known():
+    gt_cls = np.array([0, 0, 1, 1, 2])
+    flagged = np.array([False, False, False, True, True])
+    pool = np.eye(5)[[0, 0, 1, 0, 2]]   # wrong on GT 3 (flagged)
+    best = np.eye(5)[[0, 1, 1, 0, 2]]   # wrong on GT 1 and 3
+    cms, per, comp, agree = compare_modes(gt_cls, dict(pool=pool, best=best), flagged, NAMES)
+    c = comp.set_index(["mode", "subset"])
+    assert c.loc[("pool", "all"), "accuracy"] == 0.8 and c.loc[("best", "all"), "accuracy"] == 0.6
+    assert c.loc[("pool", "unflagged"), "accuracy"] == 1.0 and c.loc[("best", "unflagged"), "accuracy"] == 2 / 3
+    assert c.loc[("pool", "flagged"), "n_gt"] == 2 and c.loc[("pool", "flagged"), "accuracy"] == 0.5
+    assert agree == dict(n=5, n_agree=4, agreement=0.8, n_agree_unflagged=2, n_unflagged=3)
+    assert cms["best"][0, 1] == 1 and cms["pool"].trace() == 4
+
+
 def test_cls_fix_drops_when_gt_already_matched():
     d = annotate([one_image([[0, 0, 10, 10], [0, 0, 10, 10]], [0, 1], [.9, .8], [[0, 0, 10, 10]], [0])])[0]
     assert list(d["kind"]) == ["TP", "cls"]
@@ -126,8 +176,9 @@ def test_scores_at_boxes_and_tables():
     anchors = B([0, 0, 10, 10], [1, 0, 11, 10], [50, 50, 60, 60], [200, 200, 210, 210])
     sc = np.array([[.1, .7, .0, 0, 0], [.6, .2, 0, 0, 0], [0, 0, .9, 0, 0], [0, 0, 0, .3, .4]])
     gt = B([0, 0, 10, 10], [50, 50, 60, 60], [300, 300, 310, 310])
-    s, best, n = scores_at_boxes(anchors, sc, gt, 0.5)
+    s, sb, best, n = scores_at_boxes(anchors, sc, gt, 0.5)
     assert np.allclose(s[0], [.6, .7, 0, 0, 0]) and np.allclose(s[1], sc[2])
+    assert np.allclose(sb[0], sc[0]) and np.allclose(sb[2], sc[0]) and np.allclose(s[2], sb[2])
     assert list(n) == [2, 1, 0] and best[2] == 0  # no overlap: falls back to argmax of IoU (anchor 0)
     gt_cls = np.array([1, 2, 0, 0, 3, 3, 4, 4])
     scores = np.eye(5)[[1, 2, 0, 1, 3, 4, 4, 4]]
@@ -152,8 +203,8 @@ def test_head_outputs_random_model():
     rng = np.random.default_rng(0)
     img = rng.integers(0, 255, (h, w, 3), np.uint8)
     sel = np.arange(min(len(c), 20))
-    s, best, n = image_scores(net, img, b[sel], "sliced", 640, 1024, 256, 0.5, 4)
-    assert s.shape == (len(sel), NC) and np.all((s >= 0) & (s <= 1)) and np.all(best > 0)
+    s, sb, best, n = image_scores(net, img, b[sel], "sliced", 640, 1024, 256, 0.5, 4)
+    assert s.shape == sb.shape == (len(sel), NC) and np.all(s >= sb - 1e-7) and np.all((s >= 0) & (s <= 1)) and np.all(best > 0)
 
 
 def test_errors_cli_end_to_end():
@@ -186,16 +237,24 @@ def test_errors_cli_end_to_end():
         args = json.loads((out / "errors_args.json").read_text())
         assert args["base_check"]["abs_diff"] < 1e-9, args["base_check"]
         for f in ["tide_dAP.csv", "tide_counts.csv", "slices.csv", "size_x_class_fn.csv", "size_x_class_fp.csv",
-                  "confusion_matrix.csv", "op_gt.csv", "op_predictions.csv"] + [f"crops_{t}.png" for t in
+                  "thresholds.csv", "confusion_matrix_conf0.25.csv", "confusion_matrix_f1opt.csv", "op_gt.csv",
+                  "op_predictions.csv"] + [f"crops_{t}.png" for t in
                                                                                 ("cls", "loc", "both", "dupe", "bkg", "missed")]:
             assert (out / f).exists(), f
-        g, sl = pd.read_csv(out / "op_gt.csv"), pd.read_csv(out / "slices.csv")
-        cm = pd.read_csv(out / "confusion_matrix.csv", index_col=0).to_numpy()
-        assert cm[:-1].sum() == len(g)  # every GT appears once in the GT rows
-        assert (~g.matched).sum() == sl[sl.slice == "cls"].n_fn.sum()
-        for v in ("cls", "size_bin", "objects_bin", "brightness_bin"):
-            assert sl[sl.slice == v].n_gt.sum() == len(g), v
-
+        G, SL = pd.read_csv(out / "op_gt.csv"), pd.read_csv(out / "slices.csv")
+        thr = pd.read_csv(out / "thresholds.csv")
+        assert set(SL.threshold_set) == set(G.threshold_set) == {"conf0.25", "f1opt"}
+        assert args["threshold_sets"]["f1opt"] == dict(zip(thr.class_name, thr.threshold))
+        P = pd.read_csv(out / "op_predictions.csv")
+        assert (P.conf >= P.threshold).all()
+        for tag in ("conf0.25", "f1opt"):
+            g, sl = G[G.threshold_set == tag], SL[SL.threshold_set == tag]
+            cm = pd.read_csv(out / f"confusion_matrix_{tag}.csv", index_col=0).to_numpy()
+            assert cm[:-1].sum() == len(g)  # every GT appears once in the GT rows
+            assert cm[:-1, :-1].trace() == g.matched.sum()
+            assert (~g.matched).sum() == sl[sl.slice == "cls"].n_fn.sum()
+            for v in ("cls", "size_bin", "objects_bin", "brightness_bin"):
+                assert sl[sl.slice == v].n_gt.sum() == len(g), v
 
 if __name__ == "__main__":
     tests = sorted(k for k, v in dict(globals()).items() if k.startswith("test_") and callable(v))

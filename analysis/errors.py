@@ -8,13 +8,14 @@ eval.finalize and the merge settings in eval_args.json next to it, else --merge/
 
 1. TIDE-style error bins (Bolya et al., ECCV 2020), at every confidence >= --min-conf (the mAP50 setting).
    Every prediction that is not a TP under the scorer's matching (detlib/scoring.match_image, IoU 0.5) gets
-   exactly one type, checked in this order (fg = 0.5, bg = 0.1, IoU against all GT of the image):
-     cls    IoU >= fg with a GT of another class
+   exactly one type. Order and boundaries follow the reference implementation, tidecv/quantify.py
+   TIDERun._eval_image (github.com/dbolya/tide, commit 49a5d2a); fg = 0.5, bg = 0.1, IoU against the image's GT:
+     loc    bg <= best same-class IoU <= fg
+     cls    best other-class IoU >= fg
      dupe   IoU >= fg with a same-class GT that a higher-confidence prediction already matched
-     loc    bg <= best same-class IoU < fg
-     both   bg <= best other-class IoU < fg (wrong class and poorly localized)
-     bkg    IoU < bg with every GT
-   missed  a GT matched by no TP and not the target of any cls or loc error.
+     bkg    best IoU with any GT <= bg
+     both   everything else (TIDE's OtherError, short name "Both"): wrong class and poorly localized
+   missed  a GT matched by no TP and not the target of any cls or loc error (TIDE: not "usable").
    Oracle fix of one type (all others left as they are), then re-scored with the same scorer:
      cls  -> relabel to the GT class; loc -> snap the box to the GT box. Either is dropped instead if that GT
              is already matched (by a TP or a higher-confidence fixed prediction): it would only be a duplicate.
@@ -22,17 +23,23 @@ eval.finalize and the merge settings in eval_args.json next to it, else --merge/
    dAP50 = mAP50(fixed) - mAP50(base). "all FP" fixes cls+loc+both+dupe+bkg together, "all FN" = missed.
    Fixes interact, so the dAP50 values are not additive.
 
-2. At the operating threshold --conf-op (default 0.25, same as pred_review.py): FN rate (1 - recall) and FP rate
-   (FP / predictions) sliced by class, box size (sqrt of area, px), GT objects per image and box brightness
-   (mean gray value inside the box), plus size x class tables. GT boxes are binned for FN, predicted boxes for FP.
-   Objects-per-image bins are quartiles over val images; brightness bins are quartiles over GT boxes.
-3. Confusion matrix at --conf-op with a background row/column (pred_review.confusion).
-4. Example crops at --conf-op: one grid per error type, one row per class, --n-crops seeded random examples.
-   Red = prediction, orange = the GT it was assigned to (cls/loc/both/dupe), cyan = missed GT.
+2. At two threshold sets, each saved separately and tagged in a `threshold_set` column (and the per-box
+   `threshold`):
+     conf<conf-op>  one fixed confidence for every class (--conf-op, default 0.25, same as pred_review.py)
+     f1opt          per class, the confidence that maximizes F1 at IoU 0.5 on val (thresholds.csv). Chosen on the
+                    val set itself, so it is optimistic: a diagnostic of the best achievable trade-off.
+   FN rate (1 - recall) and FP rate (FP / predictions) sliced by class, box size (sqrt of area, px), GT objects
+   per image and box brightness (mean gray value inside the box), plus size x class tables. GT boxes are binned
+   for FN, predicted boxes for FP. Objects-per-image bins are quartiles over val images; brightness bins are
+   quartiles over GT boxes (same edges for both sets).
+3. Confusion matrix per threshold set with a background row/column (pred_review.confusion).
+4. Example crops at the fixed threshold: one grid per error type, one row per class, --n-crops seeded random
+   examples. Red = prediction, orange = the GT it was assigned to (loc/cls/dupe/both), cyan = missed GT.
 
-Writes figures/<name>/errors/: tide_dAP.csv/.png, tide_counts.csv (type x class, both thresholds),
-slices.csv, slices.png, size_x_class_fn.csv, size_x_class_fp.csv, confusion_matrix.csv/.png,
-crops_<type>.png, op_predictions.csv and op_gt.csv (one row per box with its type and bins), errors_args.json.
+Writes figures/<name>/errors/: tide_dAP.csv/.png, tide_counts.csv (type x class at min-conf and per set),
+thresholds.csv (both sets' per-class thresholds are also in errors_args.json), slices.csv + slices_<set>.png,
+size_x_class_fn.csv, size_x_class_fp.csv, confusion_matrix_<set>.csv/.png, crops_<type>.png, op_predictions.csv
+and op_gt.csv (one row per box per set, with type, threshold and bins), errors_args.json.
 """
 import argparse
 import json
@@ -77,16 +84,16 @@ def tide_image(pb, pc, ps, gb, gc, fg=FG, bg=BG):
             continue
         same = np.where(gc == pc[i], iou[i], 0.0)
         other = np.where(gc != pc[i], iou[i], 0.0)
-        if other.max() >= fg:
-            kind[i], ref[i] = "cls", int(other.argmax())
-        elif same.max() >= fg:
-            kind[i], ref[i] = "dupe", int(same.argmax())
-        elif same.max() >= bg:
+        if bg <= same.max() <= fg:
             kind[i], ref[i] = "loc", int(same.argmax())
-        elif other.max() >= bg:
-            kind[i], ref[i] = "both", int(other.argmax())
-        else:
+        elif other.max() >= fg:
+            kind[i], ref[i] = "cls", int(other.argmax())
+        elif same.max() >= fg:  # unmatched although IoU >= fg: every such GT was taken by a higher-confidence TP
+            kind[i], ref[i] = "dupe", int(same.argmax())
+        elif iou[i].max() <= bg:
             kind[i] = "bkg"
+        else:
+            kind[i], ref[i] = "both", int(iou[i].argmax())
     matched = np.zeros(len(gb), bool)
     matched[gidx[tp]] = True
     covered = np.zeros(len(gb), bool)
@@ -223,6 +230,35 @@ def cross_table(df, flag, names):
     return pd.DataFrame(rows)
 
 
+def f1_thresholds(per, names, fallback):
+    """Per class, the confidence threshold (keep conf >= t) that maximizes F1 at IoU 0.5 over the whole val set.
+    Chosen on val itself, so the rates at this threshold are optimistic: a diagnostic, not a deployable setting.
+    Classes without GT or predictions get `fallback` (recorded in the `source` column)."""
+    nc = len(names)
+    recs = score_images(per, nc)
+    cls = np.concatenate([r["cls"] for r in recs]).astype(int)
+    conf = np.concatenate([r["conf"] for r in recs])
+    tp = np.concatenate([r["tp"] for r in recs])
+    n_gt = np.sum([r["n_gt"] for r in recs], axis=0)
+    rows = []
+    for c, n in names.items():
+        m = cls == c
+        if n_gt[c] == 0 or not m.any():
+            rows.append(dict(cls=c, class_name=n, threshold=fallback, source="fallback (no GT or no predictions)",
+                             precision=np.nan, recall=np.nan, f1=np.nan, n_gt=int(n_gt[c])))
+            continue
+        o = np.argsort(-conf[m], kind="mergesort")
+        sc, ctp = conf[m][o], np.cumsum(tp[m][o])
+        k = np.arange(1, len(sc) + 1)
+        prec, rec = ctp / k, ctp / n_gt[c]
+        f = np.where(prec + rec > 0, 2 * prec * rec / np.maximum(prec + rec, 1e-12), 0.0)
+        ends = np.r_[sc[1:] != sc[:-1], True]  # a threshold keeps every tied confidence
+        i = np.flatnonzero(ends)[np.argmax(f[ends])]
+        rows.append(dict(cls=c, class_name=n, threshold=float(sc[i]), source="F1-optimal on val",
+                         precision=prec[i], recall=rec[i], f1=f[i], n_gt=int(n_gt[c])))
+    return pd.DataFrame(rows)
+
+
 def plot_tide(t, path):
     x = t[t.fix != "none (base)"]
     fig, ax = plt.subplots(figsize=(7, 3.5))
@@ -233,7 +269,7 @@ def plot_tide(t, path):
     fig.tight_layout(); fig.savefig(path, dpi=120); plt.close(fig)
 
 
-def plot_slices(s, path):
+def plot_slices(s, path, title=""):
     vars_ = list(dict.fromkeys(s.slice))
     fig, axes = plt.subplots(1, len(vars_), figsize=(4 * len(vars_), 3.8), squeeze=False)
     for ax, v in zip(axes[0], vars_):
@@ -244,17 +280,18 @@ def plot_slices(s, path):
         ax.set_xticks(idx, x.bin, rotation=45, ha="right", fontsize=7)
         ax.set(ylim=(0, 1), title=v)
     axes[0][0].legend(fontsize=7)
+    fig.suptitle(title, fontsize=9)
     fig.tight_layout(); fig.savefig(path, dpi=120); plt.close(fig)
 
 
-def plot_confusion(m, labels, path):
+def plot_confusion(m, labels, path, title=""):
     fig, ax = plt.subplots(figsize=(6.5, 5.5))
     ax.imshow(m, cmap="Blues")
     for (i, j), v in np.ndenumerate(m):
         ax.text(j, i, str(v), ha="center", va="center", fontsize=8)
     ax.set_xticks(range(len(labels)), labels, rotation=45, ha="right", fontsize=7)
     ax.set_yticks(range(len(labels)), labels, fontsize=7)
-    ax.set(xlabel="predicted", ylabel="ground truth")
+    ax.set(xlabel="predicted", ylabel="ground truth", title=title)
     fig.tight_layout(); fig.savefig(path, dpi=120); plt.close(fig)
 
 
@@ -326,25 +363,38 @@ def main():
         if ev is not None and abs(ev - base) > 1e-9:
             print(f"[errors] WARNING: base mAP50 {base:.6f} differs from metrics.json {ev:.6f}")
 
-    # 2-4. operating threshold
-    per_op = annotate(collect(preds[preds.conf >= a.conf_op], images, root / "val" / "labels", sizes))
-    counts = pd.DataFrame(counts_by_class(per, names, f"conf>={a.min_conf}") +
-                          counts_by_class(per_op, names, f"conf>={a.conf_op}"))
-    counts.to_csv(out / "tide_counts.csv", index=False)
-    P, G = box_tables(per_op, names)
-    cm = sum(confusion(pd.DataFrame(dict(x1=d["p_xyxy"][:, 0], y1=d["p_xyxy"][:, 1], x2=d["p_xyxy"][:, 2],
-                                         y2=d["p_xyxy"][:, 3], cls=d["p_cls"])), d["g_cls"], d["g_xyxy"], nc)
-             for d in per_op)
+    # 2-4. operating thresholds: a fixed one (--conf-op) and the per-class F1-optimal one
+    f1 = f1_thresholds(per, names, a.conf_op)
+    f1.to_csv(out / "thresholds.csv", index=False)
+    sets = [(f"conf{a.conf_op:g}", {c: a.conf_op for c in names}),
+            ("f1opt", dict(zip(f1.cls, f1.threshold)))]
+    Ps, Gs, pers, counts = [], [], {}, counts_by_class(per, names, f"conf>={a.min_conf}")
     labels = list(names.values()) + ["background"]
-    pd.DataFrame(cm, index=[f"gt {n}" for n in labels], columns=[f"pred {n}" for n in labels]).to_csv(
-        out / "confusion_matrix.csv")
-    plot_confusion(cm, labels, out / "confusion_matrix.png")
+    for tag, thr in sets:
+        keep = preds.conf >= preds.cls.map(thr)
+        pers[tag] = per_op = annotate(collect(preds[keep], images, root / "val" / "labels", sizes))
+        counts += counts_by_class(per_op, names, tag)
+        P, G = box_tables(per_op, names)
+        P.insert(0, "threshold_set", tag); G.insert(0, "threshold_set", tag)
+        P.insert(1, "threshold", P.cls.map({names[c]: v for c, v in thr.items()}))
+        G.insert(1, "threshold", G.cls.map({names[c]: v for c, v in thr.items()}))
+        Ps.append(P); Gs.append(G)
+        cm = sum(confusion(pd.DataFrame(dict(x1=d["p_xyxy"][:, 0], y1=d["p_xyxy"][:, 1], x2=d["p_xyxy"][:, 2],
+                                             y2=d["p_xyxy"][:, 3], cls=d["p_cls"])), d["g_cls"], d["g_xyxy"], nc)
+                 for d in per_op)
+        pd.DataFrame(cm, index=[f"gt {n}" for n in labels], columns=[f"pred {n}" for n in labels]).to_csv(
+            out / f"confusion_matrix_{tag}.csv")
+        plot_confusion(cm, labels, out / f"confusion_matrix_{tag}.png", f"threshold set: {tag} (thresholds.csv)")
+    pd.DataFrame(counts).to_csv(out / "tide_counts.csv", index=False)
+    P, G = pd.concat(Ps, ignore_index=True), pd.concat(Gs, ignore_index=True)
 
-    # crops: sample before reading pixels so each image is opened once
+    # crops (fixed threshold only): sample before reading pixels so each image is opened once
+    crop_tag = sets[0][0]
     rng = random.Random(a.seed)
     want = {}  # (image, 'p'|'g', idx) -> (type, class name, caption)
-    events = [(t, r) for t in FP_TYPES for r in P[P.type == t].itertuples()] + \
-             [("missed", r) for r in G[G.missed].itertuples()]
+    Pc, Gc = P[P.threshold_set == crop_tag], G[G.threshold_set == crop_tag]
+    events = [(t, r) for t in FP_TYPES for r in Pc[Pc.type == t].itertuples()] + \
+             [("missed", r) for r in Gc[Gc.missed].itertuples()]
     by = {}
     for t, r in events:
         by.setdefault((t, r.cls), []).append(r)
@@ -356,15 +406,18 @@ def main():
     # brightness (and crops) need pixels: one pass over the images
     P["brightness"], G["brightness"] = np.nan, np.nan
     cells = {t: {} for t in TYPES}
-    dmap = {d["image"]: d for d in per_op}
+    dcrop = {d["image"]: d for d in pers[crop_tag]}
     for p in images:
         with Image.open(p) as im:
             im.load()
             gray = np.asarray(im.convert("L"), dtype=np.float32)
-            d = dmap[p.name]
-            pi, gi = P.index[P.image == p.name], G.index[G.image == p.name]
-            P.loc[pi, "brightness"] = [mean_gray(gray, b) for b in d["p_xyxy"]]
-            G.loc[gi, "brightness"] = [mean_gray(gray, b) for b in d["g_xyxy"]]
+            for tag, _ in sets:
+                d = next(x for x in pers[tag] if x["image"] == p.name)
+                pi = P.index[(P.image == p.name) & (P.threshold_set == tag)]
+                gi = G.index[(G.image == p.name) & (G.threshold_set == tag)]
+                P.loc[pi, "brightness"] = [mean_gray(gray, b) for b in d["p_xyxy"]]
+                G.loc[gi, "brightness"] = [mean_gray(gray, b) for b in d["g_xyxy"]]
+            d = dcrop[p.name]
             for (name, side, idx), (t, cname, cap) in want.items():
                 if name != p.name:
                     continue
@@ -379,24 +432,32 @@ def main():
                 marks = [(ordered(b), col) for b, col in marks]
                 cells[t].setdefault(cname, []).append((crop(im, ordered(box), marks, 160), cap))
     for t in TYPES:
-        crop_grid(cells[t], names, a.n_crops, f"{t} errors at conf >= {a.conf_op}", out / f"crops_{t}.png")
+        crop_grid(cells[t], names, a.n_crops, f"{t} errors at threshold set {crop_tag}", out / f"crops_{t}.png")
 
-    G["size_bin"], P["size_bin"] = label_bins(G["size"], SIZE_EDGES), label_bins(P["size"], SIZE_EDGES)
-    img_counts = np.array([len(d["g_cls"]) for d in per_op], float)
-    e_obj = bin_edges(img_counts)
-    G["objects_bin"], P["objects_bin"] = label_bins(G.n_obj, e_obj), label_bins(P.n_obj, e_obj)
-    e_br = bin_edges(G.brightness.to_numpy())
-    G["brightness_bin"], P["brightness_bin"] = label_bins(G.brightness, e_br), label_bins(P.brightness, e_br)
+    # bins: edges from the GT of the first set (GT boxes are the same in every set)
+    G0 = G[G.threshold_set == crop_tag]
+    e_obj = bin_edges(np.array([len(d["g_cls"]) for d in pers[crop_tag]], float))
+    e_br = bin_edges(G0.brightness.to_numpy())
+    for T in (P, G):
+        T["size_bin"] = label_bins(T["size"], SIZE_EDGES)
+        T["objects_bin"] = label_bins(T.n_obj, e_obj)
+        T["brightness_bin"] = label_bins(T.brightness, e_br)
     P["fp"], G["fn"] = P.type != "TP", ~G.matched
-    sl = slice_rates(P, G, names)
-    sl.to_csv(out / "slices.csv", index=False)
-    plot_slices(sl, out / "slices.png")
-    cross_table(G, "fn", names).to_csv(out / "size_x_class_fn.csv", index=False)
-    cross_table(P, "fp", names).to_csv(out / "size_x_class_fp.csv", index=False)
+    sl, fn_x, fp_x = [], [], []
+    for tag, _ in sets:
+        Pt, Gt = P[P.threshold_set == tag], G[G.threshold_set == tag]
+        s_ = slice_rates(Pt, Gt, names)
+        plot_slices(s_, out / f"slices_{tag}.png", f"threshold set: {tag} (thresholds.csv)")
+        for lst, t_ in ((sl, s_), (fn_x, cross_table(Gt, "fn", names)), (fp_x, cross_table(Pt, "fp", names))):
+            t_.insert(0, "threshold_set", tag)
+            lst.append(t_)
+    pd.concat(sl).to_csv(out / "slices.csv", index=False)
+    pd.concat(fn_x).to_csv(out / "size_x_class_fn.csv", index=False)
+    pd.concat(fp_x).to_csv(out / "size_x_class_fp.csv", index=False)
     P.to_csv(out / "op_predictions.csv", index=False)
     G.to_csv(out / "op_gt.csv", index=False)
 
-    args = dict(vars(a), input=how, fg=FG, bg=BG, size_edges=[str(e) for e in SIZE_EDGES],
+    args = dict(vars(a), input=how, threshold_sets={t: {names[c]: v for c, v in th.items()} for t, th in sets}, fg=FG, bg=BG, size_edges=[str(e) for e in SIZE_EDGES],
                 objects_edges=e_obj.tolist(), brightness_edges=e_br.tolist(), base_check=check)
     (out / "errors_args.json").write_text(json.dumps(args, indent=2, default=str))
     print(tide[["fix", "n_errors", "mAP50", "dAP50"]].to_string(index=False, float_format=lambda v: f"{v:.4f}"))
