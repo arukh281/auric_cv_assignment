@@ -9,11 +9,14 @@ KAGGLE=${KAGGLE:-.venv/bin/kaggle}; USER_=${KAGGLE_USER:-aradhya1211}; SLUG=auri
 git diff --quiet HEAD -- || { echo "uncommitted changes to tracked files: commit first"; exit 1; }
 C=$(git rev-parse HEAD)
 D=kaggle_build/code; rm -rf "$D"; mkdir -p "$D"
-git archive --format=tar HEAD -- . ':(exclude)results' ':(exclude)figures' > "$D/code.tar"
-git archive --format=tar HEAD -- figures/eda > "$D/eda.tar"
-tar -Af "$D/code.tar" "$D/eda.tar" && rm "$D/eda.tar"
+FILES=()
+while IFS= read -r f; do FILES+=("$f"); done < <(git ls-files | grep -v -e '^results/' -e '^figures/'; git ls-files figures/eda)
+git archive --format=tar HEAD -- "${FILES[@]}" > "$D/code.tar"
 printf '%s\n' "$C" > "$D/CODE_COMMIT"
-tar -rf "$D/code.tar" -C "$D" CODE_COMMIT && gzip -9 "$D/code.tar"
+tar -rf "$D/code.tar" -C "$D" CODE_COMMIT
+gzip -9 "$D/code.tar"
+tar -tzf "$D/code.tar.gz" | grep -q '^figures/eda/tables/boxes.csv$' || { echo "package is missing figures/eda"; exit 1; }
+tar -tzf "$D/code.tar.gz" | grep -q -e '^results/' -e '^figures/b' && { echo "package contains results"; exit 1; } || true
 printf '{"title": "auric-cv-code", "id": "%s/%s", "licenses": [{"name": "other"}]}\n' "$USER_" "$SLUG" > "$D/dataset-metadata.json"
 echo "package: $(du -h "$D/code.tar.gz" | cut -f1), commit $C, $(tar -tzf "$D/code.tar.gz" | wc -l | tr -d ' ') entries"
 if $KAGGLE datasets status "$USER_/$SLUG" >/dev/null 2>&1; then
