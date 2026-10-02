@@ -139,3 +139,35 @@ Rejection condition (b) was largely met: trucks of 8–48 px (92% of val trucks)
 
 **Next step**
 Pending results.
+
+---
+
+## B1h: B1 with 40 train images held out (`configs/b1h.yaml`, run `b1h_tile1024_holdout40`)
+
+### Results
+
+| Images                   |        mAP50 (95% CI) | Trucks found |
+| ------------------------ | --------------------: | -----------: |
+| Training images (seen)   | **0.378 (0.30–0.46)** |          92% |
+| Held-out training images | **0.151 (0.06–0.19)** |          85% |
+| Validation images        | **0.107 (0.06–0.17)** |          66% |
+
+*Trucks found* = class-agnostic recall at IoU 0.5, conf ≥ 0.001: 735/796, 629/738 and 1032/1552 GT. Sources:
+`results/b1h_tile1024_holdout40/{eval_train40,eval_holdout40,eval}/metrics.json` and `class_agnostic.json`
+(Kaggle kernel `aradhya1211/auric-b1h` v1, code `4a17eb1`, 2 × Tesla T4, `last.pt`, max_det 902 for all three).
+
+### Conclusion
+
+B1h confirms that the model struggles with unseen images, not just the validation set. Its mAP50 drops from 0.378 on training images to 0.151 on held-out images, indicating poor generalization with the current dataset of around 400 images.
+
+The held-out and validation confidence intervals overlap, suggesting that poor generalization is the main issue rather than a unique problem with the validation set. However, the model finds fewer trucks on validation images (66% vs. 85%), possibly because those scenes are denser.
+
+Classification remains the biggest bottleneck, consistent with B1. More training data, stronger augmentation, and a separate classifier trained on cropped trucks are potential next steps.
+
+**Important caveat:** B1h scored 0.107 on validation, compared with B1's 0.071. Differences of this size can arise from run-to-run randomness and platform differences; the small change in the detection limit explains only about 0.006. A single run is therefore not enough to establish a meaningful improvement.
+
+### Next steps
+
+* Test whether adding 500 labelled images improves generalization using learning curves on the held-out set.
+* Experiment with stronger data augmentation.
+* Evaluate a separate classifier on cropped truck images to improve Cargo vs. Box classification.
