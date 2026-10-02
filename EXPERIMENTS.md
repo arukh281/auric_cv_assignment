@@ -174,3 +174,14 @@ Classification remains the biggest bottleneck, consistent with B1. More training
 * Test whether adding 500 labelled images improves generalization using learning curves on the held-out set.
 * Experiment with stronger data augmentation.
 * Evaluate a separate classifier on cropped truck images to improve Cargo vs. Box classification.
+
+---
+
+## Plan from here (2026-10-02, after B1h)
+
+| # | What | Answers | Cost |
+|---|---|---|---|
+| 1 | Learning curves: train on 25/50/75% of the data, plus a repeat of the 100% run with a different seed | §5.3 "would 500 more labels help?", plus how big run-to-run noise really is | about 7 h of Kaggle GPU, in the background |
+| 2 | Smallest useful subset | §5.4 | reuses the curves, plus 1–2 runs |
+| 3 | Which training examples resist learning | §5.2 | about 1 run |
+| 4 | Final analysis + report + README | §6 | your writing |
