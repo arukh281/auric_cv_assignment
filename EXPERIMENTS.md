@@ -257,3 +257,25 @@ Main confusion: Cargo Truck vs Truck w/Box.
 Sources: `figures/{b1_tile1024,b1h_tile1024_holdout40}/gt_oracle/comparison.csv` and `confusion_pool.csv` (pooled-anchor
 mode, all GT), `figures/b1h_tile1024_holdout40/errors/tide_dAP.csv`. For B1 the same fixes give +0.190 / +0.014 / +0.041
 (`figures/b1_tile1024/errors/tide_dAP.csv`).
+
+---
+
+## S54: smart vs random subsets (§5.4), runs b1h_smart50 / b1h_smart75 + b1h_f50_seed1 / b1h_f75_seed1
+
+**Pre-registration (written before any S54 run was launched)**
+- Written at: 3 Oct 2026, 2:14 AM IST
+- Pool: the same 403 non-holdout images. Sizes: 202 (50%) and 302 (75%), to compare with the existing random f50 and f75.
+- Selection "smart": (1) class coverage first: add images in order of rarest class contained (Liquid, then Tractor,
+  then Flatbed, then Box) until each class's GT box count is at least its proportional share for that subset size;
+  (2) fill the rest by greedy k-center (farthest-point) on image embeddings, seed 0. Embedding = mean of DINOv2-small
+  CLS embeddings over the image's 1024 px tiles (fallback: ImageNet ResNet18 if DINOv2 can't be loaded; the one used
+  is recorded). Never include 1938.png. Lists: splits/train_smart50_seed0.txt and splits/train_smart75_seed0.txt.
+- Runs (identical to the LC runs: ~10,750 iterations with scaled warmup and close_mosaic, max_det 902 evals on val and
+  holdout40, class-agnostic on both, run_analysis): b1h_smart50 (seed 0), b1h_smart75 (seed 0), b1h_f50_seed1 and
+  b1h_f75_seed1 (the existing random subsets, training seed 1, to measure noise at those sizes).
+- Decision rule: "Smart selection beats random at a given size only if its held-out class-agnostic AP50 exceeds BOTH
+  random runs at that size by more than their seed spread. Same check reported for held-out mAP50 as secondary. A
+  subset 'recovers 90%' if its held-out mAP50 >= 0.90 x 0.1420 = 0.128."
+- Prediction: none provided. The overnight instructions contained the unfilled placeholder
+  "<<< WRITE YOUR GUESS HERE, e.g. "smart75 beats random75 on class-agnostic AP50 but stays below 0.128 mAP50" >>>",
+  so no prediction was written before the runs.
