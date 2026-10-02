@@ -140,6 +140,34 @@ Weights stay in the notebook's output, under `/kaggle/working/runs/<run>/train/w
 resume across sessions only works if the previous version's output is attached as input and copied to
 `/kaggle/working/runs` first.
 
+## Kaggle via CLI (from the Mac, no GitHub token on Kaggle)
+
+1. Install the CLI with `uv pip install -p .venv -U kaggle`. It authenticates from `~/.kaggle`; the token is never
+   copied into this repo or a kernel.
+2. Data: the private dataset `aradhya1211/auric-cv-dataset`. `scripts/kaggle_setup.sh` copies its extracted folder
+   (or unzips `cv_dataset.zip`) to `/kaggle/tmp/data`.
+3. Code: `bash scripts/kaggle_cli_package.sh`. It refuses uncommitted changes. It `git archive`s HEAD without `results/`
+   and with only `figures/eda` of `figures/`, adds a `CODE_COMMIT` file, and uploads `code.tar.gz` as the private
+   dataset `aradhya1211/auric-cv-code`. The first time it is created; after that a new version is made with the
+   commit hash as the message.
+4. Kernel: `bash scripts/kaggle_cli_kernel.sh smoke|full --push` builds `kaggle_build/kernel_<mode>/` (gitignored)
+   and pushes it.
+   - Kernels: `aradhya1211/auric-b1h-smoke` or `aradhya1211/auric-b1h`.
+   - Settings: private, GPU `machine_shape: NvidiaTeslaT4` (T4 x2), internet on, both datasets attached.
+5. What the kernel's entry point (`scripts/kaggle_kernel_run.py`) does:
+   - copies the code to `/kaggle/working/repo`;
+   - runs `kaggle_setup.sh` with `SKIP_PULL=1`;
+   - `smoke`: 1 epoch on the tiles of the first 10 train images (47 tiles expected);
+   - `full`: `scripts/run_b1h.sh` then `scripts/run_analysis.sh b1h_tile1024_holdout40`.
+   - The commit goes to `<run>/code_commit.txt`, and `env/*_hardware.json` records it from `CODE_COMMIT`.
+6. Monitor with `.venv/bin/kaggle kernels status aradhya1211/auric-b1h`. When it finishes, run
+   `.venv/bin/kaggle kernels output aradhya1211/auric-b1h -p <scratch folder outside the repo>`. Copy only
+   CSV/JSON/PNG files under 20 MB into `results/` and `figures/`. Weights stay in the kernel output, under
+   `runs/b1h_tile1024_holdout40/train/weights/`.
+
+Without `.git` on Kaggle, the byte-identical `eval.py` test in `tests/test_diagnostics.py` skips; it needs the
+old commit's history.
+
 ## Run locally
 ```bash
 uv venv -p 3.11 .venv && uv pip install -p .venv -r requirements.txt torch torchvision

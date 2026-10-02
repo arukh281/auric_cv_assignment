@@ -42,6 +42,10 @@ def hardware():
     info["nvidia_smi"] = _run(["nvidia-smi"])
     info["git_commit"] = _run(["git", "-C", str(REPO), "rev-parse", "HEAD"])
     info["git_dirty"] = bool(_run(["git", "-C", str(REPO), "status", "--porcelain", "--untracked-files=no"]))
+    commit_file = REPO / "CODE_COMMIT"  # packaged code without .git (Kaggle via CLI)
+    if len(info["git_commit"]) != 40 and commit_file.exists():
+        info.update(git_commit=commit_file.read_text().strip(), git_dirty=None,
+                    git_commit_source="CODE_COMMIT file (git archive of that commit, no .git)")
     return info
 
 

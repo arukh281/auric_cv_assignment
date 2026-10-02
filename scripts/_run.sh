@@ -10,7 +10,7 @@ CFG=$1; NAME=$2; shift 2
 mkdir -p "$RUNS/$NAME"
 LOG="$RUNS/$NAME/run.log"
 exec > >(tee -a "$LOG") 2>&1
-echo "===== $(date -u +%FT%TZ) $NAME | commit $(git rev-parse --short HEAD) | $(nvidia-smi --query-gpu=name --format=csv,noheader 2>/dev/null || echo no-gpu)"
+echo "===== $(date -u +%FT%TZ) $NAME | commit $(git rev-parse --short HEAD 2>/dev/null || cat CODE_COMMIT 2>/dev/null || echo unknown) | $(nvidia-smi --query-gpu=name --format=csv,noheader 2>/dev/null || echo no-gpu)"
 
 echo "== train"
 $PY train.py --config "$CFG" --data-root "$DATA_ROOT" --runs-root "$RUNS" --work-dir "$WORK_DIR" --oom-fallback-batch 8

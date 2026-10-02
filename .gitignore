@@ -23,3 +23,6 @@ __pycache__/
 
 # Assignment brief (contains the private dataset link)
 *.pdf
+
+# Kaggle CLI build folders (code package, kernel); never committed
+kaggle_build/

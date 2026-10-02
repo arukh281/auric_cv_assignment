@@ -14,7 +14,7 @@ PREDS="$RUNS/$NAME/eval/predictions.csv"
 [ -f "$PREDS" ] || { echo "missing $PREDS: the run's eval has not finished"; exit 1; }
 LOG="$RUNS/$NAME/analysis.log"
 exec > >(tee -a "$LOG") 2>&1
-echo "===== $(date -u +%FT%TZ) analysis $NAME ($CFG) | commit $(git rev-parse --short HEAD) | $(nvidia-smi --query-gpu=name --format=csv,noheader 2>/dev/null || echo no-gpu)"
+echo "===== $(date -u +%FT%TZ) analysis $NAME ($CFG) | commit $(git rev-parse --short HEAD 2>/dev/null || cat CODE_COMMIT 2>/dev/null || echo unknown) | $(nvidia-smi --query-gpu=name --format=csv,noheader 2>/dev/null || echo no-gpu)"
 
 echo "== errors.py"
 $PY analysis/errors.py --preds "$PREDS" --name "$NAME" --data-root "$DATA_ROOT" --out-root "$FIGS"
