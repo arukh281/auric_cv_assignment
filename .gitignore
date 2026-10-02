@@ -1,13 +1,25 @@
+# Dataset (not committed). `data` without a slash also matches the data -> data_small symlink.
 data
-CV_Assignment_AAL/
-.venv/
-*.pt
-.DS_Store
-__pycache__/
-*.pdf
-*.zip
+data/
 data_small/
-.claude/
-tmp_test/
+CV_Assignment_AAL/
+*.zip
+
+# Runs, weights, scratch
+runs/
 work/
+tmp_test/
+*.pt
+*.pth
+*.onnx
+*.engine
+*.safetensors
+
+# Environment / OS
+.venv/
+__pycache__/
+.DS_Store
 .claude/
+
+# Assignment brief (contains the private dataset link)
+*.pdf

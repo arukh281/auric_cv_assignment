@@ -6,7 +6,7 @@ seed: 0
 deterministic: true
 epochs: 100
 imgsz: 1024
-batch: 16
+batch: 16                  # may not fit a 16 GB T4 at 1024; train.py falls back to 8 and records it
 workers: 8
 tiling:
   tile: 1024
@@ -15,8 +15,10 @@ tiling:
   min_vis: 0.5             # clipped box kept if >= 50% of its area is inside the tile
   seed: 0
 train_args:
-  val: false               # see b0.yaml; Ultralytics still validates once at the final epoch (on un-sliced val, not reported)
+  val: true                # per-epoch curves only, on UN-SLICED full val images at 1024 (not the reported sliced metric); last.pt is reported
   plots: true
+  amp: true                # fp16 mixed precision (T4)
+  save_period: -1          # last.pt is still written every epoch (to Drive via --runs-root); no extra epoch files
 eval:
   mode: sliced
   imgsz: 1024

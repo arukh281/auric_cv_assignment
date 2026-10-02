@@ -1,68 +1,75 @@
 # Status: Phase 2 code (2026-10-02)
 
-## What works, and how it was tested (locally, on the 42-image `data_small`, CPU)
-- **Scoring:** `tests/test_pipeline.py`, 9 known-answer tests, all pass.
-  - Predictions identical to GT → mAP50 = 1.0, with every bootstrap sample = 1.0.
-  - Every other GT box only → COCO AP = 51/101 exactly; Ultralytics-style = 0.75.
-  - Wrong class, or boxes moved off-image → 0.
-  - An FP ranked above the TP → 0.5.
-  - A duplicate prediction counts as FP.
-- **Tiling:**
-  - Tiles cover the whole image with ≥ 256 px overlap, including the 7204 x 5932 and 1369 x 1334 px extremes.
-  - Every real val box lies whole inside some tile.
-  - Label round-trip is exact (to 1e-4 px).
-  - The 50% visibility rule behaves as specified.
-- **Tile merge:** cross-tile duplicates and edge fragments are removed. The merge is class-wise. WBF works.
-- **`tools/make_tiles.py`** (3 images, as required):
-  - Prints the max box side (161 px) and refuses an overlap at or below it.
-  - Output is byte-identical with 1 or 3 workers.
-  - Labels align visually.
-  - The empty-tile keep rate came out at 15/47 against p = 0.2. I checked the RNG separately: it is unbiased
-    (0.198 over 20k seeds), so this is small-sample chance (binomial p = 0.037).
-- **`train.py` B0 and B1:** 2-epoch CPU smoke runs at imgsz 320 completed.
-  - The run folder gets `config.yaml`, `data.yaml`, `command.txt`, `env/` (pip freeze, hardware, git commit),
-    `init_weights.json` (sha256), `tiling_params.json` (B1) and Ultralytics `train/`.
-- **Resume:** I killed a run after epoch 1 and re-ran the same command. It continued with epochs 2-4, and
-  `command.txt` logs both invocations.
-- **`eval.py`:**
-  - Full (B0) and sliced (B1) modes both write `predictions.csv`, `metrics.json`, `per_class.csv`,
-    `bootstrap_ci.csv`, `pr_curves.png` and `eval_args.json`.
-  - max_det = 334, from the max of 167 GT boxes per val image (EDA table).
-  - `--ultra-crosscheck` runs end to end.
-- **`analysis/pred_review.py`:** writes TP/FP-kind/FN grids, a confusion matrix with background, and overview images.
-- **Notebook data cell:** run locally on a mini dataset as a flat zip, a zip with a wrapper folder, and a plain
-  folder. `data.yaml` is generated when missing.
+## Decisions applied (round 2)
+1. **B0 now runs 100 epochs**, matching B1. Both runs set `val: true`, only to log per-epoch train/val losses and
+   Ultralytics val mAP. `last.pt` is still what gets evaluated.
+   - `train.py` writes `training_summary.json` (batch used, iterations per epoch, total iterations) and
+     `training_curves.png/.csv` into each run folder.
+   - EXPERIMENTS.md notes that B1 does more iterations per epoch because it trains on tiles.
+2. **Empty-tile fraction** stays at 0.2.
+3. **Tile merge default** stays at NMS on IoS 0.6.
+   - `eval.py` now saves the pre-merge `predictions_raw.csv`.
+   - `analysis/merge_sensitivity.py` re-scores it at IoS 0.5/0.6/0.7, IoU 0.5 and no-merge, without re-inference,
+     and writes `figures/<run>/merge_sensitivity.csv`.
+4. **Headline metric** is COCO 101-point AP50.
+   - `eval.py` exports COCO JSON and adds pycocotools AP50 (maxDets = max_det) next to our scorer and the Ultralytics
+     number, in `scorer_comparison.csv` and `metrics.json`.
+   - It warns if ours and pycocotools differ by more than 0.005.
+- **Out-of-memory fallback:** `train.py --oom-fallback-batch 8`. If the configured batch runs out of GPU memory before
+  any epoch is saved, it retries at 8 and records `batch_requested`, `batch` and `batch_note` in `config.yaml`, plus
+  `batch_used` in `training_summary.json`.
+- `.gitignore` excludes `data`, `data/`, `data_small/`, `runs/`, `*.zip` and weights (`*.pt`, `*.pth`, `*.onnx`,
+  `*.engine`, `*.safetensors`).
 
-## Not tested / uncertain
-- **The scorer has not yet been compared against Ultralytics on a model that detects anything.** Smoke models
-  score 0, so 0 = 0 proves little. The local check was stopped to spare the Mac. B0's Colab eval cell runs
-  `--ultra-crosscheck`: compare `metrics.json` → `mAP50_ultralytics_interp` with `ultralytics_val.mAP50`.
-  Expect them to be close, not identical: Ultralytics uses rect batching and its own matching.
-- **Colab-only parts never ran here:** Drive mount, git clone with a token, CUDA, determinism on GPU, and the time
-  and memory of batch 16 at 1024. If B1 runs out of memory on L4, lower `batch` in `configs/b1.yaml`.
-  That is a recorded config change.
-- **Choices you should confirm or change:**
-  1. B1 runs 100 epochs (the original Phase 2 spec) against 50 for B0, which confounds the comparison.
-  2. Empty-tile keep fraction is 0.2.
-  3. The tile merge uses NMS with intersection-over-smaller at 0.6.
-  4. `last.pt` is reported, with no best-epoch selection on val. Ultralytics still validates once at the final epoch
-     and saves a `best.pt`; ignore both.
-  5. The headline mAP50 is COCO-interpolated. The Ultralytics-interpolated value is reported next to it, and is
-     what Ultralytics prints.
-- `analysis/eda.py` must not be re-run on the subset: it would overwrite the full-dataset tables.
+## IMPORTANT: the round-2 changes have NOT been run
+You asked for nothing to run on the Mac, so every round-2 change was written but never executed. That covers:
+- the pycocotools cross-check
+- `finalize` / raw predictions and `merge_sensitivity.py`
+- the out-of-memory fallback and `training_summary` / curves
+- 3 new tests: `test_pycocotools_known_answers`, `test_finalize_merges_tile_duplicates`, `test_oom_fallback`
+- the hand-edited notebook cells
+
+**The notebook now runs `tests/test_pipeline.py` on Colab before any training. If any test fails, stop there.**
+
+## Tested earlier (round 1, on the Mac, before the no-run instruction)
+- 9 known-answer tests:
+  - perfect predictions → mAP50 = 1.0
+  - half recall → exactly 51/101 (COCO) and 0.75 (Ultralytics-style)
+  - wrong class or off-image boxes → 0
+  - ranking and duplicates handled
+  - tiles cover every image, and every box fits whole in some tile
+  - tile merge behaves as specified
+- Tiler output is deterministic across worker counts.
+- 2-epoch smoke runs of B0 and B1 trained and evaluated end to end.
+- Kill-and-resume works.
+- The notebook's data cell works for a flat zip, a wrapped zip and a plain folder.
+- `pred_review.py` runs.
+- `eval.py` and `train.py` have changed since round 1, so treat the round-1 smoke tests as covering the old versions only.
+
+## Still uncertain
+- **Our scorer has not been checked against Ultralytics val on a model that actually detects trucks.** B0's Colab
+  eval does this (`--ultra-crosscheck`); expect close, not identical.
+- **Per-epoch val for B1 runs on un-sliced 1024 px full images.** It shows training dynamics only and is not
+  comparable with the sliced metric.
+- **Ultralytics also saves `best.pt` when `val=true`. Ignore it:** `last.pt` is the reported checkpoint.
+- `analysis/eda.py` must not be re-run on a subset.
 
 ## First commands
-On the Mac (once): publish the repo. It has no remote yet, and Phase 2 is on branch `worktree-phase2-pipeline`.
-```bash
-cd ~/Desktop/Work/auric_cv_assignment
-git merge --ff-only worktree-phase2-pipeline          # bring Phase 2 onto main
-gh repo create auric_cv_assignment --private --source . --push
-```
-On Colab: open `notebooks/colab_train.ipynb` (File → Open notebook → GitHub, or upload it), set the first cell:
-```python
-DRIVE_DATA = "/content/drive/MyDrive/cv_dataset.zip"
-DRIVE_RUNS = "/content/drive/MyDrive/auric_runs"
-REPO_URL   = "https://github.com/arukh281/auric_cv_assignment.git"
-BRANCH     = "main"
-```
-Add Colab secret `GH_TOKEN` (private repo), choose an L4/A100 runtime, then Runtime → Run all.
+1. Create the GitHub repo yourself and push `main`.
+2. On Colab, open `notebooks/colab_train.ipynb` and set the first cell: `DRIVE_DATA`, `DRIVE_RUNS`, `REPO_URL`,
+   `BRANCH = "main"`.
+3. If the repo is private, add a `GH_TOKEN` secret.
+4. Choose a **T4** runtime (Python 3.13). Run the setup cells, the tests and the **1-epoch timing probe**, then
+   stop. Send me the `timing_estimate.csv` numbers (or the printed table) so the schedule can be decided before the
+   full B0 and B1 runs.
+
+## T4 / Python 3.13 notes (round 3, also not run)
+- Colab torch is kept as shipped. The other requirements are installed against a constraints file built from
+  Colab's own torch, torchvision, numpy and opencv versions.
+- The full lock is saved to `DRIVE_RUNS/colab_env_lock.txt`. Each run's `env/` records the GPU (e.g. "Tesla T4"),
+  GPU memory, CUDA, torch and Ultralytics versions.
+- The requirement pins are the versions I tested locally on Python 3.11. Whether every pin has a Python 3.13 wheel
+  has not been checked here: the install cell will fail loudly if one doesn't. Update `requirements.txt` with the
+  version that does install.
+- Both configs set `amp: true`. `last.pt` is written to Drive every epoch.
+- B1 at batch 16 / 1024 px may not fit in 16 GB. The fallback to batch 8 is automatic and recorded.

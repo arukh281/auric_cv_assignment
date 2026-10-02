@@ -5,8 +5,11 @@ Examples:
   python eval.py --config configs/b1.yaml --runs-root /content/drive/MyDrive/auric_runs
   python eval.py --config configs/b1.yaml --from-preds runs/b1_tile1024/eval/predictions.csv   # re-score only
 
-Writes <run>/eval/ (or --out): predictions.csv, metrics.json, per_class.csv, bootstrap_ci.csv,
-pr_curves.png, eval_args.json, plus env/eval_* and a line in <run>/command.txt.
+Writes <run>/eval/ (or --out): predictions_raw.csv (pre-merge, with tile offsets), predictions.csv (merged,
+capped at max_det), metrics.json, per_class.csv, bootstrap_ci.csv, pr_curves.png, eval_args.json,
+scorer_comparison.csv + coco_gt.json/coco_dets.json (pycocotools cross-check), plus env/eval_* and a line in
+<run>/command.txt. --from-preds accepts either predictions_raw.csv (re-merged with the current settings) or
+predictions.csv.
 
 mAP50 here = mean over classes of AP at IoU 0.5 (COCO 101-point interpolation) at conf >= --conf.
 The Ultralytics-interpolated value is also reported; see detlib/scoring.py for the difference.
@@ -38,6 +41,8 @@ from detlib.tiling import tile_windows  # noqa: E402
 
 Image.MAX_IMAGE_PIXELS = None
 PRED_COLS = ["image", "cls", "conf", "x1", "y1", "x2", "y2"]
+RAW_COLS = ["image", "tile_x0", "tile_y0", "cls", "conf", "x1", "y1", "x2", "y2"]
+SCORER_TOL = 0.005  # flag if our COCO-style mAP50 and pycocotools differ by more than this
 
 
 def sha256(path):
@@ -61,6 +66,7 @@ def predict_full(model, img, a):
 
 
 def predict_sliced(model, img, a):
+    """Raw (pre-merge) tile predictions in full-image coordinates, with the tile offset of each box."""
     h, w = img.shape[:2]
     wins = tile_windows(w, h, a.tile, a.overlap)
     parts = []
@@ -68,40 +74,102 @@ def predict_sliced(model, img, a):
         chunk = wins[s:s + a.batch]
         res = model.predict([img[y0:y1, x0:x1] for x0, y0, x1, y1 in chunk], imgsz=a.imgsz, conf=a.conf,
                             iou=a.nms_iou, max_det=a.max_det, device=a.device, verbose=False)
-        parts += [boxes_of(r, x0, y0) for r, (x0, y0, _, _) in zip(res, chunk)]
-    xyxy = np.concatenate([p[0] for p in parts]) if parts else np.zeros((0, 4))
-    conf = np.concatenate([p[1] for p in parts]) if parts else np.zeros(0)
-    cls = np.concatenate([p[2] for p in parts]) if parts else np.zeros(0, int)
-    xyxy, conf, cls = merge(xyxy, conf, cls, w, h, a.merge, a.merge_thr, a.merge_metric)
-    order = np.argsort(-conf, kind="mergesort")[: a.max_det]
-    return xyxy[order], conf[order], cls[order]
+        for r, (x0, y0, _, _) in zip(res, chunk):
+            b, s_, c = boxes_of(r, x0, y0)
+            parts.append((b, s_, c, np.full(len(c), x0), np.full(len(c), y0)))
+    if not parts:
+        return np.zeros((0, 4)), np.zeros(0), np.zeros(0, int), np.zeros(0, int), np.zeros(0, int)
+    return tuple(np.concatenate([p[k] for p in parts]) for k in range(5))
+
+
+def finalize(raw, sizes, method, thr, metric, max_det):
+    """Merge raw tile predictions per image (method 'none' for full-image mode) and cap at max_det.
+
+    raw: DataFrame with RAW_COLS; sizes: {image name: (w, h)}. Returns a DataFrame with PRED_COLS.
+    Shared by eval.py and analysis/merge_sensitivity.py so both apply exactly the same post-processing.
+    """
+    rows = []
+    for name, d in raw.groupby("image", sort=False):
+        w, h = sizes[name]
+        xyxy, conf, cls = merge(d[["x1", "y1", "x2", "y2"]].to_numpy(float), d.conf.to_numpy(float),
+                                d.cls.to_numpy(int), w, h, method, thr, metric)
+        order = np.argsort(-conf, kind="mergesort")[:max_det]
+        rows += [dict(image=name, cls=int(cls[i]), conf=float(conf[i]), x1=xyxy[i, 0], y1=xyxy[i, 1],
+                      x2=xyxy[i, 2], y2=xyxy[i, 3]) for i in order]
+    return pd.DataFrame(rows, columns=PRED_COLS)
 
 
 def run_predictions(a, images):
+    """Returns raw predictions (RAW_COLS). Full mode: one 'tile' at (0, 0) per image."""
     from ultralytics import YOLO
     model = YOLO(a.weights)
     rows, t0 = [], time.time()
     for i, p in enumerate(images):
         img = cv2.imread(str(p), cv2.IMREAD_COLOR)
-        fn = predict_sliced if a.mode == "sliced" else predict_full
-        xyxy, conf, cls = fn(model, img, a)
-        rows += [dict(image=p.name, cls=int(c), conf=float(s), x1=b[0], y1=b[1], x2=b[2], y2=b[3])
-                 for b, s, c in zip(xyxy, conf, cls)]
-        print(f"[eval] {i + 1}/{len(images)} {p.name}: {len(conf)} preds ({time.time() - t0:.0f}s)", flush=True)
-    return pd.DataFrame(rows, columns=PRED_COLS)
+        if a.mode == "sliced":
+            xyxy, conf, cls, tx, ty = predict_sliced(model, img, a)
+        else:
+            xyxy, conf, cls = predict_full(model, img, a)
+            tx = ty = np.zeros(len(cls), int)
+        rows += [dict(image=p.name, tile_x0=int(x0), tile_y0=int(y0), cls=int(c), conf=float(s),
+                      x1=b[0], y1=b[1], x2=b[2], y2=b[3]) for b, s, c, x0, y0 in zip(xyxy, conf, cls, tx, ty)]
+        print(f"[eval] {i + 1}/{len(images)} {p.name}: {len(conf)} raw preds ({time.time() - t0:.0f}s)", flush=True)
+    return pd.DataFrame(rows, columns=RAW_COLS)
 
 
-def collect(preds, images, label_dir):
+def image_sizes(images):
+    out = {}
+    for p in images:
+        with Image.open(p) as im:  # header only
+            out[p.name] = im.size
+    return out
+
+
+def collect(preds, images, label_dir, sizes=None):
+    sizes = sizes or image_sizes(images)
     per = []
     g = {k: v for k, v in preds.groupby("image")}
     for p in images:
-        with Image.open(p) as im:  # header only
-            w, h = im.size
+        w, h = sizes[p.name]
         gc, gb = read_yolo_labels(label_dir / f"{p.stem}.txt", w, h)
         d = g.get(p.name, pd.DataFrame(columns=PRED_COLS))
-        per.append(dict(image=p.name, p_xyxy=d[["x1", "y1", "x2", "y2"]].to_numpy(float),
+        per.append(dict(image=p.name, w=w, h=h, p_xyxy=d[["x1", "y1", "x2", "y2"]].to_numpy(float),
                         p_cls=d.cls.to_numpy(int), p_conf=d.conf.to_numpy(float), g_xyxy=gb, g_cls=gc))
     return per
+
+
+def coco_crosscheck(per, names, max_det, out):
+    """Score the same predictions with pycocotools (AP at IoU 0.5, area 'all', maxDets = max_det)."""
+    from pycocotools.coco import COCO
+    from pycocotools.cocoeval import COCOeval
+    imgs, anns, dets = [], [], []
+    for i, d in enumerate(per, 1):
+        imgs.append(dict(id=i, file_name=d["image"], width=int(d["w"]), height=int(d["h"])))
+        for c, b in zip(d["g_cls"], d["g_xyxy"]):
+            wb, hb = b[2] - b[0], b[3] - b[1]
+            anns.append(dict(id=len(anns) + 1, image_id=i, category_id=int(c) + 1, iscrowd=0, area=float(wb * hb),
+                             bbox=[float(b[0]), float(b[1]), float(wb), float(hb)]))
+        for c, s, b in zip(d["p_cls"], d["p_conf"], d["p_xyxy"]):
+            dets.append(dict(image_id=i, category_id=int(c) + 1, score=float(s),
+                             bbox=[float(b[0]), float(b[1]), float(b[2] - b[0]), float(b[3] - b[1])]))
+    gt = dict(images=imgs, annotations=anns, categories=[dict(id=c + 1, name=n) for c, n in names.items()])
+    (out / "coco_gt.json").write_text(json.dumps(gt))
+    (out / "coco_dets.json").write_text(json.dumps(dets))
+    if not dets:  # loadRes cannot take an empty list
+        return dict(mAP50=0.0, per_class_AP50={n: 0.0 for n in names.values()}, params="no detections")
+    cg = COCO(str(out / "coco_gt.json"))
+    ev = COCOeval(cg, cg.loadRes(str(out / "coco_dets.json")), "bbox")
+    ev.params.iouThrs = np.array([0.5])
+    ev.params.maxDets = [1, 10, int(max_det)]
+    ev.evaluate(); ev.accumulate()
+    prec = ev.eval["precision"][0, :, :, 0, -1]  # [T=0.5, R, K, area=all, maxDets=max_det]
+    per_class = {}
+    for k, c in enumerate(ev.params.catIds):
+        p = prec[:, k]
+        per_class[names[c - 1]] = float(p[p > -1].mean()) if (p > -1).any() else float("nan")
+    vals = [v for v in per_class.values() if np.isfinite(v)]
+    return dict(mAP50=float(np.mean(vals)) if vals else float("nan"), per_class_AP50=per_class,
+                params="iouThrs=[0.5], areaRng=all, maxDets=max_det, 101 recall points")
 
 
 def plot_pr(recs, names, path):
@@ -163,6 +231,7 @@ def main():
     ap.add_argument("--max-images", type=int, help="testing only")
     ap.add_argument("--from-preds", help="skip inference; score this predictions.csv")
     ap.add_argument("--ultra-crosscheck", action="store_true", help="also run Ultralytics val (full mode)")
+    ap.add_argument("--no-coco-crosscheck", action="store_true", help="skip the pycocotools cross-check")
     a = ap.parse_args()
 
     cfg = yaml.safe_load(open(a.config)) if a.config else {}
@@ -188,16 +257,24 @@ def main():
     images = list_images(root / "val" / "images")[: a.max_images]
     log_env(run_dir, "eval")
 
-    if a.from_preds:
-        preds = pd.read_csv(a.from_preds)
-        if Path(a.from_preds).resolve() != (out / "predictions.csv").resolve():
-            preds.to_csv(out / "predictions.csv", index=False)
+    sizes = image_sizes(images)
+    if a.from_preds:  # a predictions_raw.csv (re-merged here) or an already-merged predictions.csv
+        src = pd.read_csv(a.from_preds)
+        if "tile_x0" in src.columns:
+            raw = src
+        else:
+            preds = src
     else:
-        preds = run_predictions(a, images)
-        preds.to_csv(out / "predictions.csv", index=False)
+        raw = run_predictions(a, images)
+        raw.to_csv(out / "predictions_raw.csv", index=False)  # pre-merge; analysis/merge_sensitivity.py re-scores it
+    if not a.from_preds or "tile_x0" in src.columns:
+        method = a.merge if a.mode == "sliced" else "none"
+        preds = finalize(raw, sizes, method, a.merge_thr, a.merge_metric, a.max_det)
+    preds.to_csv(out / "predictions.csv", index=False)
     preds = preds[preds.conf >= a.conf]
 
-    recs = score_images(collect(preds, images, root / "val" / "labels"), len(names))
+    per = collect(preds, images, root / "val" / "labels", sizes)
+    recs = score_images(per, len(names))
     res = {m: ap_from_records(recs, len(names), m) for m in AP_METHODS}
     boot = {m: bootstrap(recs, len(names), a.bootstrap, a.seed, m) for m in AP_METHODS} if a.bootstrap else {}
 
@@ -239,8 +316,24 @@ def main():
     (out / "eval_args.json").write_text(json.dumps(args, indent=2, default=str))
     if a.ultra_crosscheck and a.mode == "full" and not a.from_preds:
         metrics["ultralytics_val"] = ultra_crosscheck(a, root, names, out)
+    if not a.no_coco_crosscheck:
+        coco = coco_crosscheck(per, names, a.max_det, out)
+        diff = abs(coco["mAP50"] - metrics["mAP50"])
+        metrics["pycocotools"] = coco
+        metrics["scorer_comparison"] = dict(
+            ours_coco101=metrics["mAP50"], pycocotools=coco["mAP50"],
+            ours_ultralytics_interp=metrics["mAP50_ultralytics_interp"],
+            ultralytics_val=metrics.get("ultralytics_val", {}).get("mAP50",
+                                                                 "n/a (sliced mode or --ultra-crosscheck not set)"),
+            abs_diff_ours_vs_pycocotools=diff, tolerance=SCORER_TOL, flag=bool(diff > SCORER_TOL))
+        pd.DataFrame([metrics["scorer_comparison"]]).to_csv(out / "scorer_comparison.csv", index=False)
+        if diff > SCORER_TOL:
+            print(f"[eval] WARNING: our mAP50 {metrics['mAP50']:.4f} vs pycocotools {coco['mAP50']:.4f} "
+                  f"differ by {diff:.4f} > {SCORER_TOL}")
     (out / "metrics.json").write_text(json.dumps(metrics, indent=2, default=float))
     print(table.to_string(index=False, float_format=lambda v: f"{v:.4f}"))
+    if "scorer_comparison" in metrics:
+        print("[eval] scorer comparison:", json.dumps(metrics["scorer_comparison"], default=float))
     print(f"[eval] wrote {out}")
 
 

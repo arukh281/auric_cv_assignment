@@ -1,7 +1,13 @@
-# Pinned to the versions the pipeline was tested with (Python 3.11, 2026-10-02).
-# torch / torchvision / numpy / opencv are deliberately NOT pinned: on Colab they come preinstalled as a
-# matched CUDA build, and reinstalling them breaks that stack. Their exact versions are recorded per run
-# in <run>/env/*_pip_freeze.txt and *_hardware.json (GPU, CUDA, cuDNN).
+# Non-torch dependencies. Target: Colab, Python 3.13, preinstalled CUDA torch, T4 GPU.
+#
+# torch / torchvision / numpy / opencv are NOT listed: Colab ships them as a matched CUDA build. The notebook
+# installs this file with a pip constraints file pinned to Colab's own torch/torchvision/numpy, so pip can
+# never replace them. Exact versions actually used are saved per run in <run>/env/*_pip_freeze.txt and
+# *_hardware.json, and the notebook also writes the full Colab lock to <DRIVE_RUNS>/colab_env_lock.txt.
+#
+# Pins below are the versions tested locally (Python 3.11). All are pure Python or publish CPython 3.13
+# wheels at these versions; if pip on Colab reports otherwise, the install cell fails loudly and the
+# version change must be recorded here.
 ultralytics==8.4.171
 ensemble-boxes==1.0.9
 imagehash==4.3.2
@@ -10,3 +16,4 @@ matplotlib==3.11.2
 pillow==12.3.0
 pyyaml==6.0.3
 scipy==1.17.1
+pycocotools==2.0.11

@@ -18,14 +18,20 @@ Every number cites the file it came from. Hypothesis and Conclusion are written 
 TODO (me)
 
 **Changes vs. previous run**
-First run. Starts from COCO-pretrained YOLO11s (`yolo11s.pt`). Whole image at imgsz 640, 50 epochs, batch 16,
-seed 0, deterministic=True, Ultralytics default augmentations / optimizer (`optimizer=auto`) / LR schedule.
-`val=false`: no per-epoch validation and no best-epoch selection on val; `last.pt` is evaluated.
-Eval: `eval.py`, full image at 640, conf 0.001, NMS IoU 0.7, max_det 334.
+First run. Starts from COCO-pretrained YOLO11s (`yolo11s.pt`).
+- Whole image at imgsz 640, 100 epochs (same as B1), batch 16 (falls back to 8 on out-of-memory; the batch actually
+  used is recorded), seed 0, deterministic=True.
+- Ultralytics default augmentations, optimizer (`optimizer=auto`) and LR schedule.
+- `val=true` only to log per-epoch val losses and Ultralytics val mAP (`training_curves.png/.csv`). `last.pt` is
+  evaluated; no checkpoint is selected on val.
+- Eval: `eval.py`, full image at 640, conf 0.001, NMS IoU 0.7, max_det 334.
 
 **Results**
-Pending Colab. Fill from `runs/b0_full640/eval/per_class.csv` and `metrics.json`. Qualitative results are in
-`figures/b0_full640/` (TP/FP/FN grids, confusion matrix).
+Pending Colab. Fill from:
+- `runs/b0_full640/eval/per_class.csv` and `metrics.json` (headline = COCO 101-pt AP50; the scorer comparison against
+  pycocotools and Ultralytics val is in `scorer_comparison.csv`)
+- `training_summary.json` (total iterations, batch used)
+- `figures/b0_full640/` (TP/FP/FN grids, confusion matrix)
 
 **Conclusion**
 TODO (me)
@@ -52,16 +58,24 @@ TODO (me)
   - 20% of box-free tiles kept (seed 0).
   - A clipped box is kept if at least 50% of its area is visible in the tile.
 - Val is not tiled for training. The evaluated model is `last.pt`.
-- Epochs: 100, against 50 for B0. **Note:** this confounds the comparison with B0. An epoch is also a different
-  number of gradient steps in the two setups (tiles vs whole images).
+- Epochs: 100, the same as B0. **Note:** B1 still does more iterations per epoch than B0. One epoch passes over every
+  written tile (many per source image), not over 443 whole images. So equal epochs are not equal gradient steps.
+  The actual counts are in each run's `training_summary.json` (`iterations_per_epoch`, `total_iterations`), and any
+  B0-vs-B1 difference has to be read with that in mind.
 - Eval: sliced inference on full-res val with the same tile geometry.
   - Class-wise NMS across tiles, using intersection-over-smaller at 0.6.
   - conf 0.001, max_det 334.
   - Scored against the original full-image labels with the same code as B0.
 
 **Results**
-Pending Colab. Fill from `runs/b1_tile1024/eval/per_class.csv` and `metrics.json`, plus `tiling_params.json` for
-tile counts.
+Pending Colab. Fill from:
+- `runs/b1_tile1024/eval/per_class.csv`, `metrics.json` and `scorer_comparison.csv`
+- `training_summary.json` (iterations, batch used) and `tiling_params.json` (tile counts)
+- `figures/b1_tile1024/merge_sensitivity.csv` (mAP50 under IoS 0.5/0.6/0.7, IoU 0.5 and no merge, re-scored from
+  the saved raw tile predictions without re-inference)
+
+Per-epoch val curves for B1 come from Ultralytics' val on un-sliced full images at 1024. They show training
+dynamics only and are not comparable with the sliced metric.
 
 **Conclusion**
 TODO (me)

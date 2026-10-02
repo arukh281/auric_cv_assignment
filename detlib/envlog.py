@@ -30,8 +30,14 @@ def hardware():
         info.update(torch=torch.__version__, cuda_available=torch.cuda.is_available(),
                     torch_cuda=torch.version.cuda, cudnn=torch.backends.cudnn.version(),
                     gpus=[torch.cuda.get_device_name(i) for i in range(torch.cuda.device_count())],
+                    gpu_mem_gib=[round(torch.cuda.get_device_properties(i).total_memory / 2**30, 1)
+                                 for i in range(torch.cuda.device_count())],
                     mps_available=torch.backends.mps.is_available())
     except ImportError:
+        pass
+    try:
+        info["ultralytics"] = metadata.version("ultralytics")
+    except metadata.PackageNotFoundError:
         pass
     info["nvidia_smi"] = _run(["nvidia-smi"])
     info["git_commit"] = _run(["git", "-C", str(REPO), "rev-parse", "HEAD"])

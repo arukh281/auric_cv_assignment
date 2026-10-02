@@ -1,7 +1,9 @@
 """Known-answer tests for scoring, tiling and tile merging. Run: python tests/test_pipeline.py
 (no pytest needed; also pytest-compatible). Uses data/val labels for realistic GT where noted.
 """
+import os
 import sys
+import tempfile
 from pathlib import Path
 
 import numpy as np
@@ -13,7 +15,7 @@ from detlib.scoring import ap_from_records, average_precision, bootstrap, score_
 from detlib.tiling import clip_boxes, tile_starts, tile_windows  # noqa: E402
 
 NC = 5
-DATA = Path(__file__).resolve().parent.parent / "data"
+DATA = Path(os.environ.get("DATA_ROOT", Path(__file__).resolve().parent.parent / "data"))
 
 
 def real_gt():
@@ -145,6 +147,97 @@ def test_merge_removes_cross_tile_duplicates():
     assert len(b) == 3
     b, s, c = merge(xy, conf, cls, 1000, 1000, "wbf", 0.55)
     assert len(b) == 3  # WBF fuses the IoU>0.55 pair only
+
+
+def _half_recall_case():
+    rng = np.random.default_rng(0)
+    g_cls = np.repeat(np.arange(NC), 10)
+    xy = rng.uniform(0, 900, (len(g_cls), 2))
+    g = np.hstack([xy, xy + 20])
+    keep = np.tile(np.arange(10) % 2 == 0, NC)
+    return g, g_cls, keep
+
+
+def test_pycocotools_known_answers():
+    from eval import coco_crosscheck
+    names = {c: f"c{c}" for c in range(NC)}
+    g, g_cls, keep = _half_recall_case()
+    with tempfile.TemporaryDirectory() as t:
+        perfect = [dict(image="a.png", w=1000, h=1000, p_xyxy=g, p_cls=g_cls, p_conf=np.ones(len(g)),
+                        g_xyxy=g, g_cls=g_cls)]
+        assert abs(coco_crosscheck(perfect, names, 334, Path(t))["mAP50"] - 1.0) < 1e-9
+        half = [dict(image="a.png", w=1000, h=1000, p_xyxy=g[keep], p_cls=g_cls[keep], p_conf=np.ones(keep.sum()),
+                     g_xyxy=g, g_cls=g_cls)]
+        res = coco_crosscheck(half, names, 334, Path(t))
+        assert abs(res["mAP50"] - 51 / 101) < 1e-9, res  # same value as our COCO-style scorer
+        # ours and pycocotools agree on a noisy realistic case (real GT, jittered boxes, random scores, class flips)
+        rng = np.random.default_rng(1)
+        per = []
+        for w, h, c, b in real_gt():
+            jit = b + rng.normal(0, 3, b.shape)
+            pc = np.where(rng.random(len(c)) < 0.15, rng.integers(0, NC, len(c)), c)
+            fp = rng.uniform(0, min(w, h) - 30, (len(c) // 3, 2))
+            pb = np.vstack([jit, np.hstack([fp, fp + 25])])
+            pc = np.concatenate([pc, rng.integers(0, NC, len(fp))])
+            per.append(dict(image=f"{len(per)}.png", w=w, h=h, p_xyxy=pb, p_cls=pc, p_conf=rng.random(len(pb)),
+                            g_xyxy=b, g_cls=c))
+        ours = ap_from_records(score_images(per, NC), NC, "coco")[1]
+        theirs = coco_crosscheck(per, names, 334, Path(t))["mAP50"]
+        assert abs(ours - theirs) < 0.005, (ours, theirs)
+        print(f"      noisy case: ours {ours:.4f} vs pycocotools {theirs:.4f}")
+
+
+def test_finalize_merges_tile_duplicates():
+    # Each GT box predicted once by every tile that sees >= 50% of it (clipped), as overlapping tiles would.
+    import pandas as pd
+    from eval import RAW_COLS, finalize
+    rows, sizes, per_gt = [], {}, []
+    for k, (w, h, c, b) in enumerate(real_gt()):
+        name = f"{k}.png"
+        sizes[name] = (w, h)
+        for win in tile_windows(w, h, 1024, 256):
+            cc, local, _ = clip_boxes(c, b, win, 0.5)
+            back = local + np.array([win[0], win[1], win[0], win[1]])
+            rows += [dict(image=name, tile_x0=win[0], tile_y0=win[1], cls=int(ci), conf=0.9, x1=bb[0], y1=bb[1],
+                          x2=bb[2], y2=bb[3]) for ci, bb in zip(cc, back)]
+        per_gt.append((name, w, h, c, b))
+    raw = pd.DataFrame(rows, columns=RAW_COLS)
+    scores = {}
+    for method, metric, thr in [("none", "iou", None), ("nms", "ios", 0.6), ("nms", "iou", 0.5)]:
+        p = finalize(raw, sizes, method, thr, metric, 334)
+        per = [dict(p_xyxy=p[p.image == n][["x1", "y1", "x2", "y2"]].to_numpy(float),
+                    p_cls=p[p.image == n].cls.to_numpy(int), p_conf=p[p.image == n].conf.to_numpy(float),
+                    g_xyxy=b, g_cls=c) for n, w, h, c, b in per_gt]
+        scores[(method, metric)] = (ap_from_records(score_images(per, NC), NC, "coco")[1], len(p))
+    assert scores[("none", "iou")][1] > scores[("nms", "ios")][1]  # duplicates exist before merging
+    assert scores[("nms", "ios")][0] > scores[("none", "iou")][0]  # merging removes duplicate FPs
+    assert scores[("nms", "ios")][0] > 0.95, scores
+    print("      ", {f"{k[0]}/{k[1]}": (round(v[0], 4), v[1]) for k, v in scores.items()})
+
+
+def test_oom_fallback():
+    from train import train_with_fallback
+    calls = []
+
+    def fit(batch):
+        calls.append(batch)
+        if batch == 16:
+            raise RuntimeError("CUDA out of memory. Tried to allocate 2.00 GiB")
+    assert train_with_fallback(fit, 16, 8, "/nonexistent/last.pt") == 8 and calls == [16, 8]
+
+    def fit_other(batch):
+        raise ValueError("bad config")
+    try:
+        train_with_fallback(fit_other, 16, 8, "/nonexistent/last.pt")
+        raise AssertionError("non-OOM error must propagate")
+    except ValueError:
+        pass
+    with tempfile.NamedTemporaryFile() as f:  # an epoch was already saved -> no silent batch change
+        try:
+            train_with_fallback(fit, 16, 8, f.name)
+            raise AssertionError("OOM after a saved epoch must propagate")
+        except RuntimeError:
+            pass
 
 
 if __name__ == "__main__":
