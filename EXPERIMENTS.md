@@ -185,3 +185,16 @@ Classification remains the biggest bottleneck, consistent with B1. More training
 | 2 | Smallest useful subset | §5.4 | reuses the curves, plus 1–2 runs |
 | 3 | Which training examples resist learning | §5.2 | about 1 run |
 | 4 | Final analysis + report + README | §6 | your writing |
+
+---
+
+## LC: learning curves (§5.3), runs b1h_f25 / b1h_f50 / b1h_f75 + b1h_seed1
+
+**Pre-registration (written by the author before any learning-curve result was seen)**
+- Written at: <timestamp>
+- Question: would 500 more labelled images meaningfully raise mAP50?
+- Prediction (does the curve still rise steeply at 100%, i.e. more data helps, or is it already flattening, i.e. data
+  isn't the bottleneck?):
+- Predicted held-out mAP50 at 25%:
+- Decision rule: if the extrapolated gain at +500 images is smaller than the seed-to-seed noise, more labels alone
+  won't help.
