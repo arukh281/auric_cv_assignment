@@ -1,0 +1,46 @@
+{
+  "modes": {
+    "pool/all": {
+      "n_gt": 1552,
+      "accuracy": 0.5141752577319587,
+      "mean_class_accuracy": 0.3814797813923441
+    },
+    "pool/unflagged": {
+      "n_gt": 1428,
+      "accuracy": 0.5147058823529411,
+      "mean_class_accuracy": 0.38582607803951807
+    },
+    "pool/flagged": {
+      "n_gt": 124,
+      "accuracy": 0.5080645161290323,
+      "mean_class_accuracy": 0.26751513483764444
+    },
+    "best/all": {
+      "n_gt": 1552,
+      "accuracy": 0.49097938144329895,
+      "mean_class_accuracy": 0.35050277544016106
+    },
+    "best/unflagged": {
+      "n_gt": 1428,
+      "accuracy": 0.4894957983193277,
+      "mean_class_accuracy": 0.35364147973330506
+    },
+    "best/flagged": {
+      "n_gt": 124,
+      "accuracy": 0.5080645161290323,
+      "mean_class_accuracy": 0.26751513483764444
+    }
+  },
+  "agreement_pool_vs_best": {
+    "n": 1552,
+    "n_agree": 1204,
+    "agreement": 0.7757731958762887,
+    "n_agree_unflagged": 1080,
+    "n_unflagged": 1428
+  },
+  "n_flagged_no_anchor_at_iou": 124,
+  "n_unflagged": 1428,
+  "iou": 0.5,
+  "weights": "/kaggle/working/runs/b1h_smart50/train/weights/last.pt",
+  "mode": "sliced"
+}
