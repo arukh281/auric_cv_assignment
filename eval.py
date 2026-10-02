@@ -11,6 +11,12 @@ scorer_comparison.csv + coco_gt.json/coco_dets.json (pycocotools cross-check), p
 <run>/command.txt. --from-preds accepts either predictions_raw.csv (re-merged with the current settings) or
 predictions.csv.
 
+Train-set sanity check (--split train): scores FULL-RESOLUTION original train images (not tiles) with the same
+inference, merge and scorer as val. --max-images N then samples N images with --sample-seed (1938.png, the empty
+train image, is never sampled); the sampled list goes into metrics.json. --out is required and may not be the
+run's eval/ folder. Defaults (--split val) are unchanged.
+  python eval.py --config configs/b1.yaml --split train --max-images 40 --out runs/b1_tile1024/eval_train40
+
 mAP50 here = mean over classes of AP at IoU 0.5 (COCO 101-point interpolation) at conf >= --conf.
 The Ultralytics-interpolated value is also reported; see detlib/scoring.py for the difference.
 """
@@ -42,6 +48,7 @@ from detlib.tiling import tile_windows  # noqa: E402
 Image.MAX_IMAGE_PIXELS = None
 PRED_COLS = ["image", "cls", "conf", "x1", "y1", "x2", "y2"]
 RAW_COLS = ["image", "tile_x0", "tile_y0", "cls", "conf", "x1", "y1", "x2", "y2"]
+TRAIN_EMPTY_IMAGE = "1938.png"  # the one train image without boxes (Phase 1 EDA); not sampled by --split train
 SCORER_TOL = 0.005  # flag if our COCO-style mAP50 and pycocotools differ by more than this
 
 
@@ -228,7 +235,11 @@ def main():
     ap.add_argument("--device", default=None)
     ap.add_argument("--bootstrap", type=int, default=1000)
     ap.add_argument("--seed", type=int, default=0)
-    ap.add_argument("--max-images", type=int, help="testing only")
+    ap.add_argument("--max-images", type=int,
+                    help="val: first N images (testing only); train: N images sampled with --sample-seed")
+    ap.add_argument("--split", choices=["val", "train"], default="val",
+                    help="train = sanity check on full-resolution train images; requires --out")
+    ap.add_argument("--sample-seed", type=int, default=0, help="--split train: seed for sampling --max-images")
     ap.add_argument("--from-preds", help="skip inference; score this predictions.csv")
     ap.add_argument("--ultra-crosscheck", action="store_true", help="also run Ultralytics val (full mode)")
     ap.add_argument("--no-coco-crosscheck", action="store_true", help="skip the pycocotools cross-check")
@@ -242,20 +253,36 @@ def main():
             setattr(a, k, v)
     run_dir = Path(a.run_dir) if a.run_dir else Path(a.runs_root) / cfg.get("name", "adhoc")
     a.weights = a.weights or str(run_dir / "train" / "weights" / "last.pt")
+    if a.split == "train":
+        if not a.out:
+            sys.exit("--split train requires an explicit --out (never the run's eval/ folder)")
+        if Path(a.out).resolve() == (run_dir / "eval").resolve():
+            sys.exit("--split train must not write into the run's eval/ folder")
     out = Path(a.out) if a.out else run_dir / "eval"
     out.mkdir(parents=True, exist_ok=True)
 
     max_gt = eda_max_boxes_per_image("val")
     if a.max_det is None:
         a.max_det = max(300, 2 * max_gt)
+    if a.split == "train":  # keep val's max_det unless a train image has more GT than it allows
+        max_gt = max(max_gt, eda_max_boxes_per_image("train"))
+        a.max_det = max(a.max_det, 2 * max_gt)
     print(f"[eval] max GT boxes in one val image (EDA table): {max_gt}; max_det = {a.max_det}")
     if a.max_det <= max_gt:
         sys.exit("max_det must exceed the max number of GT boxes per val image")
 
     root = Path(a.data_root)
     names = load_classes(root)
-    images = list_images(root / "val" / "images")[: a.max_images]
-    log_env(run_dir, "eval")
+    sampled = None
+    if a.split == "train":
+        pool = [p for p in list_images(root / "train" / "images") if p.name != TRAIN_EMPTY_IMAGE]
+        if a.max_images is not None and a.max_images < len(pool):
+            idx = np.sort(np.random.default_rng(a.sample_seed).choice(len(pool), a.max_images, replace=False))
+            pool = [pool[i] for i in idx]
+        images, sampled = pool, [p.name for p in pool]
+    else:
+        images = list_images(root / "val" / "images")[: a.max_images]
+    log_env(run_dir, "eval" if a.split == "val" else "eval_train")
 
     sizes = image_sizes(images)
     if a.from_preds:  # a predictions_raw.csv (re-merged here) or an already-merged predictions.csv
@@ -273,7 +300,7 @@ def main():
     preds.to_csv(out / "predictions.csv", index=False)
     preds = preds[preds.conf >= a.conf]
 
-    per = collect(preds, images, root / "val" / "labels", sizes)
+    per = collect(preds, images, root / a.split / "labels", sizes)
     recs = score_images(per, len(names))
     res = {m: ap_from_records(recs, len(names), m) for m in AP_METHODS}
     boot = {m: bootstrap(recs, len(names), a.bootstrap, a.seed, m) for m in AP_METHODS} if a.bootstrap else {}
@@ -312,9 +339,12 @@ def main():
         n_gt={names[c]: int(n_gt[c]) for c in names},
         bootstrap=dict(n=a.bootstrap, seed=a.seed, unit="val image", ci="percentile 95%") if boot else None,
     )
+    if a.split == "train":
+        metrics.update(split="train", sample_seed=a.sample_seed, max_images=a.max_images, sampled_images=sampled,
+                       excluded_images=[TRAIN_EMPTY_IMAGE], bootstrap_unit_note="train image")
     args = {k: v for k, v in vars(a).items()}
     (out / "eval_args.json").write_text(json.dumps(args, indent=2, default=str))
-    if a.ultra_crosscheck and a.mode == "full" and not a.from_preds:
+    if a.ultra_crosscheck and a.mode == "full" and not a.from_preds and a.split == "val":
         metrics["ultralytics_val"] = ultra_crosscheck(a, root, names, out)
     if not a.no_coco_crosscheck:
         coco = coco_crosscheck(per, names, a.max_det, out)
