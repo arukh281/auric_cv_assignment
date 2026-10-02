@@ -152,7 +152,8 @@ Pending results.
 | Held-out training images | **0.151 (0.06–0.19)** |          85% |
 | Validation images        | **0.107 (0.06–0.17)** |          66% |
 
-*Trucks found* = class-agnostic recall at IoU 0.5, conf ≥ 0.001: 735/796, 629/738 and 1032/1552 GT. Sources:
+*Trucks found* = share of trucks matched by any prediction of any class, at any confidence (IoU 0.5, down to the eval
+floor conf 0.001): 735/796, 629/738 and 1032/1552 GT. Sources:
 `results/b1h_tile1024_holdout40/{eval_train40,eval_holdout40,eval}/metrics.json` and `class_agnostic.json`
 (Kaggle kernel `aradhya1211/auric-b1h` v1, code `4a17eb1`, 2 × Tesla T4, `last.pt`, max_det 902 for all three).
 
@@ -160,9 +161,11 @@ Pending results.
 
 B1h confirms that the model struggles with unseen images, not just the validation set. Its mAP50 drops from 0.378 on training images to 0.151 on held-out images, indicating poor generalization with the current dataset of around 400 images.
 
-The held-out and validation confidence intervals overlap, suggesting that poor generalization is the main issue rather than a unique problem with the validation set. However, the model finds fewer trucks on validation images (66% vs. 85%), possibly because those scenes are denser.
+The held-out and validation confidence intervals overlap, suggesting that poor generalization is the main issue rather than a unique problem with the validation set. However, the model finds fewer trucks on validation images (66% vs. 85%). The cause is not yet known. Density is a candidate, but within the validation set miss rates did not vary with density, so this remains untested.
 
 Classification remains the biggest bottleneck, consistent with B1. More training data, stronger augmentation, and a separate classifier trained on cropped trucks are potential next steps.
+
+**Pre-registration:** No prediction was written before this run.
 
 **Important caveat:** B1h scored 0.107 on validation, compared with B1's 0.071. Differences of this size can arise from run-to-run randomness and platform differences; the small change in the detection limit explains only about 0.006. A single run is therefore not enough to establish a meaningful improvement.
 
