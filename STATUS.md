@@ -1,5 +1,14 @@
 # Status: Phase 2 code (2026-10-02)
 
+## Round 4 (after the T4 timing probe): current plan
+- Both runs: 50 epochs, SGD lr0 0.01 momentum 0.937 (explicit), AMP, `cache: disk` on /content, seed 0.
+  Weights are kept at epochs 10/20/30/40/50 by a `train.py` hook; Ultralytics' `save_period` would keep 1/11/21/...
+- Run from the Colab **Terminal**: `scripts/colab_setup.sh`, then `scripts/run_b1.sh`, then `scripts/run_b0.sh`;
+  monitor with `scripts/status.sh`. See README → "Run on Colab from the Terminal".
+- `analysis/checkpoint_curve.py` gives real-metric mAP50 per kept checkpoint.
+- Tested locally: 12 tests pass, shell scripts pass `bash -n`, `status.sh` dry-run on a fake run.
+  Not run anywhere yet: training with the new config, `checkpoint_curve.py`, and the setup and run scripts on Colab.
+
 ## Decisions applied (round 2)
 1. **B0 now runs 100 epochs**, matching B1. Both runs set `val: true`, only to log per-epoch train/val losses and
    Ultralytics val mAP. `last.pt` is still what gets evaluated.

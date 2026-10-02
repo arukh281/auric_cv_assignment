@@ -25,7 +25,38 @@ classmap.txt  data.yaml  train/images  train/labels  val/images  val/labels
 ```
 Labels are YOLO txt (`cls xc yc w h`, normalized). Locally, `data/` is a symlink to the dataset folder.
 
-## Run on Colab (training)
+## Run on Colab from the Terminal (main workflow)
+Paths default to `/content/drive/MyDrive/auric/{cv_dataset.zip,runs}` (see `scripts/_env.sh`; override any by
+exporting it first).
+
+1. In a notebook cell, once per session (approve the popup): `from google.colab import drive; drive.mount('/content/drive')`.
+2. Open the Terminal (left bar) and clone the repo. Colab secrets are not visible in the terminal, so paste a
+   GitHub token at the silent prompt. It is not echoed, and it is removed from the git config straight after cloning:
+   ```bash
+   cd /content && read -rsp "GitHub token: " T && echo && \
+     git clone -q "https://$T@github.com/arukh281/auric_cv_assignment.git" repo; unset T; \
+     cd repo && git remote set-url origin https://github.com/arukh281/auric_cv_assignment.git && git log -1 --oneline
+   ```
+   If `/content/repo` already exists in this session: `cd /content/repo && git log -1 --oneline` (pulling also needs the token).
+3. Setup: installs the requirements without touching Colab's torch, prepares `/content/data` from the Drive zip,
+   writes `runs/colab_env_lock.txt` and runs the tests. It is safe to re-run; it ends with `SETUP OK`.
+   ```bash
+   bash scripts/colab_setup.sh
+   ```
+4. Train and evaluate, B1 first. `nohup` keeps the run alive if the terminal tab closes. Each script trains (or resumes
+   from `last.pt` on Drive, or skips training if the run already finished), then runs `eval.py`, the prediction
+   review, merge sensitivity (B1) and `checkpoint_curve.py`. The log goes to `runs/<run>/run.log` on Drive.
+   ```bash
+   nohup bash scripts/run_b1.sh > /dev/null 2>&1 &
+   bash scripts/status.sh            # epoch, losses, time left, live batch progress, GPU, running processes
+   tail -f /content/drive/MyDrive/auric/runs/b1_tile1024/run.log
+   # after B1 finishes:
+   nohup bash scripts/run_b0.sh > /dev/null 2>&1 &
+   ```
+5. **After a disconnect or the ~4h50m free-tier cap:** start a new session, mount Drive (step 1), then re-run steps
+   2–4. Setup skips what is already done, and the run script resumes from the last saved epoch.
+
+## Run on Colab (notebook cells, alternative)
 **Environment:** a Colab **T4 GPU (16 GB)** runtime on **Python 3.13**.
 - Colab's preinstalled CUDA torch/torchvision are used as-is and **never reinstalled**. The install cell runs
   `pip install -r requirements.txt -c <constraints pinned to Colab's own torch, torchvision, numpy, opencv>`.

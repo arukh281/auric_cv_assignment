@@ -3,16 +3,21 @@ name: b0_full640
 model: yolo11s.pt          # COCO-pretrained Ultralytics release weights (NOT xView-pretrained; see REPORT.md)
 seed: 0
 deterministic: true
-epochs: 100                # matches B1; B1 still does more iterations per epoch (tiles > images), see training_summary.json
+epochs: 50                 # equal schedule for B0 and B1; B1 still does more iterations per epoch (tiles), see training_summary.json
 imgsz: 640
 batch: 16
 workers: 8
 tiling: null
-train_args:                # everything not listed = Ultralytics defaults (augmentations, SGD/AdamW auto, lr schedule)
+checkpoint_every: 10        # train.py keeps weights/epoch010.pt, epoch020.pt, ... (completed epochs) on Drive
+train_args:                # anything not listed = Ultralytics defaults (augmentations, LR schedule, warmup, losses)
   val: true                # per-epoch val losses/mAP for training curves only; last.pt is reported (no best-epoch selection on val)
   plots: true
   amp: true                # fp16 mixed precision (T4)
-  save_period: -1          # last.pt is still written every epoch (to Drive via --runs-root); no extra epoch files
+  save_period: -1          # Ultralytics counts this from epoch 0 (would keep epochs 1,11,21..); checkpoint_every is used instead
+  optimizer: SGD           # explicit: optimizer=auto picks AdamW under 10k iterations and SGD above, so B0 and B1 would differ
+  lr0: 0.01
+  momentum: 0.937
+  cache: disk              # decoded images as .npy next to the images on /content (local disk); RAM caching is non-deterministic
 eval:
   mode: full
   imgsz: 640

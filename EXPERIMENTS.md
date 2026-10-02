@@ -5,6 +5,25 @@ Every number cites the file it came from. Hypothesis and Conclusion are written 
 
 ---
 
+## Pre-run timing probe (1 epoch each, Colab T4 free tier; old config: optimizer=auto, 100 epochs)
+Source: `runs/_timing/` on Drive (`timing_estimate.csv`, `train/results.csv`, `training_summary.json`,
+`tiling_params.json`), as reported from the Colab run. The probe folders are not in git.
+- B0: 28 it/epoch at 5.9 s/it, ~3.4 min/epoch including val. Throughput looked CPU-bound (decoding ~3000 px PNGs
+  with 2 dataloader workers).
+- B1: 3785 tiles, 237 it/epoch at 1.1 s/it, 10.5 GB GPU memory at batch 16, ~4.6 min/epoch including val.
+- Tiling: 3785 tiles written, 2772 with boxes, 1013 empty kept, 499 partially visible boxes dropped; overlap 256 >
+  max box side 161.
+- `optimizer=auto` chose AdamW (lr 0.001111) for the probe. It would switch to SGD above 10k iterations, so the
+  planned B0 (~2.8k iterations) and B1 (~23.7k) would have used different optimizers.
+- cls_loss after epoch 1: B0 146.7, B1 7.9.
+- Free-tier sessions cap at ~4h50m.
+
+**Changes made because of the probe (both runs):** optimizer set explicitly (SGD, lr0 0.01, momentum 0.937),
+50 epochs each, `cache: disk` on /content, checkpoints kept at completed epochs 10/20/30/40/50, and
+`analysis/checkpoint_curve.py` scores every kept checkpoint with the real metric.
+
+---
+
 ## B0: naive full-image baseline (`configs/b0.yaml`, run `b0_full640`)
 
 **Observation**
@@ -19,9 +38,11 @@ TODO (me)
 
 **Changes vs. previous run**
 First run. Starts from COCO-pretrained YOLO11s (`yolo11s.pt`).
-- Whole image at imgsz 640, 100 epochs (same as B1), batch 16 (falls back to 8 on out-of-memory; the batch actually
+- Whole image at imgsz 640, 50 epochs (same as B1), batch 16 (falls back to 8 on out-of-memory; the batch actually
   used is recorded), seed 0, deterministic=True.
-- Ultralytics default augmentations, optimizer (`optimizer=auto`) and LR schedule.
+- SGD lr0 0.01, momentum 0.937 (explicit; same as B1). AMP on. `cache: disk`. Ultralytics default augmentations and LR
+  schedule. Weights kept at epochs 10/20/30/40/50.
+- Run order: B1 first, then B0.
 - `val=true` only to log per-epoch val losses and Ultralytics val mAP (`training_curves.png/.csv`). `last.pt` is
   evaluated; no checkpoint is selected on val.
 - Eval: `eval.py`, full image at 640, conf 0.001, NMS IoU 0.7, max_det 334.
@@ -31,6 +52,7 @@ Pending Colab. Fill from:
 - `runs/b0_full640/eval/per_class.csv` and `metrics.json` (headline = COCO 101-pt AP50; the scorer comparison against
   pycocotools and Ultralytics val is in `scorer_comparison.csv`)
 - `training_summary.json` (total iterations, batch used)
+- `figures/b0_full640/checkpoint_curve.csv/.png` (real-metric mAP50 per kept checkpoint)
 - `figures/b0_full640/` (TP/FP/FN grids, confusion matrix)
 
 **Conclusion**
@@ -58,7 +80,7 @@ TODO (me)
   - 20% of box-free tiles kept (seed 0).
   - A clipped box is kept if at least 50% of its area is visible in the tile.
 - Val is not tiled for training. The evaluated model is `last.pt`.
-- Epochs: 100, the same as B0. **Note:** B1 still does more iterations per epoch than B0. One epoch passes over every
+- Epochs: 50 and SGD lr0 0.01 momentum 0.937, the same as B0. **Note:** B1 still does more iterations per epoch than B0. One epoch passes over every
   written tile (many per source image), not over 443 whole images. So equal epochs are not equal gradient steps.
   The actual counts are in each run's `training_summary.json` (`iterations_per_epoch`, `total_iterations`), and any
   B0-vs-B1 difference has to be read with that in mind.
@@ -71,6 +93,7 @@ TODO (me)
 Pending Colab. Fill from:
 - `runs/b1_tile1024/eval/per_class.csv`, `metrics.json` and `scorer_comparison.csv`
 - `training_summary.json` (iterations, batch used) and `tiling_params.json` (tile counts)
+- `figures/b1_tile1024/checkpoint_curve.csv/.png` (sliced mAP50 per kept checkpoint)
 - `figures/b1_tile1024/merge_sensitivity.csv` (mAP50 under IoS 0.5/0.6/0.7, IoU 0.5 and no merge, re-scored from
   the saved raw tile predictions without re-inference)
 

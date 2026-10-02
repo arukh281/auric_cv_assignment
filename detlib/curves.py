@@ -29,6 +29,9 @@ def summarize_training(run_dir):
         train_images_or_tiles=n_train, batch_used=batch, imgsz=args["imgsz"], epochs_configured=args["epochs"],
         epochs_completed=int(len(res)), iterations_per_epoch=per_epoch, total_iterations=per_epoch * int(len(res)),
         images_seen=n_train * int(len(res)),
+        optimizer=args.get("optimizer"), lr0=args.get("lr0"), momentum=args.get("momentum"), cache=args.get("cache"),
+        amp=args.get("amp"), seed=args.get("seed"), deterministic=args.get("deterministic"),
+        kept_checkpoints=sorted(p.name for p in (tdir / "weights").glob("epoch*.pt")),
         note="per-epoch val metrics are Ultralytics' own val on un-sliced full val images; for curves only, "
              "not the reported metric and not used to pick a checkpoint (last.pt is evaluated)",
     )

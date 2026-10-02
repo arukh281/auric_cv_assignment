@@ -13,6 +13,7 @@ losses and Ultralytics val mAP).
 """
 import argparse
 import json
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -83,9 +84,15 @@ def main():
     log_env(run_dir, "train_resume" if resuming else "train")
 
     from ultralytics import YOLO
-    if resuming:
-        print(f"[train] resuming from {last}")
-        YOLO(str(last)).train(resume=True)
+    results = run_dir / "train" / "results.csv"
+    done = max(sum(1 for _ in open(results)) - 1, 0) if results.exists() else 0
+    if resuming and done >= cfg["epochs"]:
+        print(f"[train] {run_dir.name} already finished ({done}/{cfg['epochs']} epochs); skipping training")
+    elif resuming:
+        print(f"[train] resuming from {last} ({done}/{cfg['epochs']} epochs done)")
+        m = YOLO(str(last))
+        add_checkpoint_callback(m, cfg.get("checkpoint_every"))
+        m.train(resume=True)
     else:
         def fit(batch):
             model = YOLO(cfg["model"])
@@ -94,6 +101,7 @@ def main():
                 from eval import sha256
                 (run_dir / "init_weights.json").write_text(json.dumps(
                     {"model": cfg["model"], "path": str(init.resolve()), "sha256": sha256(init)}, indent=2))
+            add_checkpoint_callback(model, cfg.get("checkpoint_every"))
             model.train(data=str(data_yaml), project=str(run_dir), name="train", exist_ok=True,
                         epochs=cfg["epochs"], imgsz=cfg["imgsz"], batch=batch, workers=cfg.get("workers", 8),
                         seed=cfg["seed"], deterministic=cfg["deterministic"], device=cfg.get("device"),
@@ -107,6 +115,22 @@ def main():
             print(f"[train] {cfg['batch_note']}")
     from detlib.curves import summarize_training
     print("[train] summary:", json.dumps(summarize_training(run_dir)))
+
+
+def add_checkpoint_callback(model, every):
+    """Keep a copy of last.pt after every `every` COMPLETED epochs (epoch010.pt, epoch020.pt, ...).
+
+    Ultralytics' save_period counts from epoch 0, so it would keep epochs 1, 11, 21, ...; this keeps 10, 20, 30.
+    """
+    if not every:
+        return
+
+    def keep(trainer):
+        done = trainer.epoch + 1
+        if done % every == 0 and trainer.last.exists():
+            shutil.copy2(trainer.last, trainer.wdir / f"epoch{done:03d}.pt")
+
+    model.add_callback("on_model_save", keep)
 
 
 def is_oom(e):

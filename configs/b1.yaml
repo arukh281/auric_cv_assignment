@@ -4,7 +4,7 @@ name: b1_tile1024
 model: yolo11s.pt          # COCO-pretrained Ultralytics release weights (NOT xView-pretrained; see REPORT.md)
 seed: 0
 deterministic: true
-epochs: 100
+epochs: 50                 # equal schedule for B0 and B1; B1 still does more iterations per epoch (tiles), see training_summary.json
 imgsz: 1024
 batch: 16                  # may not fit a 16 GB T4 at 1024; train.py falls back to 8 and records it
 workers: 8
@@ -14,11 +14,16 @@ tiling:
   empty_keep: 0.2          # fraction of box-free tiles kept as negatives
   min_vis: 0.5             # clipped box kept if >= 50% of its area is inside the tile
   seed: 0
-train_args:
+checkpoint_every: 10        # train.py keeps weights/epoch010.pt, epoch020.pt, ... (completed epochs) on Drive
+train_args:                # anything not listed = Ultralytics defaults (augmentations, LR schedule, warmup, losses)
   val: true                # per-epoch curves only, on UN-SLICED full val images at 1024 (not the reported sliced metric); last.pt is reported
   plots: true
   amp: true                # fp16 mixed precision (T4)
-  save_period: -1          # last.pt is still written every epoch (to Drive via --runs-root); no extra epoch files
+  save_period: -1          # Ultralytics counts this from epoch 0 (would keep epochs 1,11,21..); checkpoint_every is used instead
+  optimizer: SGD           # explicit: optimizer=auto picks AdamW under 10k iterations and SGD above, so B0 and B1 would differ
+  lr0: 0.01
+  momentum: 0.937
+  cache: disk              # decoded images as .npy next to the images on /content (local disk); RAM caching is non-deterministic
 eval:
   mode: sliced
   imgsz: 1024
