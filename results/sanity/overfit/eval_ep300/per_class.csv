@@ -1,0 +1,7 @@
+cls,class_name,n_gt,n_pred,AP50_coco,AP50_ultralytics
+0,Cargo Truck,51,114,1.0,0.995
+1,Truck w/Box,23,50,1.0,0.995
+2,Truck w/Flatbed,7,22,1.0,0.995
+3,Truck Tractor,15,32,1.0,0.995
+4,Truck w/Liquid,4,13,1.0,0.995
+-1,all (mAP50),100,231,1.0,0.9949999999999999

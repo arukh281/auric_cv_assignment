@@ -1,0 +1,13 @@
+kind,tile,source,x0,y0,w,h,n_boxes,classes
+random,2499__x768_y768,2499.png,768,768,1024,1024,12,"Cargo Truck,Truck w/Liquid"
+random,2568__x0_y768,2568.png,0,768,1024,1024,1,Cargo Truck
+random,1127__x2304_y768,1127.png,2304,768,1024,1024,64,"Cargo Truck,Truck w/Box,Truck w/Flatbed,Truck Tractor,Truck w/Liquid"
+random,1980__x3840_y1536,1980.png,3840,1536,1024,1024,1,Truck Tractor
+edge,905__x768_y2193,905.png,768,2193,1024,1024,4,"Cargo Truck,Truck w/Box,Truck w/Flatbed"
+edge,2301__x2573_y1702,2301.png,2573,1702,1024,1024,4,"Cargo Truck,Truck w/Flatbed"
+edge,2131__x2110_y768,2131.png,2110,768,1024,1024,3,"Cargo Truck,Truck w/Box,Truck w/Flatbed"
+edge,1940__x2040_y1501,1940.png,2040,1501,1024,1024,3,Cargo Truck
+largest,2012__x2304_y768,2012.png,2304,768,1024,1024,1,Cargo Truck
+largest,2012__x768_y0,2012.png,768,0,1024,1024,0,
+smallest,1788__x1552_y768,1788.png,1552,768,1024,1024,1,Cargo Truck
+smallest,1788__x1536_y768,1788.png,1536,768,1024,1024,1,Cargo Truck

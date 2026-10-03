@@ -1,0 +1,89 @@
+{
+  "tiles": [
+    "880__x0_y2193",
+    "2599__x1536_y768",
+    "2568__x1536_y1740",
+    "1127__x2304_y1993",
+    "1980__x3072_y2159",
+    "525__x768_y2118",
+    "414__x2717_y1536",
+    "2542__x1889_y0",
+    "2131__x1536_y768",
+    "379__x2304_y0",
+    "2371__x768_y1643",
+    "825__x1536_y0",
+    "1832__x768_y768",
+    "486__x1953_y768",
+    "1446__x1933_y1536",
+    "2017__x1536_y1536"
+  ],
+  "n_gt": 100,
+  "ap50_by_epoch": {
+    "50": {
+      "Cargo Truck": 0.2212555167317836,
+      "Truck w/Box": 0.4544953844240255,
+      "Truck w/Flatbed": 0.1611161116111611,
+      "Truck Tractor": 0.3293036842929609,
+      "Truck w/Liquid": 0.611032531824611,
+      "all (mAP50)": 0.3554406457769085
+    },
+    "100": {
+      "Cargo Truck": 0.9663423992672492,
+      "Truck w/Box": 0.996039603960396,
+      "Truck w/Flatbed": 1.0,
+      "Truck Tractor": 0.9709158415841584,
+      "Truck w/Liquid": 1.0,
+      "all (mAP50)": 0.9866595689623608
+    },
+    "300": {
+      "Cargo Truck": 1.0,
+      "Truck w/Box": 1.0,
+      "Truck w/Flatbed": 1.0,
+      "Truck Tractor": 1.0,
+      "Truck w/Liquid": 1.0,
+      "all (mAP50)": 1.0
+    }
+  },
+  "final_train_losses": {
+    "train/box_loss": 0.05992,
+    "train/cls_loss": 0.0969,
+    "train/dfl_loss": 0.73868
+  },
+  "n_failures_conf025": 0,
+  "train_args": {
+    "data": "/kaggle/tmp/overfit_data/data.yaml",
+    "imgsz": 1024,
+    "epochs": 300,
+    "batch": 16,
+    "workers": 2,
+    "seed": 0,
+    "deterministic": true,
+    "optimizer": "SGD",
+    "lr0": 0.01,
+    "momentum": 0.937,
+    "amp": true,
+    "val": false,
+    "plots": true,
+    "cache": false,
+    "mosaic": 0.0,
+    "scale": 0.0,
+    "translate": 0.0,
+    "fliplr": 0.0,
+    "flipud": 0.0,
+    "hsv_h": 0.0,
+    "hsv_s": 0.0,
+    "hsv_v": 0.0,
+    "erasing": 0.0,
+    "mixup": 0.0,
+    "cutmix": 0.0,
+    "copy_paste": 0.0,
+    "degrees": 0.0,
+    "shear": 0.0,
+    "perspective": 0.0,
+    "close_mosaic": 0,
+    "project": "/kaggle/working/sanity/overfit",
+    "name": "train",
+    "exist_ok": true,
+    "device": null
+  }
+}

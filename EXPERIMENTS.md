@@ -318,3 +318,79 @@ mode, all GT), `figures/b1h_tile1024_holdout40/errors/tide_dAP.csv`. For B1 the 
 - If both are projected to finish within 10.5 h of kernel start (about 4.2 min per epoch or less), both continue.
 - Otherwise E2 is stopped and relaunched as its own kernel after E1 finishes.
 - Decision: pending (to be recorded here from `pair_decision.json`).
+
+---
+
+## SANITY: why does B1h reach only ~0.38 mAP50 on its own training images? (kernel `aradhya1211/auric-sanity`, code `f2388f1`)
+
+**Observation**
+- B1h scores 0.378 mAP50 on 40 of its own training images (`results/b1h_tile1024_holdout40/eval_train40/metrics.json`).
+- Its train losses at epoch 50 are box 1.588 / cls 1.596 / dfl 1.003, and they are still falling. Slope over epochs
+  42–50 (after the close_mosaic jump at 41): box −0.0099, cls −0.030, dfl −0.0018 per epoch
+  (`results/b1h_tile1024_holdout40/train/args.yaml` run; curves in `figures/sanity/b1h_loss_curves.png`).
+
+**Hypothesis**
+The low in-sample score could come from (a) wrong training settings, (b) broken tile labels, or (c) a model or
+pipeline that cannot fit this data at all.
+
+**Changes**
+No new detector training on the full data. Three checks:
+1. **Effective settings:** read from the B1h run's `train/args.yaml`, copied to
+   `results/b1h_tile1024_holdout40/train/args.yaml`.
+2. **Label check:** B1h's tiles were regenerated on Kaggle with the same code, holdout list and indices. Every written
+   tile's labels were compared with labels re-derived from the source image via `detlib.tiling.clip_boxes`. 12 tiles
+   were rendered.
+3. **Overfit test:** YOLO11s on 16 tiles covering all 5 classes (100 GT boxes), imgsz 1024, every augmentation off,
+   300 epochs, scored with our scorer on the same tiles (`analysis/sanity_check.py`).
+
+**Results**
+- **Effective B1h settings** (`args.yaml`):
+  - imgsz 1024, mosaic 1.0, scale 0.5, close_mosaic 10, rect false.
+  - translate 0.1, fliplr 0.5, hsv 0.015 / 0.7 / 0.4, erasing 0.4.
+  - SGD lr0 0.01, lrf 0.01, warmup 3, epochs 50, batch 16.
+- **Tiling rules** (`tools/make_tiles.py`):
+  - `e0.2` keeps 20% of box-free tiles (seed 0).
+  - `v0.5` keeps a box cut by a tile edge only if ≥ 50% of its area is inside the tile.
+- **Tiling counts** (`results/sanity/label_check.json`, identical to B1h's `tiling_params.json`):
+  - 7192 tile windows; 3439 written (2504 with boxes, 935 empty kept); 3753 empty tiles dropped.
+  - Box instances in written tiles: 12,455, of which 11,967 whole and 488 clipped but kept.
+  - 451 box-in-tile instances dropped as < 50% visible (each such box is whole in another tile).
+- **Label check** (`results/sanity/label_check.json`):
+  - 3439 tiles / 12,455 boxes checked; **85 tiles mismatched**; 0 tiles with a class id outside 0–4 or a coordinate
+    outside [0, 1].
+  - Mismatches cluster in a few source images (first examples: 1058, 1095, 1127, 1175). Only tile names were saved,
+    not the per-box differences.
+  - One mismatched tile, `1127__x2304_y768`, is among the 12 rendered (`figures/sanity/label_tiles/`). Its boxes look
+    aligned with vehicles when viewed. **Not yet diagnosed:** it is unknown whether these are real label differences
+    or an artefact of the checker's box-pairing, e.g. coincident boxes with different classes.
+- **Overfit test** (`results/sanity/overfit/`; training took 457 s for 300 epochs on a T4):
+
+| epoch | mAP50 | Cargo | Box | Flatbed | Tractor | Liquid |
+|---|---|---|---|---|---|---|
+| 50 | 0.355 | 0.221 | 0.454 | 0.161 | 0.329 | 0.611 |
+| 100 | 0.987 | 0.966 | 0.996 | 1.000 | 0.971 | 1.000 |
+| 300 | 1.000 | 1.000 | 1.000 | 1.000 | 1.000 | 1.000 |
+
+  - Final train losses at epoch 300: box 0.060 / **cls 0.097** / dfl 0.739, vs B1h's cls_loss 1.60 at epoch 50.
+  - 0 GT boxes unmatched at conf ≥ 0.25 (`failures.csv`). Renders are in `figures/sanity/overfit/`.
+
+**Conclusion**
+- **Verdict: NOT PASS** under the pre-agreed rule, which requires zero label mismatches and overfit AP50 ≥ 0.9.
+  - The overfit criterion passed (AP50 1.000 at epoch 300).
+  - The label criterion did not (85 mismatched tiles).
+- **E1/E2 were not launched.**
+- Facts only, no interpretation yet: the model and pipeline can fit tiles of this data perfectly when augmentation is
+  off. The 85 mismatched tiles are unexplained.
+
+**Next**
+- Diagnose the 85 mismatches: re-run the label check with per-box differences saved (CPU-only Kaggle kernel), to tell
+  label problems from checker artefacts.
+- Then re-apply the PASS rule before launching E1/E2.
+
+**Kaggle GPU hours** (budget 29.8 h until the quota refresh on 2026-10-10 05:30 local)
+
+| kernel | purpose | start → first seen complete (IST) | GPU h (upper bound from polls) |
+|---|---|---|---|
+| auric-sanity v1 | label check + 16-tile overfit | 22:53 → 23:11 | ≤ 0.30 |
+
+- `kaggle quota` at ~23:15 reported 0.24 h used, 29.76 h remaining. It may not yet include the end of auric-sanity.
