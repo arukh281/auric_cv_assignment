@@ -1,0 +1,23 @@
+{
+  "input": "/kaggle/working/runs/b1h_f75_seed1/eval/predictions.csv",
+  "split": "val",
+  "n_images": 22,
+  "conf_floor": 0.001,
+  "iou": 0.5,
+  "ap_method": "coco 101-point (detlib/scoring.py)",
+  "mAP50_per_class": 0.07358316631424268,
+  "per_class_AP50": {
+    "Cargo Truck": 0.09477046570762135,
+    "Truck w/Box": 0.16581336551546103,
+    "Truck w/Flatbed": 0.034591777604499524,
+    "Truck Tractor": 0.0026548358265614364,
+    "Truck w/Liquid": 0.07008538691707007
+  },
+  "AP50_class_agnostic": 0.22733095870730044,
+  "eval_metrics_mAP50": 0.07358316631424268,
+  "recall_agnostic_conf0.25": 0.2416237113402062,
+  "n_matched_gt_conf0.25": 375,
+  "recall_agnostic_conf0.001": 0.6192010309278351,
+  "n_matched_gt_conf0.001": 961,
+  "n_gt": 1552
+}

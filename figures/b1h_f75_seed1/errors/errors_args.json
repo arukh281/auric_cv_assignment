@@ -1,0 +1,61 @@
+{
+  "preds": "/kaggle/working/runs/b1h_f75_seed1/eval/predictions.csv",
+  "name": "b1h_f75_seed1",
+  "data_root": "/kaggle/tmp/data",
+  "out_root": "/kaggle/working/runs/figures",
+  "min_conf": 0.001,
+  "conf_op": 0.25,
+  "merge": null,
+  "merge_thr": null,
+  "merge_metric": null,
+  "n_crops": 6,
+  "seed": 0,
+  "input": "predictions.csv as given",
+  "threshold_sets": {
+    "conf0.25": {
+      "Cargo Truck": 0.25,
+      "Truck w/Box": 0.25,
+      "Truck w/Flatbed": 0.25,
+      "Truck Tractor": 0.25,
+      "Truck w/Liquid": 0.25
+    },
+    "f1opt": {
+      "Cargo Truck": 0.0758884698152542,
+      "Truck w/Box": 0.1298133283853531,
+      "Truck w/Flatbed": 0.0792115405201911,
+      "Truck Tractor": 0.0562120340764522,
+      "Truck w/Liquid": 0.1725006252527237
+    }
+  },
+  "fg": 0.5,
+  "bg": 0.1,
+  "size_edges": [
+    "0",
+    "8",
+    "16",
+    "24",
+    "32",
+    "48",
+    "96",
+    "inf"
+  ],
+  "objects_edges": [
+    -Infinity,
+    30.75,
+    76.5,
+    97.0,
+    Infinity
+  ],
+  "brightness_edges": [
+    -Infinity,
+    45.333645820617676,
+    59.22617530822754,
+    81.8047924041748,
+    Infinity
+  ],
+  "base_check": {
+    "eval_mAP50": 0.07358316631424268,
+    "errors_base_mAP50": 0.07358316631424268,
+    "abs_diff": 0.0
+  }
+}

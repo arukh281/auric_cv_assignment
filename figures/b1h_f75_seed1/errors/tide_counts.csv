@@ -1,0 +1,19 @@
+level,type,Cargo Truck,Truck w/Box,Truck w/Flatbed,Truck Tractor,Truck w/Liquid,total
+conf>=0.001,cls,231,274,107,83,19,714
+conf>=0.001,loc,165,106,15,24,0,310
+conf>=0.001,both,151,130,28,79,8,396
+conf>=0.001,dupe,1,0,0,0,0,1
+conf>=0.001,bkg,5250,2059,648,927,48,8932
+conf>=0.001,missed,273,119,47,60,8,507
+conf0.25,cls,50,87,20,1,4,162
+conf0.25,loc,16,16,0,0,0,32
+conf0.25,both,11,19,4,1,0,35
+conf0.25,dupe,1,0,0,0,0,1
+conf0.25,bkg,184,154,45,9,3,395
+conf0.25,missed,627,313,103,105,13,1161
+f1opt,cls,101,117,49,16,5,288
+f1opt,loc,35,25,2,1,0,63
+f1opt,both,25,33,9,5,0,72
+f1opt,dupe,1,0,0,0,0,1
+f1opt,bkg,572,238,97,77,3,987
+f1opt,missed,522,248,86,93,11,960
