@@ -1,0 +1,2 @@
+ours_coco101,pycocotools,ours_ultralytics_interp,ultralytics_val,abs_diff_ours_vs_pycocotools,tolerance,flag
+0.08162779303473038,0.08162779303473038,0.09176626396921009,n/a (sliced mode or --ultra-crosscheck not set),0.0,0.005,False

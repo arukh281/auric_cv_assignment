@@ -1,0 +1,46 @@
+{
+  "modes": {
+    "pool/all": {
+      "n_gt": 1552,
+      "accuracy": 0.3698453608247423,
+      "mean_class_accuracy": 0.3200814905240553
+    },
+    "pool/unflagged": {
+      "n_gt": 1416,
+      "accuracy": 0.3757062146892655,
+      "mean_class_accuracy": 0.3350230249547216
+    },
+    "pool/flagged": {
+      "n_gt": 136,
+      "accuracy": 0.3088235294117647,
+      "mean_class_accuracy": 0.1757867132867133
+    },
+    "best/all": {
+      "n_gt": 1552,
+      "accuracy": 0.3472938144329897,
+      "mean_class_accuracy": 0.26425229114851867
+    },
+    "best/unflagged": {
+      "n_gt": 1416,
+      "accuracy": 0.3509887005649718,
+      "mean_class_accuracy": 0.27259199416164515
+    },
+    "best/flagged": {
+      "n_gt": 136,
+      "accuracy": 0.3088235294117647,
+      "mean_class_accuracy": 0.1757867132867133
+    }
+  },
+  "agreement_pool_vs_best": {
+    "n": 1552,
+    "n_agree": 1213,
+    "agreement": 0.7815721649484536,
+    "n_agree_unflagged": 1077,
+    "n_unflagged": 1416
+  },
+  "n_flagged_no_anchor_at_iou": 136,
+  "n_unflagged": 1416,
+  "iou": 0.5,
+  "weights": "/kaggle/working/runs/b1h_f50_seed1/train/weights/last.pt",
+  "mode": "sliced"
+}

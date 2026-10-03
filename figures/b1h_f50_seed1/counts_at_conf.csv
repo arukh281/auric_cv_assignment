@@ -1,0 +1,7 @@
+,conf_threshold,TP,wrong_class,duplicate,localization,background,FN
+Cargo Truck,0.25,59,29,0,7,170,741
+Truck w/Box,0.25,26,53,0,3,68,467
+Truck w/Flatbed,0.25,6,32,0,1,38,116
+Truck Tractor,0.25,0,0,0,0,11,117
+Truck w/Liquid,0.25,3,2,0,0,4,17
+all,0.25,94,116,0,11,291,1458

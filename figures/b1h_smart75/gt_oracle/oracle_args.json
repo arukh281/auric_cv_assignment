@@ -1,0 +1,23 @@
+{
+  "config": "configs/b1h_smart75.yaml",
+  "runs_root": "/kaggle/working/runs",
+  "weights": "/kaggle/working/runs/b1h_smart75/train/weights/last.pt",
+  "data_root": "/kaggle/tmp/data",
+  "out_root": "/kaggle/working/runs/figures",
+  "iou": 0.5,
+  "batch": 8,
+  "device": null,
+  "max_images": null,
+  "eval": {
+    "mode": "sliced",
+    "imgsz": 1024,
+    "tile": 1024,
+    "overlap": 256,
+    "conf": 0.001,
+    "max_det": 902,
+    "merge": "nms",
+    "merge_metric": "ios",
+    "merge_thr": 0.6,
+    "nms_iou": 0.7
+  }
+}

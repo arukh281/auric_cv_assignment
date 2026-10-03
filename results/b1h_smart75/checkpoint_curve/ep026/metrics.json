@@ -1,0 +1,30 @@
+{
+  "weights": "/kaggle/working/runs/b1h_smart75/train/weights/epoch026.pt",
+  "weights_sha256": "ea417c32b2047edd2f20b5d1d82228ab9f2d5e5a68dd984f68424bd25ec96306",
+  "n_images": 22,
+  "mAP50": 0.06945519664397254,
+  "mAP50_ultralytics_interp": 0.07797479435778455,
+  "per_class_AP50": {
+    "Cargo Truck": 0.10223853604586841,
+    "Truck w/Box": 0.10852571962691608,
+    "Truck w/Flatbed": 0.12195081120421954,
+    "Truck Tractor": 0.014560916342858686,
+    "Truck w/Liquid": 0.0
+  },
+  "per_class_AP50_ultralytics_interp": {
+    "Cargo Truck": 0.10656943293289062,
+    "Truck w/Box": 0.12966225798585887,
+    "Truck w/Flatbed": 0.1310178540201802,
+    "Truck Tractor": 0.022624426849993072,
+    "Truck w/Liquid": 0.0
+  },
+  "n_gt": {
+    "Cargo Truck": 800,
+    "Truck w/Box": 493,
+    "Truck w/Flatbed": 122,
+    "Truck Tractor": 117,
+    "Truck w/Liquid": 20
+  },
+  "bootstrap": null,
+  "max_det": 902
+}
