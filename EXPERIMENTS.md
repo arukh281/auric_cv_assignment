@@ -394,3 +394,35 @@ No new detector training on the full data. Three checks:
 | auric-sanity v1 | label check + 16-tile overfit | 22:53 → 23:11 | ≤ 0.30 |
 
 - `kaggle quota` at ~23:15 reported 0.24 h used, 29.76 h remaining. It may not yet include the end of auric-sanity.
+
+### SANITY → E1/E2: override of NOT PASS (author's decision, 3 Oct 2026, 11:22 PM IST)
+
+The author overrode the NOT PASS and launched E1/E2 the same night. Reasons, as given:
+- The overfit test passed (AP50 1.000 on all classes, cls_loss 0.097), so the pipeline can fit the labels.
+- B1h's losses were still falling at epoch 50, consistent with undertraining.
+- The 85 flagged tiles (2.5%) are unexplained and possibly a checker artefact. E1 and E2 use exactly B1h's tiles, so
+  the E1/E2 vs B1h comparison is unaffected either way.
+
+Follow-up launched at the same time: CPU-only kernel `aradhya1211/auric-label-mismatch` (no GPU quota), which re-checks
+the flagged tiles with per-box differences (`analysis/label_mismatch.py`).
+
+### E1 / E2: launch record
+
+- E1 `aradhya1211/auric-e1-b1h-150ep` and E2 `aradhya1211/auric-e2-b1h-150ep-scale02` were pushed as **two separate
+  GPU kernels** at 23:20 IST on 2 Oct, code `e72d3b8`.
+  - Each trains on one T4 (device 0) with the committed configs and B1h's workers.
+  - Each then runs `scripts/run_lc.sh` (eval on val + holdout40, class-agnostic) and `scripts/run_analysis.sh`.
+- Both showed RUNNING at 23:21 IST. Kaggle accepted both, so the paired kernel and its 2-epoch rule were not used.
+- E1/E2 run-time decision: n/a (separate sessions; Kaggle's 12 h session cap applies to each).
+
+**Kaggle GPU budget** (29.8 h until the quota refresh on 2026-10-10 05:30 local)
+
+| kernel | purpose | start (IST) | GPU h |
+|---|---|---|---|
+| auric-sanity v1 | label check + 16-tile overfit | 22:53 → 23:11 | ≤ 0.30 (measured from polls) |
+| auric-e1-b1h-150ep v1 | E1, 150 epochs | 23:20 | estimate ~5–7 (3× B1h's ~1.8 h kernel, incl. 15-checkpoint curve) |
+| auric-e2-b1h-150ep-scale02 v1 | E2, 150 epochs, scale 0.2 | 23:20 | estimate ~5–7 |
+| auric-label-mismatch v1 | label re-check | 23:2x | 0 (CPU-only) |
+
+- Total committed tonight: about 14 h at most, of 29.8 h.
+- Actual hours to be filled from `kaggle quota` and the kernel logs after the runs.
