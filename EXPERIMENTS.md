@@ -279,3 +279,42 @@ mode, all GT), `figures/b1h_tile1024_holdout40/errors/tide_dAP.csv`. For B1 the 
 - Prediction: none provided. The overnight instructions contained the unfilled placeholder
   "<<< WRITE YOUR GUESS HERE, e.g. "smart75 beats random75 on class-agnostic AP50 but stays below 0.128 mAP50" >>>",
   so no prediction was written before the runs.
+
+---
+
+## E1 / E2: is B1h undertrained, and does scale 0.5 hurt small trucks? (`configs/e1_b1h_150ep.yaml`, `configs/e2_b1h_150ep_scale02.yaml`)
+
+**Pre-registration (written 3 Oct 2026, 11:09 PM IST, before any E1/E2 result exists; spec from the author's planning)**
+
+**Observation**
+- B1h at epoch 50 still had train cls_loss 1.60 (`train/results.csv` of kernel aradhya1211/auric-b1h; plotted in
+  `figures/sanity/b1h_loss_curves.png`), and the losses were still falling over epochs 42–50 (cls −0.030/epoch).
+- B1h val mAP50 was still rising over the last 20 epochs: 0.067 → 0.097 → 0.106 at epochs 30 / 40 / 50
+  (`figures/b1h_tile1024_holdout40/checkpoint_curve.csv`).
+- B1h reached only 0.378 mAP50 on its own training images (train40; `results/b1h_tile1024_holdout40/eval_train40/metrics.json`).
+- Together these look like underfitting.
+
+**Hypotheses**
+- E1 tests undertraining.
+- E2 tests whether scale 0.5 (which can shrink a ~22 px truck to ~11 px) hurts small trucks.
+
+**Changes vs. B1h**
+- E1 changes only the epochs: 50 → 150. Everything else is unchanged: seed 0, holdout list, eval max_det 902,
+  checkpoints every 10 epochs, and warmup_epochs 3 / close_mosaic 10.
+- E2 changes epochs (50 → 150) and scale (0.5 → 0.2), so E2 − E1 isolates scale.
+- Both are trained at the same time in one Kaggle session: E1 on GPU 0, E2 on GPU 1, workers 2 each, each with its
+  own tile/cache folder (`scripts/run_pair.py`). Each then runs the normal eval on val and holdout40,
+  class-agnostic scoring, and run_analysis.
+- Note: 3× the iterations of B1h (32,250 vs 10,750), so the comparison with B1h is not at equal compute, by design.
+
+**Predictions**
+- E1 supports undertraining if its val and holdout mAP50 beat B1h by more than the seed spread (0.043 val / 0.017
+  holdout) and train40 rises well above 0.38.
+- E2 supports the scale hypothesis if it beats E1 by more than that spread, mainly on boxes under 32 px.
+- Smaller differences count as noise.
+
+**Run-time rule (agreed before launch)**
+- After 2 epochs, each run's training finish is projected inside the kernel (`scripts/run_pair.py`).
+- If both are projected to finish within 10.5 h of kernel start (about 4.2 min per epoch or less), both continue.
+- Otherwise E2 is stopped and relaunched as its own kernel after E1 finishes.
+- Decision: pending (to be recorded here from `pair_decision.json`).
