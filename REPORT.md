@@ -98,9 +98,12 @@ Why, in order of evidence strength:
      notes report haze and blur in val (`analysis/notes/visual_inspection.md`, author-marked uncertain). The only
      related analysis is a 10-vs-12-image split of val by visual flags. Its CIs overlap (§3.3), so it gives no
      evidence for an effect, but it could only have detected a large one.
-   - **Label errors: partly tested.** The label check verified that tiling preserves the labels: 0 of 3439 tiles differ
-     from their source (`results/sanity/label_check_iou/label_check.json`). It did **not** test whether the annotations
-     are correct or complete. The background-FP audit (`auric-fp-crop`) tests missing labels: **pending**.
+   - **Label errors / completeness: evidence for.**
+     - Tiling preserves the labels: 0 of 3439 tiles differ (`results/sanity/label_check_iou/label_check.json`).
+     - The background-FP audit found 46 of the 60 most confident unmatched holdout40 predictions truck-like and
+       unlabelled (§3.3b).
+     - These are either missing labels or truck types the dataset excludes. Either way measured mAP50 understates
+       detection.
    - **Model capacity:** YOLO11s has enough capacity to fit the training data. A 16-tile overfit test reaches AP50 1.000
      (§3.4), and E1/E2 reach train40 0.774 / 0.906. **Not tested:** whether a larger model would generalise better.
    - **Tile-merge settings: ruled out as a main cause.** Re-scoring saved raw tile predictions under other settings
@@ -248,6 +251,31 @@ Cargo → Box 192 of 800; Box → Cargo 171 of 493; Tractor → Cargo 47 of 117;
 - **Pipeline checks:** in-sample train40 mAP50 0.4027 for B1 (`results/b1_tile1024/eval_train40/metrics.json`);
   disabling tile merge drops B1 0.0715 → 0.0484 (`figures/b1_tile1024/merge_sensitivity.csv`); max_det 3000 adds
   0.006 (`figures/b1_tile1024_maxdet3000/merge_sensitivity.csv`).
+
+### 3.3b Are the background false positives really false?
+- **Audit:** of the 60 most confident holdout40 predictions that match no label (IoU < 0.1; conf 0.53–0.80),
+  Claude Code judged by eye:
+
+  | verdict | count |
+  |---|---|
+  | truck-like and unlabelled | 46 |
+  | other vehicle | 3 |
+  | background | 4 |
+  | unclear | 7 |
+
+  (`figures/b1h_tile1024_holdout40/fp_audit_sheet.png`, `results/fp_audit/fp_audit.csv`; DETAILED_EXPERIMENTS.md
+  "Background false-positive audit".)
+- **Two explanations the crops cannot separate:**
+  - (a) vehicles of our five classes missing from the labels;
+  - (b) truck types the dataset excludes. xView, whose classes ours match, also has Pickup Truck, Utility Truck,
+    Trailer and a generic Truck class.
+- Either way the metric penalises detections of real vehicles, so **measured mAP50 is a lower bound** on how well
+  the model finds trucks.
+- **Limits:**
+  - One viewer, not blind to the hypothesis.
+  - Low-resolution crops.
+  - Only the top 60 of 11684 unmatched predictions.
+  - The effect on mAP50 is not quantified.
 
 ### 3.4 Generalisation and sanity checks
 
@@ -582,82 +610,121 @@ Class coverage, as boxes (images) and share of the pool's boxes of that class:
 
 ## 6. Final analysis and next experiment
 
-*Skeleton (2026-10-04). Items marked TODO-FINAL wait for E3/E4, the background-FP audit and the crop classifier.*
+**Final model: B1h** (`b1h_tile1024_holdout40`, `last.pt`). Val mAP50 0.1065 (CI 0.056–0.165), holdout40 0.1507.
+Nothing tested so far beats it on holdout40 by more than the 0.017 seed spread. TODO-FINAL: E6b and E8 can still
+change this under their pre-registered rules.
 
-### 6.1 Dominant limitations of the final detector
-1. **Classification between truck types, mainly Cargo vs Box.** Evidence: class-agnostic 0.255 vs class-aware 0.107
-   (val); the GT-box oracle gets 60% right vs 52% for always "Cargo"; the Cls oracle fix adds +0.147 (§3.2, §5.1).
-2. **Generalisation from 403 images.** Evidence: train40 0.378 vs holdout40 0.151; E1/E2 raise train40 to
-   0.77 / 0.91 while holdout40 falls (§4).
-3. **Low confidence on small trucks.** Evidence: §5.2 C1 and C4 confirmed on the test half; 78% of never-detected boxes
-   have a prediction below 0.25.
-4. **Val scenes are harder than train scenes.** Evidence: recall 0.665 vs 0.852 on holdout40, not explained by size,
-   resolution or density (§3.4).
-5. TODO-FINAL: missing labels / out-of-scope vehicles as a ceiling (background-FP audit).
+### 6.1 Dominant limitations, with evidence
 
-**Pattern across E1, E2 and E3: every change that sped up fitting raised train40 and lowered holdout40.**
+**(1) Generalisation from 403 images.** Fitting faster hurts; regularising helps detection, not classification.
 
-| run | change vs B1h | train40 mAP50 | holdout40 mAP50 | train40 − holdout40 |
-|---|---|---|---|---|
-| B1h | none | 0.378 | 0.151 | 0.227 |
-| E1 | 150 epochs (stopped at 145) | 0.774 | 0.092 | 0.682 |
-| E2 | 150 epochs, scale 0.2 | 0.906 | 0.111 | 0.795 |
-| E3 | DOTA-pretrained initialisation | 0.729 | 0.082 | 0.647 |
-| E4 | flipud 0.5 + mixup 0.1 (more augmentation) | 0.266 | 0.130 | 0.135 |
+| run | change vs B1h | train40 | holdout40 | gap | holdout40 class-agnostic |
+|---|---|---|---|---|---|
+| B1h | none | 0.378 | **0.151** | 0.227 | 0.362 |
+| E1 | 150 epochs | 0.774 | 0.092 | 0.682 | 0.259 |
+| E2 | 150 epochs, scale 0.2 | 0.906 | 0.111 | 0.795 | 0.278 |
+| E3 | DOTA init | 0.729 | 0.082 | 0.647 | 0.251 |
+| E7 | DOTA init, frozen backbone | 0.599 | 0.128 | 0.471 | 0.308 |
+| E4 | flipud + mixup | 0.266 | 0.130 | 0.135 | **0.400** |
 
-Sources: `results/{b1h_tile1024_holdout40,e1_b1h_150ep,e2_b1h_150ep_scale02,e3_b1h_dota}/{eval_train40,eval_holdout40}/metrics.json`.
+Sources: `results/<run>/{eval_train40,eval_holdout40}/{metrics.json,class_agnostic.json}`.
+holdout values are in DETAILED_EXPERIMENTS.md "E1 / E2: Results". Picture: `figures/story/scoreboard.png`.
 
-- Three different ways of helping the model fit (more epochs, weaker scale augmentation, aerial pretraining) all
-  moved train40 and holdout40 in opposite directions. The holdout40 losses (0.040–0.069) are all larger than the
-  0.017 seed spread.
-- This is the strongest evidence that the binding limit is generalisation from 403 images, not under-fitting.
-- E4 went the opposite direction: more augmentation lowered train40 (0.266) and the gap (0.135), and holdout40 was
-  still rising at epoch 50 (0.102 → 0.130; `results/e4_b1h_flipud_mixup/checkpoint_curve_holdout/`). Holdout40 mAP50
-  ended 0.020 below B1h, within about one seed spread, while class-agnostic AP rose (holdout40 0.400 vs 0.362). It
-  is consistent with the pattern: slower fitting means a smaller gap. It did not convert into better class-aware
-  mAP50 within 50 epochs.
-- TODO-FINAL: E7 (frozen pretrained backbone), E6, and B1h's own holdout curve.
+- **Fitting faster hurts.** E1, E2 and E3 all raised train40 and lowered holdout40, by more than the seed noise each
+  time.
+- **Freezing helps relative to E3.** E7 recovered +0.046 of E3's loss, but it is still below B1h.
+- **Augmentation helps detection, not naming.** E4 overfits least, and it is the only run that finds *more* held-out
+  trucks than B1h (class-agnostic 0.400 vs 0.362). Its class-aware mAP50 is still 0.020 lower.
+- **B1h stops near the right point.** Its own holdout curve is flat from epoch 40 to 50 (0.154 → 0.151;
+  `results/b1h_tile1024_holdout40/checkpoint_curve_holdout/`).
 - Each run is a single seed.
 
+**(2) Classification ceiling between look-alike types.**
+- Given the true box, B1h's own head names the type correctly 60.1% of the time on val (§5.1; always "Cargo" would
+  score 51.6%).
+- A dedicated ResNet18 crop classifier reaches 61.0% on holdout40 GT crops
+  (`results/crop_classifier/summary.json`). Re-labelling B1h's detections with it *lowers* holdout40 mAP50 to
+  0.100 / 0.117.
+- Both make the same Cargo ↔ Box confusion (`figures/story/crop_classifier_confusion.png`, §3.2). The two
+  accuracies are on different sets (val vs holdout40), so they are comparable only roughly.
+- Neither a better classifier of this kind nor TTA (0.138 vs 0.151) moved it. The types may be genuinely hard to
+  separate from above at about 22 px, or inconsistently labelled. These results cannot tell which.
+
+**(3) Labels: the metric undercounts.**
+- 46 of the 60 most confident unmatched holdout40 predictions look like real, unlabelled trucks (§3.3b).
+- They are either our classes missing from the labels or excluded truck types (xView's pickups, utility trucks,
+  trailers, generic trucks).
+- Either way, measured mAP50 is a lower bound on detection quality, and the false-positive bin is partly an artefact
+  of incomplete labels.
+- Caveats: one viewer, not blind, low resolution, top 60 only.
+
+**(4) Val scenes differ from training scenes.**
+- B1h finds 0.665 of val trucks vs 0.852 of holdout40 trucks, a gap of 0.187 (CI 0.043–0.307).
+- Box size explains 3% of the gap and image size 7%; density does not explain it where it can be compared (§3.4).
+- The remaining difference is at scene level, so val is harder than our own held-out images.
+
+**(5) More data alone will not close the gap.**
+- 500 more instances in the current class mix project about +0.006 holdout mAP50.
+- 500 targeted instances of any single class project at most +0.016 (Liquid, an unreliable 4.1× extrapolation;
+  Box +0.011 among reliable fits). Both are below the 0.017 noise (§5.3).
+- Independently, roughly doubling Tractor boxes in the §5.4 subsets did not raise Tractor AP.
+
+Also confirmed: small trucks are mostly "never confident" rather than invisible (§5.2 C1, C4, pre-registered and
+confirmed on the unseen half).
+
 ### 6.2 Strength of each conclusion
+
 | Conclusion | Status | Evidence |
 |---|---|---|
-| Classification, not localisation, is the main loss | strongly supported | §3.1, §3.2, §5.1 (three independent analyses) |
-| The detector overfits; longer training does not help | strongly supported (one seed each) | E1, E2 vs B1h |
-| Small trucks are mostly "never confident", not invisible | strongly supported | §5.2 C1, C4, pre-registered and confirmed |
-| More labels help but cannot reach 0.75 | plausible, unresolved in size | §5.3; power-law fit flagged unreliable |
-| Val is harder because of a scene-level shift | plausible; mechanism unknown | §3.4 recall gap |
-| Smart subset selection helps detection, not classification | supported by the pre-registered rule, single seed for smart | §5.4 |
-| Aerial pretraining reduces overfitting (E3) | TODO-FINAL | |
-| Overhead augmentation reduces overfitting (E4) | TODO-FINAL | |
-| Missing labels cap the score | TODO-FINAL (FP audit) | |
-| A second-stage crop classifier fixes Cargo vs Box | TODO-FINAL | |
-| **Weakened or rejected:** B1 would reach 0.40–0.60 (pre-registered) | rejected (0.0715) | DETAILED_EXPERIMENTS.md B1 |
-| **Weakened or rejected:** B1h is undertrained (E1) | rejected | E1 |
-| **Weakened or rejected:** scale 0.5 hurts small trucks (E2) | inconclusive, leaning not supported | E2 |
+| The binding limit is generalisation; fitting faster hurts | **strongly supported** (four runs, single seed each) | E1, E2, E3 vs B1h; E7 vs E3 |
+| Classification, not localisation, is the main loss | **strongly supported** | §3.1 TIDE, §3.2 class-agnostic, §5.1 oracle |
+| A crop classifier or TTA does not fix classification | **supported** (single settings) | crop classifier 0.100 / 0.117; TTA 0.138 |
+| Small trucks are "never confident", not invisible | **strongly supported** (pre-registered, test half) | §5.2 C1, C4 |
+| Labels are incomplete, or exclude real truck types, and the score undercounts | **supported, size unquantified** | FP audit 46/60 |
+| Val has a scene-level shift from train | **plausible; mechanism unknown** | recall gap 0.187 |
+| 500 more instances would not materially help | **supported as projected; extrapolation caveats** | §5.3 |
+| Augmentation improves detection but not class-aware mAP50 | **plausible** (one run, two settings at once) | E4 |
+| Smart subsets beat random on detection | **supported by the pre-registered rule, confounded with box count** | §5.4 |
+| *Rejected:* B1 reaches 0.40–0.60 (pre-registered) | rejected (0.0715) | B1 |
+| *Rejected:* B1h is undertrained (E1) | rejected | E1 |
+| *Rejected:* aerial pretraining reduces overfitting (E3) | rejected, reversed | E3 |
+| *Rejected:* TTA improves holdout40 (pre-registered) | rejected (−0.013) | TTA |
+| *Weakened:* scale 0.5 hurts small trucks (E2) | inconclusive, leaning not supported | E2 |
+| *Weakened:* "size isn't what limits detections" (B1) | weakened: size matters most below 16 px | §5.2 C1; DETAILED B1 note |
+| *Weakened:* "no domain shift" (B1 diagnosis) | weakened by the recall gap | §3.4 |
+| Rare-class resampling helps Tractor/Flatbed (E6b) | TODO-FINAL | E6 was too weak a test (+1.6% tile views) |
+| Longer training helps when augmentation limits overfitting (E8) | TODO-FINAL | |
 
 ### 6.3 What changed most between the initial and final system
-- B0 → B1: native-resolution tiling plus sliced evaluation, 0.0020 → 0.0715 val mAP50. Explanation: at 640 px a
-  22-px truck becomes about 4 px. Supported by B0's oracle: only 396/1552 GT have a matching anchor, vs 1449/1552 for
-  B1 (§5.1).
-- B1 → B1h: 0.0715 → 0.1065, but this is within seed noise (B1h seed 1: 0.0634).
-- TODO-FINAL: E3/E4/E5 or crop-classifier change, if any passes its rule.
+- **B0 → B1, tiling: the only large change** (0.0020 → 0.0715 val mAP50). At 640 px a 22 px truck shrinks to a few
+  pixels. With 1024 tiles, 1449 of 1552 val trucks have a matching anchor, vs 396 at 640 px (§5.1).
+- **B1 → B1h:** 0.0715 → 0.1065, but within seed noise (B1h seed 1: 0.0634). The same recipe is kept.
+- **Everything after B1h** (E1–E4, E7, TTA, crop classifier) left holdout40 within or below noise. The final system
+  is the B1 recipe, trained without the 40 held-out images.
 
 ### 6.4 Single highest-priority next step (one working day)
-TODO-FINAL: choose after E3/E4 and the audits. The candidates and what would decide between them:
 
-| Candidate | Targets limitation | Information value | Performance value | Decided by |
-|---|---|---|---|---|
-| (a) Two-stage: detector proposals + crop classifier trained on more context and higher resolution | 1 | tests whether Cargo vs Box is separable at all from pixels | high if the classifier works | crop-classifier result (`auric-fp-crop`) |
-| (b) Re-label audit of a val sample (and train), including missing trucks | 4, 5 | tells whether the 0.75 target is reachable with these labels | none directly | FP-audit share of unlabelled trucks |
-| (c) Aerial-pretrained or larger backbone, with the best augmentation | 2 | tests capacity/generalisation | moderate | E3/E4 outcome |
-| (d) More labels targeted at Cargo/Box confusion and val-like scenes (ports, yards) | 1, 2, 4 | direct test of §5.3 | moderate (projection 0.215) | §5.3 + recall gap |
-| (e) Lower operating threshold / calibration study for small trucks | 3 | low | small for mAP (mAP already integrates over thresholds) | §5.2 C4 |
+**A label audit and completion pass on val and holdout40, then re-score B1h.**
+- Re-annotate missing trucks of the five classes.
+- Mark excluded truck types (pickups, utility trucks, trailers, generic trucks) as *ignore* regions, so detections on
+  them count neither as true nor as false positives.
+- Re-score B1h with the same scorer.
 
+**Why this beats the alternatives:**
+- About three quarters of the most confident "false alarms" look like real vehicles (46/60). Until the labels are
+  fixed, every model comparison is measured against a target that punishes correct detections, and no model change
+  can be measured properly.
+- It is cheap (62 images, no GPU) and it tells us how far the true score is from 0.107.
+- It also tells us whether the 0.75 target is reachable with these labels at all.
+- The alternatives are weaker:
+  - More model changes: four runs already show no gain.
+  - A better classifier: the crop classifier did not help.
+  - More labels: projected below noise.
+  - All of them would be measured on the same flawed labels.
 
 ## 7. Deliverables
 
 See `SUBMISSION_CHECKLIST.md` and the README sections "Final model and prediction" and "Reproduce everything".
-Final weights: GitHub release `weights-b1h-v1` (TODO-FINAL: replace if E5 or a second stage changes the final model).
+Final weights: GitHub release `weights-b1h-v1` (TODO-FINAL: replace only if E6b or E8 passes its rule).
 `predict.py` on CPU reproduced B1h's saved predictions for 2 val images (all paired; max confidence difference 3e-6;
 `results/predict_test/compare.json`).

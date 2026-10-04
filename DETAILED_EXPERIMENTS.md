@@ -1269,6 +1269,15 @@ Holdout40 checkpoint curve (`results/e4_b1h_flipud_mixup/checkpoint_curve_holdou
     - Low-resolution crops.
     - Whether a truck-like vehicle belongs to one of the five classes cannot always be judged.
   - The size of the effect on mAP50 is not estimated here.
+- **Framing (added 2026-10-04, author's direction):**
+  - The 46 truck-like unlabelled detections could be either:
+    (a) vehicles of our five classes that are missing from the labels, or
+    (b) truck types this dataset does not include. xView, whose classes ours match, also has Pickup Truck, Utility
+    Truck, Trailer and a generic Truck class.
+  - The crops cannot tell (a) from (b).
+  - Either way the metric penalises detections of real vehicles. Measured mAP50 is therefore a lower bound on how
+    well the model finds trucks.
+  - Caveats kept: one viewer, not blind to the hypothesis, low-resolution crops, 60 of 11684 unmatched predictions.
 - **Next:** a re-labelling audit of a val sample, to estimate how much measured mAP50 the missing labels cost (a
   candidate in REPORT §6.4).
 

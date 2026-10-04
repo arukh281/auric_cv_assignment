@@ -165,7 +165,9 @@ B1h's height.
 - 🔧 The 60 most confident predictions with no matching label, looked at by eye.
 - 📊 **46 of 60** look like real, unlabelled trucks.
 - 🖼️ ![FP audit](figures/story/fp_audit_sheet.jpg)
-- 🧠 Missing labels are common, and they cap the measured score.
+- 🧠 Either our five classes are missing from the labels, or these are truck types the dataset leaves out (pickups,
+  utility trucks, trailers). The crops can't tell which. Either way, real vehicles count as errors, so the score
+  understates the model. (One viewer, not blind, low resolution.)
 - 📖 Details → [Background false-positive audit](DETAILED_EXPERIMENTS.md#background-false-positive-audit-4-oct-2026-cpu-only-kernel-aradhya1211auric-fp-crop-code-734299d)
 
 ### 14. Crop classifier: a second opinion on the truck type
