@@ -13,6 +13,9 @@ Rows (each with mAP50, per-class AP50 and class-agnostic AP50; COCO 101-point; c
                     size, run through B1h with eval.py's pipeline (sliced, merge, max_det 902), and the boxes mapped
                     back; the other 18 images keep their saved predictions
 4 both              2 applied to 3
+5 dropped-ignore    predictions with IoU >= 0.5 to an xView box of OUR five types that has no supplied val label
+                    (IoU < 0.5 with every supplied GT box; the boxes val's labels dropped) are removed from scoring
+6 all               2 + 3 + 5 combined
 """
 import argparse
 import json
@@ -33,6 +36,7 @@ from detlib.scoring import ap_from_records, box_iou, score_images  # noqa: E402
 from eval import collect, finalize, image_sizes, run_predictions  # noqa: E402
 
 EXCL = {20, 21, 23, 27, 32, 60, 61, 65}
+FIVE = {24, 25, 26, 28, 29}
 RESCALED = ["2308.png", "2384.png", "2391.png", "2460.png"]
 NAMES = ["Cargo", "Box", "Flatbed", "Tractor", "Liquid"]
 
@@ -60,18 +64,31 @@ def main():
         with Image.open(xv / "train_images" / "train_images" / f"{Path(n).stem}.tif") as t:
             xsz[n] = t.size
     feats = json.load(open(xv / "train_labels" / "xView_train.geojson"))["features"]
-    stems = {Path(n).stem: n for n in sizes}; ex = defaultdict(list)
+    stems = {Path(n).stem: n for n in sizes}; ex = defaultdict(list); fv = defaultdict(list)
     for f in feats:
-        p = f["properties"]; s = Path(p["image_id"]).stem
-        if s in stems and int(p["type_id"]) in EXCL:
+        p = f["properties"]; s = Path(p["image_id"]).stem; t = int(p["type_id"])
+        if s in stems and (t in EXCL or t in FIVE):
             try:
-                ex[stems[s]].append([float(v) for v in p["bounds_imcoords"].split(",")])
+                (ex if t in EXCL else fv)[stems[s]].append([float(v) for v in p["bounds_imcoords"].split(",")])
             except Exception:
                 pass
     del feats
-    for n in ex:
-        (W, H), (XW, XH) = sizes[n], xsz[n]
-        ex[n] = np.array(ex[n]) * np.array([W / XW, H / XH, W / XW, H / XH])
+    for d in (ex, fv):
+        for n in d:
+            (W, H), (XW, XH) = sizes[n], xsz[n]
+            d[n] = np.array(d[n]) * np.array([W / XW, H / XH, W / XW, H / XH])
+    dropped = {}
+    for n in sizes:
+        _, gb = read_yolo_labels(L / f"{Path(n).stem}.txt", *sizes[n]); x = fv.get(n, np.zeros((0, 4)))
+        dropped[n] = x[box_iou(x, gb).max(1) < 0.5] if len(x) and len(gb) else x
+
+    def ignore_dropped(preds):
+        keep = []
+        for n, g in preds.groupby("image"):
+            d = dropped.get(n, np.zeros((0, 4)))
+            hit = box_iou(g[["x1", "y1", "x2", "y2"]].to_numpy(float), d).max(1) >= 0.5 if len(d) else np.zeros(len(g), bool)
+            keep.append(g[~hit])
+        return pd.concat(keep)
 
     def ignore(preds):
         keep = []
@@ -103,11 +120,13 @@ def main():
     rows = [dict(row="1 plain", **score(plain, imgs, L, sizes)),
             dict(row="2 excluded-type ignore", **score(ignore(plain), imgs, L, sizes)),
             dict(row="3 native scale (4 rescaled images)", **score(native, imgs, L, sizes)),
-            dict(row="4 both", **score(ignore(native), imgs, L, sizes))]
+            dict(row="4 both", **score(ignore(native), imgs, L, sizes)),
+            dict(row="5 dropped-box ignore", **score(ignore_dropped(plain), imgs, L, sizes)),
+            dict(row="6 all (2 + 3 + 5)", **score(ignore_dropped(ignore(native)), imgs, L, sizes))]
     r = pd.DataFrame(rows); r.to_csv(out / "gap_breakdown.csv", index=False)
     removed = len(plain) - len(ignore(plain))
     (out / "gap_breakdown.json").write_text(json.dumps(dict(rows=rows, predictions_removed_by_ignore=removed,
-                                                           excluded_boxes_on_val=int(sum(len(v) for v in ex.values()))), indent=2))
+                                                           excluded_boxes_on_val=int(sum(len(v) for v in ex.values())), dropped_five_type_boxes_on_val=int(sum(len(v) for v in dropped.values()))), indent=2))
     print(r.to_string(index=False, float_format=lambda v: f"{v:.4f}")); print("removed", removed)
 
 
