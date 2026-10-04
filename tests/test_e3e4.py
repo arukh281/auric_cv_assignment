@@ -51,6 +51,16 @@ def test_labels_match_pairs_by_iou():
     assert labels_match(np.zeros(0, int), np.zeros((0, 4)), np.zeros(0, int), np.zeros((0, 4)))
 
 
+def test_repeat_factors():
+    from detlib.rfs import build_list, repeat_factors
+    cl = {"a": {0}, "b": {0}, "c": {0, 1}, "d": set()} | {f"e{i}": {0} for i in range(16)}  # class 1 in 1/20 tiles
+    f, rc, rt = repeat_factors(cl, 2, t=0.1)
+    assert abs(f[1] - 0.05) < 1e-12 and abs(rc[1] - np.sqrt(2)) < 1e-12 and rc[0] == 1.0
+    assert rt["c"] == rc[1] and rt["d"] == 1.0
+    lst = build_list({k: k for k in cl}, rt, seed=0)
+    assert lst.count("a") == 1 and lst.count("c") in (1, 2)
+
+
 def test_crop_pads_and_resizes():
     img = np.zeros((50, 60, 3), np.uint8); img[:, :30] = 200
     c = crop(img, np.array([0, 0, 20, 10.]), 2.0, 96)
