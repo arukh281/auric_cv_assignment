@@ -1853,3 +1853,38 @@ Holdout40 mAP50 by version and rule (`results/e12_scale/test_scores.csv`):
   for 35 of the 40 2× copies.
 - **Val is NOT scored yet:** amendment D extends E12 with photometric rules, and val is scored once after the
   amended test.
+
+### E12 amendment: robust inference (author, 4 Oct 2026; before any amended run and before any val scoring; `analysis/e12_robust.py`)
+
+- **Why:** 8 of 22 val images are altered: 4 rescaled, plus noise, blur + noise, contrast ×0.5 and ×1.4
+  (Data-integrity audit). Scale alone covers only half.
+- **Rules (all use only the image itself; parameters fixed now):**
+  - **plain:** no change.
+  - **auto:** the scale rule chosen in the scale test.
+  - **cnorm:** per image and per channel, a linear map to the training images' channel mean and std (403 train
+    images, holdout40 excluded, computed once).
+  - **denoise:** `cv2.bilateralFilter(d=5, sigmaColor=20, sigmaSpace=5)`.
+  - **combo:** denoise, then cnorm, then auto.
+- **Controlled test, holdout40 ONLY.** Synthetic, deterministic copies (seed 0):
+
+  | copy | how it is made |
+  |---|---|
+  | clean | unchanged |
+  | 0.5× / 2× | bilinear rescale |
+  | Gaussian noise | σ = 10 |
+  | blur + noise | Gaussian blur σ = 1.5, then noise σ = 8 |
+  | contrast ×0.5 / ×1.4 | about each image's mean |
+
+  Every rule is scored on every copy.
+- **Pass rule:**
+  - A rule passes if (i) clean holdout40 mAP50 is at most 0.017 below plain, and (ii) its mean over the 6 degraded
+    copies is above plain's mean over them.
+  - The chosen rule is the passing rule with the highest degraded mean (`chosen_rule.json`). Then val is scored
+    **once** with it, reported for all 22 images and separately for the 14 unaltered, 4 rescaled and 4
+    photometrically altered images.
+  - If none passes: plain, and val is not re-scored.
+- **Disclosure:** the degraded copies are synthetic and were made only from holdout40. The val alteration types,
+  found via the xView comparison, motivated *which* degradations to simulate, but no val pixel or label is used to
+  choose anything.
+- **Prediction (Claude Code; no author prediction recorded):** auto and combo pass. cnorm alone helps the contrast
+  copies but hurts clean images slightly.
