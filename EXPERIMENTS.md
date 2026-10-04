@@ -990,7 +990,7 @@ Source: `results/s52_confirm/test/claims.csv`.
   whichever model ends up final. The single-variant subsets are descriptive; the pre-registered test is the
   all-four set.
 
-### §5.2 confidence floor, descriptive (4 Oct 2026; CPU-only kernel `aradhya1211/auric-s52-floor`, code `095cf9b` era, `analysis/s52_floor.py`)
+### §5.2 confidence floor, descriptive (4 Oct 2026; CPU-only kernel `aradhya1211/auric-s52-floor`, code `a4d9307`, `analysis/s52_floor.py`)
 
 **Computed after the test half was opened; not pre-registered.** The three thresholds in the author's 4 Oct message
 (≥ 70%, chance < 1%, 30–50% at ≥ 0.10) were not committed before the test half was read, so they are not judged here.
