@@ -1471,3 +1471,63 @@ Holdout40 curve: 0.128 / 0.132 / 0.124 / 0.135 / 0.128 at epochs 10–50, flat
     setup and the evaluations, so the run stays under 5 GPU-h. The evaluation allowance is based on E3/E4 (kernel
     time minus training time ≈ 0.26–0.3 h). If the guard stops it, the author is told.
 - **Launch:** after E8 and E6b finish.
+
+## E10 steps 1–3: xView overlap, label comparison, extra data, FP re-scoring (4 Oct 2026; CPU-only kernel `aradhya1211/auric-xview-overlap` v2, code `59ef959`)
+
+- **Step 1, data source:** Kaggle mirror `hassanmojab/xview-dataset`, 20.8 GB. It contains 846 xView train images
+  (`train_images/`), 281 xView val images (`val_images/`, no public labels) and `train_labels/xView_train.geojson`
+  (601,937 boxes in 847 images). Kaggle lists the licence as "other"; xView itself is CC BY-NC-SA 4.0.
+- **Step 2, overlap** (stem and width × height; `results/xview_overlap/match_summary.json`, `match.csv`):
+
+  | our split | images | same stem in xView | same stem and size | in xView train | in xView val |
+  |---|---|---|---|---|---|
+  | train | 443 | 443 | **443** | 443 | 0 |
+  | holdout40 | 40 | 40 | **40** | 40 | 0 |
+  | val | 22 | 22 | **18** | 18 | 0 |
+
+  - The 4 val images whose size differs are exact rescalings of xView train images (`match.csv`):
+
+    | val image | ours | xView | factor |
+    |---|---|---|---|
+    | 2308 | 7204×5458 | 3602×2729 | 2× |
+    | 2391 | 7072×5932 | 3536×2966 | 2× |
+    | 2384 | 1369×1334 | 2739×2668 | ≈0.5× |
+    | 2460 | 1596×1598 | 3193×3196 | ≈0.5× |
+
+  - **All 465 of our images are xView *train* images**, 4 of the val images rescaled. So any xView-pretrained model
+    would have seen every val image with labels.
+- **Step 2, labels:**
+  - On the 461 images matched at the same size, 8771 of our 8810 boxes (99.6%) pair one-to-one with an xView box at
+    IoU ≥ 0.5 (`label_summary.json`).
+  - Our class vs the paired xView type (`label_pairs_crosstab.csv`):
+    - The diagonal dominates: Cargo 4321, Box 2641, Tractor 645, Flatbed 677, Liquid 108.
+    - 411 pairs (4.7%) have a different xView type, mostly our Tractor / Flatbed / Liquid → xView Cargo (52 / 55 / 48)
+      and our Liquid → xView Box (32).
+  - The supplied labels are therefore xView's boxes for these five types, with a small share of class changes. That
+    count is pooled over train and val; the per-split breakdown and the 4 rescaled val images are pending (audit
+    item 5).
+- **Step 2, extra data:** 382 xView train images are not in our dataset (`extra_counts.csv`).
+
+  | group | instances (images) |
+  |---|---|
+  | **our 5 classes** | Cargo 881 (20), Box 548 (19), Tractor 129 (17), Flatbed 134 (17), Liquid 23 (12): **1715 in about 20 images** |
+  | excluded truck-like types | Truck 1969 (154), Utility Truck 530 (69), Trailer 476 (54), Dump Truck 330 (54), Pickup 227 (44), Haul Truck 164 (25), Crane Truck 36 (22), Cement Mixer 21 (9) |
+
+  - The extra images contain few of our five classes, so E10 would mainly test hypothesis (b), look-alike negatives,
+    rather than (a), more data.
+  - For (a): +1715 instances is about 25% more than our 6880 training boxes.
+- **Step 3, FP re-scoring with xView labels** (best-overlapping xView box at IoU ≥ 0.3; `fp_rescore_summary.json`):
+  - **The 60 audited detections:**
+    - 43 overlap an excluded truck-like xView box (37 "Truck", plus Trailer, Utility and Dump Truck).
+    - 6 overlap one of our 5 types that is missing from our labels.
+    - 3 overlap another xView class (Bus, Small Car).
+    - 8 overlap nothing.
+    - Of the 46 judged truck-like by eye, 34 are excluded types, 6 are our classes missing, 1 is another class and 5
+      have no xView box.
+  - **All 350 B1h holdout40 predictions with conf ≥ 0.25 and IoU < 0.1 to every GT box:**
+    - 216 (62%) excluded truck-like (152 "Truck", 33 Dump, 21 Utility, 8 Trailer, …).
+    - 12 our classes missing.
+    - 55 other xView class (31 Bus, 14 Small Car, …).
+    - 67 nothing.
+  - **Conclusion:** most of B1h's confident "background" false positives are real trucks of types the dataset excludes.
+    xView's generic "Truck" class dominates. Missing labels of our own five classes are rare (12 / 350).

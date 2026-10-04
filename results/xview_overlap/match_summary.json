@@ -1,0 +1,30 @@
+{
+  "train": {
+    "n": 443,
+    "stem_found": 443,
+    "matched_stem_and_size": 443,
+    "in_xview_train": 443,
+    "in_xview_val": 0
+  },
+  "val": {
+    "n": 22,
+    "stem_found": 22,
+    "matched_stem_and_size": 18,
+    "in_xview_train": 18,
+    "in_xview_val": 0
+  },
+  "holdout40": {
+    "n": 40,
+    "stem_found": 40,
+    "matched_stem_and_size": 40,
+    "in_xview_train": 40,
+    "in_xview_val": 0
+  },
+  "train_minus_holdout40": {
+    "n": 403,
+    "stem_found": 403,
+    "matched_stem_and_size": 403,
+    "in_xview_train": 403,
+    "in_xview_val": 0
+  }
+}

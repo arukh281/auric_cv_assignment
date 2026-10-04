@@ -1,0 +1,56 @@
+{
+  "audit60": {
+    "excluded truck-like": 43,
+    "no xView box": 8,
+    "one of our 5 (missing in our labels)": 6,
+    "other xView class": 3
+  },
+  "audit60_by_verdict": {
+    "background | excluded truck-like": 3,
+    "background | no xView box": 1,
+    "other_vehicle | excluded truck-like": 1,
+    "other_vehicle | other xView class": 2,
+    "truck_like | excluded truck-like": 34,
+    "truck_like | no xView box": 5,
+    "truck_like | one of our 5 (missing in our labels)": 6,
+    "truck_like | other xView class": 1,
+    "unclear | excluded truck-like": 5,
+    "unclear | no xView box": 2
+  },
+  "audit60_xview_types": {
+    "Truck": 37,
+    "none": 8,
+    "Truck w/Box": 5,
+    "Trailer": 2,
+    "Utility Truck": 2,
+    "Dump Truck": 2,
+    "Bus": 2,
+    "Cargo Truck": 1,
+    "Small Car": 1
+  },
+  "holdout_conf025_n": 350,
+  "holdout_conf025": {
+    "excluded truck-like": 216,
+    "no xView box": 67,
+    "other xView class": 55,
+    "one of our 5 (missing in our labels)": 12
+  },
+  "holdout_conf025_xview_types": {
+    "Truck": 152,
+    "none": 67,
+    "Dump Truck": 33,
+    "Bus": 31,
+    "Utility Truck": 21,
+    "Small Car": 14,
+    "?": 9,
+    "Trailer": 8,
+    "Truck w/Box": 8,
+    "Truck w/Flatbed": 2,
+    "Pickup Truck": 1,
+    "Cargo Truck": 1,
+    "Truck w/Liquid": 1,
+    "Passenger Vehicle": 1,
+    "Crane Truck": 1
+  },
+  "iou_threshold": 0.3
+}

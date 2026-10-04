@@ -1,0 +1,61 @@
+image,cls,conf,best_xview_iou,xview_type,xview_name,group,verdict
+2571.png,2,0.8044673800468445,0.9183575381928226,23.0,Truck,excluded truck-like,background
+112.png,1,0.8019973039627075,0.8938026359599861,23.0,Truck,excluded truck-like,truck_like
+1042.png,0,0.7845010161399841,0.7398370649403472,23.0,Truck,excluded truck-like,truck_like
+2142.png,1,0.7781959772109985,0.7908947874690372,24.0,Cargo Truck,one of our 5 (missing in our labels),truck_like
+1037.png,0,0.762161910533905,0.8001197754765808,23.0,Truck,excluded truck-like,truck_like
+112.png,1,0.7532492280006409,0.9076078949415463,23.0,Truck,excluded truck-like,truck_like
+112.png,1,0.7430543899536133,0.8475831964785283,27.0,Trailer,excluded truck-like,truck_like
+1037.png,2,0.7265213131904602,0.8000477137198564,23.0,Truck,excluded truck-like,unclear
+112.png,1,0.710561990737915,0.8008818103713055,23.0,Truck,excluded truck-like,truck_like
+1042.png,2,0.7073997259140015,0.0,,none,no xView box,unclear
+1042.png,2,0.6976801156997681,0.0,,none,no xView box,truck_like
+509.png,1,0.6950070261955261,0.7362725449765908,27.0,Trailer,excluded truck-like,truck_like
+1465.png,0,0.6855455636978149,0.7912353003168494,23.0,Truck,excluded truck-like,truck_like
+1133.png,0,0.6786960363388062,0.7479830967581912,18.0,Small Car,other xView class,truck_like
+1042.png,0,0.670927107334137,0.685003048332878,21.0,Utility Truck,excluded truck-like,truck_like
+1268.png,2,0.6635013818740845,0.0,,none,no xView box,unclear
+112.png,1,0.659848153591156,0.8974313586103752,23.0,Truck,excluded truck-like,unclear
+2359.png,0,0.6591324806213379,0.7682982672538069,23.0,Truck,excluded truck-like,truck_like
+2359.png,4,0.6591000556945801,0.7673086010770127,23.0,Truck,excluded truck-like,truck_like
+1037.png,2,0.6556719541549683,0.8837216864678008,23.0,Truck,excluded truck-like,truck_like
+112.png,1,0.6544911861419678,0.8347861461831474,23.0,Truck,excluded truck-like,truck_like
+2359.png,0,0.6504442691802979,0.7420910615553372,23.0,Truck,excluded truck-like,truck_like
+1042.png,0,0.6418065428733826,0.8144456799489818,23.0,Truck,excluded truck-like,truck_like
+1067.png,2,0.6355403661727905,0.9432321573749971,23.0,Truck,excluded truck-like,truck_like
+2359.png,1,0.626777172088623,0.006686638487636056,,none,no xView box,truck_like
+112.png,1,0.6228947043418884,0.8524581916295466,23.0,Truck,excluded truck-like,truck_like
+1233.png,0,0.6157252788543701,0.0,,none,no xView box,truck_like
+1036.png,0,0.6135287284851074,0.8636437143104282,23.0,Truck,excluded truck-like,truck_like
+1067.png,0,0.6083248257637024,0.8803508201476726,60.0,Dump Truck,excluded truck-like,truck_like
+112.png,1,0.6033846735954285,0.6323945475129339,25.0,Truck w/Box,one of our 5 (missing in our labels),truck_like
+112.png,1,0.6029738187789917,0.7491896307988349,25.0,Truck w/Box,one of our 5 (missing in our labels),truck_like
+2193.png,0,0.60172039270401,0.0032996721920179246,,none,no xView box,truck_like
+112.png,3,0.598135232925415,0.6684892586052014,23.0,Truck,excluded truck-like,unclear
+112.png,3,0.596502423286438,0.7431265108350734,23.0,Truck,excluded truck-like,truck_like
+112.png,1,0.5882753133773804,0.8806458734584438,23.0,Truck,excluded truck-like,truck_like
+112.png,1,0.5840123891830444,0.7421110024840866,23.0,Truck,excluded truck-like,truck_like
+112.png,1,0.5802584290504456,0.8477762587941764,23.0,Truck,excluded truck-like,truck_like
+109.png,0,0.5793822407722473,0.7379712332577794,21.0,Utility Truck,excluded truck-like,other_vehicle
+112.png,1,0.5771546363830566,0.8824445599857981,23.0,Truck,excluded truck-like,truck_like
+112.png,1,0.5763200521469116,0.884967291097304,25.0,Truck w/Box,one of our 5 (missing in our labels),truck_like
+112.png,1,0.5728830695152283,0.8280639893991664,23.0,Truck,excluded truck-like,truck_like
+2359.png,1,0.5726550817489624,0.7144817617036383,23.0,Truck,excluded truck-like,truck_like
+112.png,1,0.5716423392295837,0.8333082798102076,25.0,Truck w/Box,one of our 5 (missing in our labels),truck_like
+2591.png,1,0.5698512196540833,0.8653269815280353,19.0,Bus,other xView class,other_vehicle
+1193.png,0,0.5684794783592224,0.5708697264013395,23.0,Truck,excluded truck-like,background
+2591.png,2,0.5674610137939453,0.224385672316963,,none,no xView box,truck_like
+399.png,2,0.5612953901290894,0.7221104837531227,60.0,Dump Truck,excluded truck-like,unclear
+112.png,1,0.5555854439735413,0.9365492813169533,23.0,Truck,excluded truck-like,truck_like
+1268.png,2,0.550678014755249,0.6723349980578978,23.0,Truck,excluded truck-like,background
+2359.png,1,0.5457335710525513,0.7712510762093544,23.0,Truck,excluded truck-like,truck_like
+1037.png,2,0.544922947883606,0.872568138163334,23.0,Truck,excluded truck-like,truck_like
+112.png,3,0.5373616814613342,0.0,,none,no xView box,background
+569.png,0,0.5357915759086609,0.7690220766111329,19.0,Bus,other xView class,other_vehicle
+112.png,1,0.5354979038238525,0.7216453996983015,25.0,Truck w/Box,one of our 5 (missing in our labels),truck_like
+1037.png,0,0.534896731376648,0.7552213295481387,23.0,Truck,excluded truck-like,truck_like
+2571.png,0,0.5321649312973022,0.8698647734835975,23.0,Truck,excluded truck-like,truck_like
+2591.png,1,0.5308666825294495,0.8627823583440754,23.0,Truck,excluded truck-like,unclear
+112.png,0,0.5302098989486694,0.8264696063126324,23.0,Truck,excluded truck-like,truck_like
+112.png,1,0.5298580527305603,0.6936477175948257,23.0,Truck,excluded truck-like,truck_like
+112.png,1,0.5266560912132263,0.7145238891445982,23.0,Truck,excluded truck-like,truck_like

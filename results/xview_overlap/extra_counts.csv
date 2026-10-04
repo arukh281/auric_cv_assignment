@@ -1,0 +1,14 @@
+type_id,name,instances,images,group
+24,Cargo Truck,881,20,our 5 classes
+25,Truck w/Box,548,19,our 5 classes
+26,Truck Tractor,129,17,our 5 classes
+28,Truck w/Flatbed,134,17,our 5 classes
+29,Truck w/Liquid,23,12,our 5 classes
+20,Pickup Truck,227,44,"truck-like, excluded"
+21,Utility Truck,530,69,"truck-like, excluded"
+23,Truck,1969,154,"truck-like, excluded"
+27,Trailer,476,54,"truck-like, excluded"
+32,Crane Truck,36,22,"truck-like, excluded"
+60,Dump Truck,330,54,"truck-like, excluded"
+61,Haul Truck,164,25,"truck-like, excluded"
+65,Cement Mixer,21,9,"truck-like, excluded"
