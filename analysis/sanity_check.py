@@ -54,6 +54,28 @@ def tile_labels(tiles, name, w, h):
     return read_yolo_labels(tiles / "train" / "labels" / f"{name}.txt", w, h)
 
 
+def labels_match(gc, gb, ec, eb, tol=0.5):
+    """True if the tile labels (gc, gb) equal the re-derived ones (ec, eb): same count, and a one-to-one pairing by
+    class-agnostic IoU (greedy, highest first) in which every pair has the same class and all coordinates within tol px.
+    Corrected 2026-10-04: this used to pair boxes by sorting coordinates (np.lexsort), which mis-pairs boxes with
+    near-equal coordinates in dense tiles and flagged 85 identical tiles (results/sanity/label_mismatch/summary.json)."""
+    if len(gc) != len(ec):
+        return False
+    if not len(gc):
+        return True
+    iou = box_iou(eb, gb)
+    used_e, used_g = set(), set()
+    for i, j in zip(*np.unravel_index(np.argsort(-iou, axis=None), iou.shape)):
+        if i in used_e or j in used_g:
+            continue
+        if iou[i, j] <= 0:
+            break
+        used_e.add(i); used_g.add(j)
+        if gc[j] != ec[i] or np.abs(gb[j] - eb[i]).max() > tol:
+            return False
+    return len(used_e) == len(ec)
+
+
 def check_labels(data_root, tiles, idx, sizes):
     """Re-derive every written tile's labels from the source labels and compare."""
     src_cache, bad, n_box, raw_bad = {}, [], 0, []
@@ -70,11 +92,7 @@ def check_labels(data_root, tiles, idx, sizes):
             raw_bad.append(r.tile)
         gc, gb = tile_labels(tiles, r.tile, tw, th)
         n_box += len(gc)
-        same = len(gc) == len(ec) and np.array_equal(np.sort(gc), np.sort(ec))
-        if same and len(gc):
-            o1, o2 = np.lexsort(gb.T[::-1]), np.lexsort(eb.T[::-1])
-            same = np.array_equal(gc[o1], ec[o2]) and np.abs(gb[o1] - eb[o2]).max() <= 0.5
-        if not same:
+        if not labels_match(gc, gb, ec, eb):
             bad.append(r.tile)
     return dict(tiles_checked=int(idx.kept.sum()), boxes_checked=n_box, tiles_mismatched=len(bad),
                 mismatched_examples=bad[:20], tiles_out_of_range=len(raw_bad), out_of_range_examples=raw_bad[:20])
@@ -223,6 +241,7 @@ def main():
     ap.add_argument("--out", required=True)
     ap.add_argument("--epochs", type=int, default=300)
     ap.add_argument("--device", default=None)
+    ap.add_argument("--labels-only", action="store_true", help="label check and renders only (no overfit test; CPU)")
     a = ap.parse_args()
     data_root, tiles, out = Path(a.data_root), Path(a.tiles), Path(a.out)
     out.mkdir(parents=True, exist_ok=True)
@@ -236,6 +255,8 @@ def main():
     print("[sanity] label check:", json.dumps(res["label_check"]), flush=True)
     res["render"] = render(tiles, idx, sizes, names, out)
     (out / "label_check.json").write_text(json.dumps(res, indent=2))
+    if a.labels_only:
+        return
     s = overfit(tiles, idx, names, out, a.epochs, a.device)
     print("[sanity] overfit AP50 by epoch:", json.dumps(s["ap50_by_epoch"]), flush=True)
     print("[sanity] final train losses:", json.dumps(s["final_train_losses"]), flush=True)

@@ -39,6 +39,18 @@ def test_unmatched_and_window():
     assert crop_window(np.array([0, 0, 10, 10.]), 50, 50, 4, 96) == (0, 0, 50, 50)
 
 
+def test_labels_match_pairs_by_iou():
+    from sanity_check import labels_match
+    # two boxes whose x1 differ by 0.2 px but whose y order is reversed: coordinate sorting mis-pairs them
+    eb = np.array([[10.0, 50, 30, 70], [10.2, 0, 40, 20]]); ec = np.array([0, 1])
+    gb = eb[::-1] + 0.1; gc = ec[::-1]
+    assert labels_match(gc, gb, ec, eb)
+    assert not labels_match(np.array([1, 1]), gb, ec, eb)          # class changed
+    assert not labels_match(gc, gb + np.array([0, 0, 2, 0]), ec, eb)  # shifted 2 px
+    assert not labels_match(gc[:1], gb[:1], ec, eb)                 # missing box
+    assert labels_match(np.zeros(0, int), np.zeros((0, 4)), np.zeros(0, int), np.zeros((0, 4)))
+
+
 def test_crop_pads_and_resizes():
     img = np.zeros((50, 60, 3), np.uint8); img[:, :30] = 200
     c = crop(img, np.array([0, 0, 20, 10.]), 2.0, 96)
