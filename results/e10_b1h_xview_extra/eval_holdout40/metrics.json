@@ -1,0 +1,100 @@
+{
+  "weights": "/kaggle/working/runs/e10_b1h_xview_extra/train/weights/last.pt",
+  "weights_sha256": "b88b8efb5f425999acc52d7474dd9fadf919f6a918a299437ab064a79b1373c3",
+  "n_images": 40,
+  "mAP50": 0.12559015213615576,
+  "mAP50_ultralytics_interp": 0.13922307875929193,
+  "per_class_AP50": {
+    "Cargo Truck": 0.1049804838675701,
+    "Truck w/Box": 0.4963331976311212,
+    "Truck w/Flatbed": 0.02557625881433644,
+    "Truck Tractor": 0.0010608203677510608,
+    "Truck w/Liquid": 0.0
+  },
+  "per_class_AP50_ultralytics_interp": {
+    "Cargo Truck": 0.11757911312609726,
+    "Truck w/Box": 0.5399900375483633,
+    "Truck w/Flatbed": 0.03308068119629423,
+    "Truck Tractor": 0.005465561925704862,
+    "Truck w/Liquid": 0.0
+  },
+  "n_gt": {
+    "Cargo Truck": 321,
+    "Truck w/Box": 297,
+    "Truck w/Flatbed": 56,
+    "Truck Tractor": 35,
+    "Truck w/Liquid": 29
+  },
+  "bootstrap": {
+    "n": 1000,
+    "seed": 0,
+    "unit": "val image",
+    "ci": "percentile 95%"
+  },
+  "split": "holdout",
+  "holdout_list": "splits/holdout40_seed0.txt",
+  "sampled_images": [
+    "1036.png",
+    "1037.png",
+    "1042.png",
+    "1067.png",
+    "109.png",
+    "112.png",
+    "1133.png",
+    "1193.png",
+    "1233.png",
+    "1268.png",
+    "1405.png",
+    "1465.png",
+    "1565.png",
+    "1584.png",
+    "18.png",
+    "1964.png",
+    "2032.png",
+    "2142.png",
+    "217.png",
+    "2181.png",
+    "2193.png",
+    "2281.png",
+    "2303.png",
+    "2359.png",
+    "2509.png",
+    "2571.png",
+    "2591.png",
+    "2619.png",
+    "309.png",
+    "33.png",
+    "399.png",
+    "43.png",
+    "509.png",
+    "512.png",
+    "534.png",
+    "569.png",
+    "712.png",
+    "72.png",
+    "752.png",
+    "926.png"
+  ],
+  "bootstrap_unit_note": "held-out train image",
+  "max_det": 902,
+  "pycocotools": {
+    "mAP50": 0.12559015213615576,
+    "per_class_AP50": {
+      "Cargo Truck": 0.1049804838675701,
+      "Truck w/Box": 0.4963331976311212,
+      "Truck w/Flatbed": 0.02557625881433644,
+      "Truck Tractor": 0.0010608203677510608,
+      "Truck w/Liquid": 0.0
+    },
+    "params": "iouThrs=[0.5], areaRng=all, maxDets=max_det, 101 recall points"
+  },
+  "scorer_comparison": {
+    "ours_coco101": 0.12559015213615576,
+    "pycocotools": 0.12559015213615576,
+    "ours_ultralytics_interp": 0.13922307875929193,
+    "ultralytics_val": "n/a (sliced mode or --ultra-crosscheck not set)",
+    "abs_diff_ours_vs_pycocotools": 0.0,
+    "tolerance": 0.005,
+    "flag": false
+  }
+}

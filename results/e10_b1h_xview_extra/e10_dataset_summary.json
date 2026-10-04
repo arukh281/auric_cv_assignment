@@ -1,0 +1,51 @@
+{
+  "images": {
+    "ours": 403,
+    "extra": 202
+  },
+  "classes": [
+    "Cargo Truck",
+    "Truck w/Box",
+    "Truck w/Flatbed",
+    "Truck Tractor",
+    "Truck w/Liquid",
+    "Pickup Truck",
+    "Utility Truck",
+    "Truck",
+    "Trailer",
+    "Crane Truck",
+    "Dump Truck",
+    "Haul Truck",
+    "Cement Mixer"
+  ],
+  "instances": {
+    "extra Cargo Truck": 881,
+    "extra Truck w/Box": 548,
+    "extra Truck w/Flatbed": 134,
+    "extra Truck Tractor": 129,
+    "extra Truck w/Liquid": 23,
+    "extra Pickup Truck": 227,
+    "extra Utility Truck": 526,
+    "extra Truck": 1969,
+    "extra Trailer": 476,
+    "extra Crane Truck": 36,
+    "extra Dump Truck": 328,
+    "extra Haul Truck": 164,
+    "extra Cement Mixer": 21,
+    "ours Cargo Truck": 3452,
+    "ours Truck w/Box": 2069,
+    "ours Truck w/Flatbed": 606,
+    "ours Truck Tractor": 590,
+    "ours Truck w/Liquid": 163,
+    "ours Pickup Truck": 695,
+    "ours Utility Truck": 2434,
+    "ours Truck": 8877,
+    "ours Trailer": 3032,
+    "ours Crane Truck": 101,
+    "ours Dump Truck": 795,
+    "ours Haul Truck": 168,
+    "ours Cement Mixer": 188
+  },
+  "excluded_ids": 62,
+  "excluded_found_in_list": 0
+}

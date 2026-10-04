@@ -1800,3 +1800,55 @@ Sources: `figures/b1h_tile1024_holdout40/errors/tide_dAP.csv` (val), `errors_hol
   - Under the xView-original holdout labels, E15 beats B1h by more than 0.017; under the supplied labels it may not.
   - Flatbed, Tractor and Liquid AP rise.
 - **Cost:** about 2 GPU-h. Next free GPU slot; approved quota floor 3.5 h.
+
+## E10: Results (4 Oct 2026; GPU kernel `aradhya1211/auric-e10-xview-extra`, code `23607fb`, ~1.90 GPU-h kernel time)
+
+- **Data:** 403 of our images plus **202** extra xView images (`results/e10_b1h_xview_extra/e10_dataset_summary.json`,
+  `e10_train_list.txt`, 605 entries).
+  - *Note:* the pre-registration said 382 extra images. Only the 202 that contain a box of the 5 classes or the 8
+    excluded truck types were used, as the builder's rule specifies; the other 180 carry none of the 13 classes.
+  - The added instance counts are as pre-registered: 1715 of our classes, 3749 excluded-type boxes after clipping.
+  - **0 of the 62 excluded IDs (val + holdout40) are in the training list** (checked against `splits/e10_exclude.txt`).
+- **Schedule:** 6601 tiles, 26 epochs, 10,738 iterations (B1h 10,750); close_mosaic residual −85 steps (`rfs.json`).
+
+| | B1h | E10 |
+|---|---|---|
+| holdout40 mAP50 (95% CI) | 0.1507 | **0.1256 (0.032–0.157)** |
+| holdout40 class-agnostic AP50 | 0.362 | 0.378 |
+| val mAP50 (95% CI) | 0.1065 | 0.0820 (0.042–0.138) |
+| val class-agnostic AP50 | 0.255 | 0.202 |
+| train40 mAP50 | 0.378 | 0.234 |
+| val TIDE Bkg (n / dAP) | 9380 / +0.077 | **4056 / +0.055** |
+| val TIDE Missed (n / dAP) | 419 / +0.044 | 727 / +0.059 |
+| holdout40 AP50 Cargo / Box / Flatbed / Tractor / Liquid | 0.096 / 0.509 / 0.069 / 0.007 / 0.073 | 0.105 / 0.496 / 0.026 / 0.001 / 0.000 |
+
+Sources: `results/e10_b1h_xview_extra/{eval,eval_holdout40,eval_train40}/`, `figures/e10_b1h_xview_extra/errors/tide_dAP.csv`.
+Holdout40 curve: 0.092 / 0.133 / 0.126 at epochs 10 / 20 / 26.
+
+- **Verdicts:**
+  1. **Holdout40 mAP50 vs the §5.3-based prediction (+0.019): not supported.** It moved −0.025, the opposite way, so
+     E10 is not a direct confirmation of §5.3's curve.
+     - Without Liquid: E10 is (0.105 + 0.496 + 0.026 + 0.001) / 4 = 0.157 vs B1h's 0.170, still below.
+     - Liquid fell to 0 (29 boxes).
+  2. **Background false positives shrink: supported on val** (Bkg errors 9380 → 4056, dAP +0.077 → +0.055). Misses
+     rose (419 → 727). Part (ii), the xView re-scoring of E10's holdout40 FPs, is pending (CPU).
+- **Decision:** E10 does not beat B1h on holdout40. It is not the final model on its own; it still enters E13 as an
+  ensemble candidate.
+
+## E12: scale test result (4 Oct 2026; GPU kernel `aradhya1211/auric-e12-scale`, code `23607fb`, ~0.51 GPU-h)
+
+Holdout40 mAP50 by version and rule (`results/e12_scale/test_scores.csv`):
+
+| version | plain | multi | auto |
+|---|---|---|---|
+| original (1×) | 0.1507 | 0.1414 | **0.1570** |
+| 0.5× copy | 0.0927 | 0.1227 | 0.1217 |
+| 2× copy | 0.0915 | 0.1193 | **0.1482** |
+| mean of the copies | 0.0921 | 0.1210 | **0.1350** |
+
+- **By the pre-registered rule, both scale rules qualify:** each loses less than 0.017 on the originals (multi −0.009;
+  auto +0.006) and beats plain on the rescaled copies.
+- **auto has the higher copy mean, so auto is the scale rule.** It chose 2× for 13 of the 40 0.5× copies and 0.5×
+  for 35 of the 40 2× copies.
+- **Val is NOT scored yet:** amendment D extends E12 with photometric rules, and val is scored once after the
+  amended test.
