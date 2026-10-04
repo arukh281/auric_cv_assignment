@@ -1888,3 +1888,49 @@ Holdout40 mAP50 by version and rule (`results/e12_scale/test_scores.csv`):
   choose anything.
 - **Prediction (Claude Code; no author prediction recorded):** auto and combo pass. cnorm alone helps the contrast
   copies but hurts clean images slightly.
+
+## Amendments after external review (author, 4 Oct 2026; recorded before any E13-final, E15 or re-scoped E12 result)
+
+1. **E13, multi-label output (inference only).**
+   - B1h, E4, E7, E10 and E15 are re-run on holdout40 with multi-label output: each box may carry every class whose
+     score is ≥ conf, as Ultralytics' DetectionValidator does (`non_max_suppression(..., multi_label=True)`). Then the
+     usual tile merge and scorer.
+   - **Motivating evidence:** given the true box, the correct class is in B1h's top 2 for 83.6% of val boxes and
+     84.8% of holdout40 boxes (top 1: 60.1% / 69.0%; `figures/b1h_tile1024_holdout40/gt_oracle*/gt_scores.csv`). The
+     val number is a diagnostic only; the holdout number motivates the change.
+   - **Selection:** single-label vs multi-label is chosen on holdout40 only.
+   - **Disclosure:** Ultralytics' own mAP uses multi-label.
+2. **Clean holdout40 is the selection yardstick.**
+   - Holdout40 is relabelled with xView's original classes and boxes, by the same rule as E15's training labels.
+   - From now on selection uses **holdout40-clean**; supplied-label holdout40 is still reported.
+   - All existing models are re-scored on both.
+3. **Geographic decontamination before E10 counts.**
+   - Each image's footprint is computed from the xView GeoTIFF tags.
+   - Any extra E10 image whose footprint overlaps or touches a val or holdout40 image is reported. If E10 trained on
+     one, E10 is either retrained without it or excluded from val scoring.
+   - Train vs holdout40 and train vs val overlaps are reported too.
+4. **E10's labels for our 5 classes on our 403 images were the SUPPLIED labels** (unchanged; `make_xview_dataset.py`
+   writes our label file and only appends xView's excluded-type boxes). xView labels were used only for the extra
+   images and for the 8 extra classes.
+5. **E12 re-scoped:** the degraded-holdout copies are replaced with a generic suite, fixed now (seed 0).
+
+   | corruption | severities |
+   |---|---|
+   | scale | 0.5, 0.75, 1.25, 1.5, 2.0 (bilinear) |
+   | Gaussian noise | σ = 5, 10 |
+   | Gaussian blur | σ = 1, 2 |
+   | contrast | ×0.6, ×1.4 about the image mean |
+   | brightness | −30, +30 |
+   | JPEG | quality 50, 20 |
+
+   - **Rules:** plain, auto, cnorm, denoise, combo (as in the first amendment).
+   - **Selection:** on the suite average, over all 15 corruptions, on holdout40-clean; clean holdout40 must not drop
+     by more than 0.017.
+   - **Disclosure:** the audit motivated testing robustness, but the suite is generic and is not fitted to val's
+     measured corruptions.
+   - The first-amendment run (`auric-e12-robust`, launched about 20:10) is superseded. Its results were not read
+     before this amendment and are not used.
+6. **Checkpoint selection** is allowed for the final system only.
+   - Rule (written now): among the saved checkpoints (`epoch010`–`epoch040`, `last.pt`) of the model(s) in the
+     chosen final system, take the one with the highest holdout40-clean mAP50.
+   - No new training. Val is scored once, with the final system.
