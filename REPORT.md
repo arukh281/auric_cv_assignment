@@ -493,6 +493,41 @@ sizes (+0.052 at 202, +0.028 at 302, vs seed spreads 0.011 / 0.013), but **not**
   - No author prediction was recorded before the runs.
   - The smart and seed-1 runs ran on a different Kaggle torch build (2.11.0) than the seed-0 random runs (2.10.0).
 
+**What is in the selected subsets, and what makes them useful?** (added 2026-10-04, after the results;
+`analysis/subset_characterise.py`, CPU-only kernel `auric-s54-char-merge`; `figures/subset_compare/subset_characterisation.csv`,
+`subset_class_coverage.csv`. The random seed-1 runs used the same image lists as seed 0.)
+
+| subset | images | boxes | boxes / image (mean, median) | images with ≥ 30 boxes | box size < 16 / 16–32 / ≥ 32 px |
+|---|---|---|---|---|---|
+| full pool | 403 | 6880 | 17.1, 7 | 14.4% | 23% / 54% / 23% |
+| random 202 | 202 | 3182 | 15.8, 6.5 | 11.4% | 23% / 55% / 23% |
+| smart 202 | 202 | **4211** | 20.8, 5 | 16.8% | 20% / 55% / 26% |
+| random 302 | 302 | 4842 | 16.0, 6 | 12.9% | 23% / 53% / 25% |
+| smart 302 | 302 | **6022** | 19.9, 7 | 18.2% | 22% / 53% / 24% |
+
+Class coverage, as boxes (images) and share of the pool's boxes of that class:
+
+| class | pool | random 202 | smart 202 | random 302 | smart 302 |
+|---|---|---|---|---|---|
+| Cargo Truck | 3452 (330) | 1758 (168) 51% | 1883 (165) 55% | 2599 (250) 75% | 2870 (250) 83% |
+| Truck w/Box | 2069 (238) | 848 (116) 41% | 1354 (111) 65% | 1457 (177) 70% | 1888 (178) 91% |
+| Truck w/Flatbed | 606 (178) | 285 (93) 47% | 421 (91) 69% | 371 (129) 61% | 550 (142) 91% |
+| Truck Tractor | 590 (117) | 205 (54) 35% | **438 (63) 74%** | 290 (85) 49% | **559 (97) 95%** |
+| Truck w/Liquid | 163 (90) | 86 (45) 53% | 115 (49) 71% | 125 (67) 77% | 155 (82) 95% |
+
+- **Smart subsets carry more labelled boxes for the same number of images:** +32% at 202 images, +24% at 302. Of
+  the 302-image smart subset, 95% of all Tractor and Liquid boxes in the pool are included. The coverage step picks
+  the image with the most boxes of a needed class, so it favours dense, multi-class images: 16.8% vs 11.4% of
+  images with ≥ 30 boxes at 202.
+- **Box sizes are essentially unchanged.** Selection did not favour larger or smaller trucks.
+- **Scene coverage: no difference measurable with this proxy.** Every subset, random included, covers all 20
+  k-means clusters of the DINOv2 embeddings. The proxy is too coarse to separate them.
+- **What makes them useful.** Smart subsets win on class-agnostic AP50 (the pre-registered primary metric), and the
+  simplest explanation is that they contain more labelled trucks, especially rare-class trucks, per image.
+- **This is a confound, not a demonstration that the selection is clever.** A random subset matched on box count
+  rather than image count was not run, so "smart" cannot be separated from "more boxes". It also did not help
+  class-aware mAP50: more Tractor boxes (438 vs 205) did not lift Tractor AP (0.001 vs 0.000 at 202).
+
 **The 90% rule on validation mAP50, as the brief specifies** (added 2026-10-04, after all results).
 - **Why two versions exist:**
   - The brief defines success as 90% of the full-data *validation* mAP50.

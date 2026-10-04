@@ -414,6 +414,14 @@ Box (now planned as the E3/E4 side kernel (b)).
   No 50% or 75% run reached the 0.128 "recovers 90%" threshold; the highest was f75_seed1 at 0.1230 (same file).
 - **Corrected 2026-10-04:** Conclusion and Next were "not yet written" / UNKNOWN; added below.
 
+**Subset characterisation (added 2026-10-04):** smart subsets hold +32% (202) / +24% (302) more boxes than
+random ones of the same image count, 74% / 95% of the pool's Tractor boxes vs 35% / 49%, and more dense images; box sizes
+are unchanged. This confounds smart vs random: no box-count-matched random subset was run. Details: REPORT.md §5.4,
+`figures/subset_compare/subset_characterisation.csv`, `subset_class_coverage.csv`.
+
+**Validation-mAP50 version (brief's definition, added 2026-10-04):** threshold 0.9 × 0.1065 = 0.0959; no subset reaches
+it (best 0.085, random 302); full-data seed 1 itself scores 0.063. Weak evidence: val seed spread 0.043.
+
 **Conclusion (written 2026-10-04, after the results; no prediction was recorded before the runs).**
 - **No tested subset reached the threshold.** "Recovers 90%" means holdout40 mAP50 ≥ 0.128; the best 50% or 75% run
   was random seed 1 at 302 images, 0.1230 (`figures/subset_compare/subset_compare.csv`). The smallest qualifying

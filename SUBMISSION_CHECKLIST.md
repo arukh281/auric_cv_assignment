@@ -70,8 +70,8 @@ establish."
 | 5.4 "Goal: Find the smallest training subset you can demonstrate recovers at least 90% of the full-data validation mAP50." | done (negative): no tested subset reaches 90% on val (0.0959) or on the pre-registered holdout40 rule (0.128); both are reported and the difference is disclosed; the val answer is weak (seed spread 0.043 > gap 0.011) | REPORT.md §5.4 |
 | 5.4 "Declare the subset-selection method before training the reduced-data model." | done (`b02413c`; the implemented rule differs from its wording, disclosed) | REPORT.md §5.4 |
 | 5.4 "Compare the selected subset against a random subset of the same size under a comparable training setup." | done (2 random seeds per size; torch-version caveat disclosed) | REPORT.md §5.4 |
-| 5.4 "Characterize the examples that survive selection. What makes them useful?" | **missing** | — |
-| 5.4 "Report subset size, class coverage and achieved performance." | partial: size and performance yes; class coverage of the subsets not in REPORT | REPORT.md §5.4 |
+| 5.4 "Characterize the examples that survive selection. What makes them useful?" | done: more boxes per image and rare-class-rich, same box sizes; confounded with box count (disclosed) | REPORT.md §5.4; `figures/subset_compare/subset_characterisation.csv` |
+| 5.4 "Report subset size, class coverage and achieved performance." | done | REPORT.md §5.4 (class-coverage table) |
 | 5.4 "Report the smallest successful subset you actually tested. Do not claim a mathematically proven minimum unless you can establish one." | done: none of the tested subsets succeeded | REPORT.md §5.4 |
 
 ## 6. Final Analysis
