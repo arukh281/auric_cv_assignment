@@ -1,0 +1,4 @@
+,our_boxes,xview_boxes,images,paired_changed_class,paired_same_class,extra_ours_unpaired,missing_xview_unpaired,shifted_iou_lt_0.95,changed_class_rate
+train,6880,7235,403,341,6510,29,384,378,0.049773755656108594
+holdout40,738,786,40,38,695,5,53,42,0.05184174624829468
+val,1552,1724,22,0,1546,6,178,10,0.0

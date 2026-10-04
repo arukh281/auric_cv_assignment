@@ -1683,3 +1683,93 @@ Holdout40 curve: 0.128 / 0.132 / 0.124 / 0.135 / 0.128 at epochs 10–50, flat
   2. For any combination including E10, E10's predictions of the 8 extra classes are dropped before fusion; only
      our 5 classes enter the ensemble. (`eval.py` already drops them; `e13_ensemble.py` filters `cls < 5`
      explicitly for every model.)
+
+## Data-integrity audit: pixels and labels vs the xView originals (4 Oct 2026; CPU-only kernel `aradhya1211/auric-xview-pixels`, code `0c96e12`; `analysis/xview_pixels.py`)
+
+**Pixels** (`results/xview_pixels/pixels.csv`, `pixels_summary.json`):
+
+| split | images | byte-identical to xView | rescaled | other changes |
+|---|---|---|---|---|
+| train | 403 | **403** | 0 | 0 |
+| holdout40 | 40 | **40** | 0 | 0 |
+| val | 22 | **14** | 4 | **4** |
+
+The 8 modified val images. Ratios are ours / xView, on grey levels; for the rescaled images, the measurements after
+resizing xView with the best-matching method are given.
+
+| image | change | evidence |
+|---|---|---|
+| 2308 | upscaled 2× | best match: Lanczos (residual MAE 1.73) |
+| 2391 | upscaled 2× | best match: Lanczos (residual MAE 1.87) |
+| 2384 | downscaled 0.5× | best match: area (residual MAE 0.68) |
+| 2460 | downscaled 0.5× | best match: area (residual MAE 0.37) |
+| 2292 | noise added | noise ratio 2.73, mean brightness change 0.01, contrast 0.92 |
+| 2543 | blur + noise | Laplacian-variance ratio 0.66, noise ratio 1.72 |
+| 1399 | contrast reduced, darker tones compressed | contrast ratio 0.50, gamma fit 0.52, Laplacian ratio 0.25 |
+| 2139 | contrast boosted | contrast ratio 1.41, gamma fit 1.74, brightness +3.1 |
+
+- 2470 and 2472 (the dark port images) are byte-identical to xView. Their darkness is in the original imagery.
+- No image has its R and B channels swapped.
+
+**Labels per split** (one-to-one IoU ≥ 0.5 vs xView's five types; the 4 rescaled val images are compared after
+scaling our boxes; `label_compare_by_split.csv`, `label_changes_by_split.csv`):
+
+| split | our boxes | xView boxes | paired, same class | paired, **changed class** | shifted (IoU < 0.95) | ours unpaired | xView unpaired |
+|---|---|---|---|---|---|---|---|
+| train | 6880 | 7235 | 6510 | **341 (5.0%)** | 378 | 29 | 384 (5.3%) |
+| holdout40 | 738 | 786 | 695 | **38 (5.2%)** | 42 | 5 | 53 (6.7%) |
+| val | 1552 | 1724 | 1546 | **0 (0%)** | 10 | 6 | 178 (10.3%) |
+
+- **Val's classes are exactly xView's. About 5% of train and holdout40 boxes carry a different class than xView.**
+- Most train changes move a box out of xView's Cargo or Box into a rarer class (ours ← xView):
+  - Flatbed ← Cargo 54; Tractor ← Cargo 48; Liquid ← Cargo 46; Box ← Cargo 36.
+  - Cargo ← Box 27; Flatbed ← Box 26; Liquid ← Box 26; Tractor ← Box 19.
+- **Val's labels omit 10.3% of xView's boxes of the five types, vs 5.3% for train.**
+- Train also has more boxes shifted relative to xView than val (378 vs 10).
+- **Reading:** the training labels look like xView's with class noise added; val keeps xView's classes but drops
+  about 1 in 10 boxes; and 8 of 22 val images were photometrically or geometrically altered.
+
+## Holdout40 TIDE breakdown vs val (B1h; CPU-only kernel `auric-b1h-errors-holdout`, code `9bae85a`; `errors.py --holdout-list`)
+
+| fix (dAP50) | val | holdout40 |
+|---|---|---|
+| Cls | +0.147 | **+0.177** |
+| Bkg | +0.077 | **+0.130** (11684 errors) |
+| Missed | +0.044 | +0.014 |
+| Loc | +0.022 | +0.015 |
+
+Sources: `figures/b1h_tile1024_holdout40/errors/tide_dAP.csv` (val), `errors_holdout/tide_dAP.csv` (holdout40).
+- **Classification also dominates on holdout40.** It is the largest fix there too, even though the GT-box oracle is
+  much better on holdout40 (0.690 vs 0.601): classification errors on detected boxes still cost the most AP.
+- The background bin is larger on holdout40, where §3.3b / E10 step 3 found 62% of confident background errors to be
+  excluded truck types.
+- Misses matter less on holdout40 than on val.
+
+## E6b: Results (4 Oct 2026; GPU kernel `aradhya1211/auric-e6b-rfs-t03`, code `0c8fc4a`, ~1.71 GPU-h kernel time)
+
+- **Run:** 4055 list entries, 42 epochs, 10,668 iterations (B1h 10,750). The close_mosaic residual is −118 steps
+  (`results/e6b_b1h_rfs_t03/rfs.json`).
+
+| | B1h | E6b |
+|---|---|---|
+| holdout40 mAP50 (95% CI) | 0.1507 | 0.1363 (0.045–0.170) |
+| val mAP50 (95% CI) | 0.1065 | 0.0908 (0.049–0.145) |
+| train40 mAP50 | 0.378 | 0.569 |
+| holdout40 AP50 Tractor / Flatbed / Liquid | 0.007 / 0.069 / 0.073 | 0.002 / 0.061 / 0.010 |
+
+- Holdout40 curve: 0.101 / 0.129 / 0.137 / 0.139 / 0.136 at epochs 10 / 20 / 30 / 40 / 42.
+- **Verdict:** the overall change is −0.014, within the 0.017 bar as predicted. But **Tractor and Flatbed did not rise**
+  (0.007 → 0.002 and 0.069 → 0.061), so the class part of the prediction is **not supported**.
+- Repeating rare-class tiles made the model fit its training images more (train40 0.569) without helping the rare
+  classes on held-out images. This is consistent with the §5.4 Tractor evidence.
+
+## E13 preview, holdout40 only, without E10 (descriptive; selects nothing; pre-amendment script; `results/e13_preview/`)
+
+| combo | holdout40 mAP50 | without Liquid |
+|---|---|---|
+| B1h | 0.1507 | 0.1702 |
+| B1h + E4 | 0.1627 | 0.1858 |
+| B1h + E7 | 0.1660 | 0.1877 |
+| B1h + E4 + E7 | 0.1723 | 0.1955 |
+
+- The final E13 run, with E10 and val scored once, follows when E10 finishes.

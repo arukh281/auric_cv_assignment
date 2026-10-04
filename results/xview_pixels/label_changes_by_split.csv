@@ -1,0 +1,20 @@
+,train,holdout40
+ours Flatbed <- xView Cargo,54,1
+ours Flatbed <- xView Box,26,7
+ours Liquid <- xView Tractor,10,0
+ours Tractor <- xView Box,19,4
+ours Flatbed <- xView Tractor,6,0
+ours Tractor <- xView Cargo,48,4
+ours Liquid <- xView Cargo,46,2
+ours Box <- xView Cargo,36,3
+ours Tractor <- xView Flatbed,5,0
+ours Cargo <- xView Box,27,6
+ours Liquid <- xView Box,26,6
+ours Cargo <- xView Liquid,1,0
+ours Cargo <- xView Flatbed,6,1
+ours Box <- xView Flatbed,9,1
+ours Cargo <- xView Tractor,7,0
+ours Liquid <- xView Flatbed,7,1
+ours Flatbed <- xView Liquid,1,1
+ours Box <- xView Tractor,6,0
+ours Box <- xView Liquid,1,1

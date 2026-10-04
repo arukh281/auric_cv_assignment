@@ -1,0 +1,7 @@
+{
+  "chosen": "b1h+e4+e7",
+  "chosen_holdout40": 0.172307470382499,
+  "b1h_holdout40": 0.1506784940044492,
+  "margin_vs_b1h": 0.021628976378049808,
+  "passes_0.017": true
+}
