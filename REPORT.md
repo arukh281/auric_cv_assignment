@@ -256,7 +256,7 @@ Cargo → Box 192 of 800; Box → Cargo 171 of 493; Tractor → Cargo 47 of 117;
 - **Label check:** the first check flagged 85 of 3439 tiles (`results/sanity/label_check.json`). With the checker
   fixed to pair boxes by IoU, the re-run flags 0 of 3439 (`results/sanity/label_check_iou/label_check.json`). The IoU-paired
   re-check found all 3,278 boxes in those tiles identical (`results/sanity/label_mismatch/summary.json`): an artefact
-  of coordinate-sort pairing in dense tiles, not a label error. The author overrode the original NOT PASS before
+  of coordinate-sort pairing in dense tiles, not a tiling error (annotation correctness was not tested here; see the FP audit). The author overrode the original NOT PASS before
   the re-check; with it, both PASS criteria hold (EXPERIMENTS.md, SANITY).
 - Effective B1h settings: imgsz 1024, mosaic 1.0, scale 0.5, close_mosaic 10
   (`results/b1h_tile1024_holdout40/train/args.yaml`).
@@ -272,7 +272,7 @@ Full entries are in EXPERIMENTS.md under the headings named below. "Pre-register
 | **B1h** ("B1h") | is val unusually hard? | No prediction written before this run | 40 train imgs held out; max_det 902 | val 0.1065, holdout 0.1507, train40 0.378 | Poor generalisation, not val-specific; B1→B1h gain within seed noise | learning curves |
 | **LC** ("LC") | train/holdout gap | Pre-registered: curve still rising; 25% → 0.07–0.12 holdout | 25/50/75% subsets at equal iterations + seed 1 | §5.3 | Rising; 25% gave 0.061 | §5.4 |
 | **S54** ("S54") | – | Selection and rule pre-registered (`b02413c`); prediction never provided | smart vs random subsets | §5.4 | rule computed; no subset ≥ 90% | – |
-| **SANITY** ("SANITY") | train40 only 0.378 | settings / labels / capacity | args check, label check, overfit test | §3.4 | pipeline can fit; labels fine (re-check) | E1/E2 |
+| **SANITY** ("SANITY") | train40 only 0.378 | settings / labels / capacity | args check, label check, overfit test | §3.4 | pipeline can fit; tiling preserves labels (re-check; annotation correctness not tested) | E1/E2 |
 | **E1/E2** ("E1 / E2") | B1h losses still falling | Pre-registered: E1 undertraining; E2 scale 0.5 hurts small trucks | E1 150 ep; E2 150 ep + scale 0.2 | below | E1 not supported (overfitting); E2 inconclusive, leaning not supported | E3/E4 |
 | **E3/E4** ("E3 / E4") | E1/E2 overfit | Pre-registered (author's): aerial pretraining (E3) / flipud 0.5 + mixup 0.1 (E4) reduce overfitting; holdout > 0.1507 + 0.017 | B1h recipe, 50 ep, `patience: 0`, holdout checkpoint curves | **pending (launched)** | pending | pending |
 
