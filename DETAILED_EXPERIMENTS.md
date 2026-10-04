@@ -1674,3 +1674,10 @@ Holdout40 curve: 0.128 / 0.132 / 0.124 / 0.135 / 0.128 at epochs 10–50, flat
 - **If it passes:**
   - The final submission is that ensemble, plus E12's inference rule if E12 passes.
   - `predict.py` must reproduce it, and the README lists every weights file it needs.
+- **Amendments (author, 4 Oct 2026, before any E13 result):**
+  1. Choosing the best of several combinations on holdout40 makes the chosen ensemble's holdout40 score optimistic.
+     **Pass rule:** the chosen ensemble must beat B1h on holdout40 by more than 0.017 **and** beat B1h on holdout40
+     mAP50 without Liquid. Both are reported, plus val once.
+  2. For any combination including E10, E10's predictions of the 8 extra classes are dropped before fusion; only
+     our 5 classes enter the ensemble. (`eval.py` already drops them; `e13_ensemble.py` filters `cls < 5`
+     explicitly for every model.)

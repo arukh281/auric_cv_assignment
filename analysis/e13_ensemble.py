@@ -63,7 +63,8 @@ def main():
     runs = dict(r.split("=", 1) for r in a.run)
     hold = [l.strip() for l in (REPO / "splits" / "holdout40_seed0.txt").read_text().splitlines() if l.strip()]
     himgs = [root / "train" / "images" / n for n in hold]; hs = image_sizes(himgs)
-    H = {k: pd.read_csv(Path(v) / "eval_holdout40" / "predictions.csv") for k, v in runs.items()}
+    five = lambda d: d[d.cls < 5]  # amendment 2: only our 5 classes enter the ensemble (E10's extra classes dropped)
+    H = {k: five(pd.read_csv(Path(v) / "eval_holdout40" / "predictions.csv")) for k, v in runs.items()}
     others = [k for k in runs if k != "b1h"]
     combos = [("b1h",)] + [("b1h",) + c for r in range(1, len(others) + 1) for c in itertools.combinations(others, r)]
     rows = []
@@ -75,10 +76,14 @@ def main():
     ens = R[R.combo != "b1h"]; best = ens.sort_values("holdout40_mAP50", ascending=False).iloc[0]
     res = dict(chosen=best.combo, chosen_holdout40=float(best.holdout40_mAP50),
                b1h_holdout40=float(R[R.combo == "b1h"].holdout40_mAP50.iloc[0]))
-    res["margin_vs_b1h"] = res["chosen_holdout40"] - res["b1h_holdout40"]; res["passes_0.017"] = res["margin_vs_b1h"] > 0.017
+    res["margin_vs_b1h"] = res["chosen_holdout40"] - res["b1h_holdout40"]
+    res["chosen_holdout40_no_liquid"] = float(best.holdout40_mAP50_no_liquid)
+    res["b1h_holdout40_no_liquid"] = float(R[R.combo == "b1h"].holdout40_mAP50_no_liquid.iloc[0])
+    # amendment 1: beat B1h by > 0.017 on holdout40 AND beat B1h on holdout40 mAP50 without Liquid
+    res["passes"] = bool(res["margin_vs_b1h"] > 0.017 and res["chosen_holdout40_no_liquid"] > res["b1h_holdout40_no_liquid"])
     if a.score_val:
         vimgs = list_images(root / "val" / "images"); vs = image_sizes(vimgs)
-        V = [pd.read_csv(Path(runs[k]) / "eval" / "predictions.csv") for k in best.combo.split("+")]
+        V = [five(pd.read_csv(Path(runs[k]) / "eval" / "predictions.csv")) for k in best.combo.split("+")]
         pv = fuse(V, vs); pv.to_csv(out / "val_preds_chosen.csv", index=False)
         m, nl = score(pv, vimgs, root / "val" / "labels", vs); res.update(val_mAP50=m, val_mAP50_no_liquid=nl)
     (out / "e13_result.json").write_text(json.dumps(res, indent=2)); print(json.dumps(res, indent=2))
