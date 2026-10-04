@@ -227,6 +227,17 @@ Grids of TP / FN / FP (background, localisation, wrong class) and full-image ove
 - Class confusions are mostly Box ↔ Cargo, Tractor ↔ Box and Flatbed ↔ Cargo.
 - No duplicate errors at conf 0.25 (`crops_dupe.png` empty).
 
+### 2.4 Inference settings and the operating point
+- All reported mAP50 values use conf ≥ 0.001.
+- **mAP50 integrates over all confidence thresholds, so raising the threshold can only lower it.**
+  - On val: 0.106 at 0.001 → 0.082 at 0.1 → 0.062 at 0.25 → 0.004 at 0.8.
+  - On holdout40: 0.151 → 0.003 (`results/operating_points/`).
+- For a deployed detector, the F1-optimal threshold is **0.10 on val** (P 0.254, R 0.265, F1 0.259) and **0.25 on
+  holdout40** (P 0.346, R 0.332, F1 0.339). Figures: `figures/operating_points/`.
+- **Precision is understated:** detections of excluded truck types (§3.3b) and of the 178 xView boxes missing from
+  val's labels count as false positives.
+- TODO-FINAL: the same table for the final model, once E13 is chosen.
+
 ## 3. Failure diagnosis
 
 ### 3.1 Error bins (TIDE order, val)
@@ -801,6 +812,52 @@ confirmed on the unseen half).
   - Ensembling: the top xView solutions combined several detectors, for example the first-place RFL (Reduced Focal
     Loss) solution, arXiv 1903.01347. E13 tests an ensemble of our existing models with no new training.
     TODO-FINAL: result.
+
+### 6.5 Why 0.75 was not reached
+
+The following points together suggest that 0.75 mAP50 is out of reach for this data and protocol, and that part of
+the measured gap is in the evaluation data rather than in the model.
+
+1. **Published benchmark.** On 19 small, visually similar xView vehicle classes, the best reported result is 0.3065
+   mAP (arXiv 2104.11854, Table IV). Our five classes are a subset of that kind of problem.
+2. **The class-agnostic ceiling.** Ignoring class entirely, B1h reaches 0.255 AP50 on val and 0.362 on holdout40
+   (`results/b1h_tile1024_holdout40/{eval,eval_holdout40}/class_agnostic.json`). Even perfect type naming would start
+   from there, far below 0.75.
+3. **What the "false positives" are.** 216 of B1h's 350 confident holdout40 false positives overlap xView boxes of
+   truck types outside the five classes (`results/xview_overlap/fp_rescore_summary.json`). The metric counts real
+   trucks as errors.
+4. **Altered val images.** 8 of 22 val images are altered versions of their xView originals: 4 rescaled 2× / 0.5×,
+   plus noise, blur + noise, and two contrast changes (§3.3c). Val also drops 10.3% of xView's boxes of the five
+   types.
+5. **xView leakage path.** All 465 images are xView training images, so any xView-pretrained model would have seen
+   every val image with labels. We therefore used COCO-pretrained weights only.
+6. **Levers tried.**
+   - Without detectable gains: longer training (E1/E2), aerial pretraining (E3, E7), augmentation (E4), resampling
+     (E6/E6b), extra xView data with excluded types (E10), xView-original labels (E15), TTA, and a crop classifier.
+   - Pending: ensembles (E13) and robust inference (E12).
+
+**Error-repair sum (an indication, not a bound).** Fixing each TIDE error type on val in turn adds +0.147 (Cls),
++0.077 (Bkg), +0.044 (Missed) and +0.022 (Loc) to 0.1065, about 0.40 in total
+(`figures/b1h_tile1024_holdout40/errors/tide_dAP.csv`). The bins can overlap, so the sum is not a strict bound. It
+still lies well below 0.75.
+
+**Gap breakdown** (diagnostic re-scoring of B1h's val predictions; xView labels are used only here, never for
+training or selection; `results/gap_breakdown/gap_breakdown.csv`):
+
+| row | val mAP50 | class-agnostic AP50 |
+|---|---|---|
+| plain | 0.1065 | 0.255 |
+| predictions on excluded truck types ignored | 0.1237 | 0.307 |
+| the 4 rescaled images run at their native scale | 0.1122 | 0.290 |
+| predictions on the val boxes dropped from xView's labels ignored | 0.1112 | 0.272 |
+| all three | **0.1371** | **0.373** |
+
+- Correcting the evaluation data's known issues raises B1h's val mAP50 by about 0.03.
+- Scored against xView's original holdout labels, B1h reaches 0.1765 (E15 entry).
+- Neither comes close to 0.75. The remaining distance is the detection and classification difficulty of about
+  22-pixel, look-alike trucks.
+- Resolution is a known lever: super-resolving 30 cm imagery to 15 cm improved mAP by 13–36% in Shermeyer & Van Etten
+  (arXiv 1812.04098). We did not test it.
 
 ### 6.6 Retrospective
 - In hindsight, auditing the data's provenance first would have saved most of the Phase-2 GPU time:
