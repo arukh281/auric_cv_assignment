@@ -31,9 +31,16 @@ column) in brackets, which is a lower bound.
 | SANITY (`auric-sanity`) | settings, tile-label check, 16-tile overfit test | done; NOT PASS, overridden; PASS after re-check | — (overfit AP50 1.000 on its 16 training tiles, `results/sanity/overfit/eval_ep300/metrics.json`) | — | — | ≤ 0.30 | [SANITY](#sanity-why-does-b1h-reach-only-038-map50-on-its-own-training-images-kernel-aradhya1211auric-sanity-code-f2388f1), [override](#sanity--e1e2-override-of-not-pass-authors-decision-3-oct-2026-1122-pm-ist) |
 | label-mismatch (`auric-label-mismatch`) | IoU re-check of the 85 flagged tiles | done: checker artefact | — | — | — | 0 (CPU) | [re-check](#sanity-label-mismatch-re-check-4-oct-2026-cpu-only-kernel-aradhya1211auric-label-mismatch-code-1f3c5bf) |
 | CHECK 0 | which weights produced the scores | done | — | — | — | 0 (no compute) | [CHECK 0](#check-0-4-oct-2026-which-weights-produced-the-reported-scores) |
-| E3 `e3_b1h_dota` | DOTA-pretrained init | launched 4 Oct, no results | — | — | — | UNKNOWN (expected ~2) | [E3/E4](#e3--e4-two-remedies-for-overfitting-at-b1hs-length-pre-registered-4-oct-2026-before-any-result) |
-| E4 `e4_b1h_flipud_mixup` | flipud 0.5 + mixup 0.1 | launched 4 Oct, no results | — | — | — | UNKNOWN (expected ~2) | [E3/E4](#e3--e4-two-remedies-for-overfitting-at-b1hs-length-pre-registered-4-oct-2026-before-any-result) |
-| CPU kernels fp-crop / e1-figs | FP audit + crop classifier; E1 figures/errors | launched, no results | — | — | — | 0 (CPU) | [E3/E4](#e3--e4-two-remedies-for-overfitting-at-b1hs-length-pre-registered-4-oct-2026-before-any-result) |
+| E3 `e3_b1h_dota` | DOTA-pretrained init | done; prediction not supported (reversed) — see "E3: Results" | 0.0881 | 0.0817 | 0.7291 | 1.64 (kernel time) | [E3/E4](#e3--e4-two-remedies-for-overfitting-at-b1hs-length-pre-registered-4-oct-2026-before-any-result) |
+| E4 `e4_b1h_flipud_mixup` | flipud 0.5 + mixup 0.1 | done; partly supported — see "E4: Results" | 0.0761 | 0.1304 | 0.2657 | 1.84 (kernel time) | [E3/E4](#e3--e4-two-remedies-for-overfitting-at-b1hs-length-pre-registered-4-oct-2026-before-any-result) |
+| E6 `e6_b1h_rfs` | repeat-factor sampling, B1h steps | running (launched 13:01, 4 Oct) | — | — | — | pending | "E6" entry |
+| E7 `e7_b1h_dota_frozen` | DOTA init + frozen backbone | running (launched 13:14, 4 Oct) | — | — | — | pending | "E7" entry |
+| E8 `e8_b1h_flipud_mixup_100ep` | E4 recipe, 100 epochs | pre-registered; waits for E6 and E7 | — | — | — | (~3.7 expected) | "E8" entry |
+| TTA (`auric-tta-b1h`) | flips + 1.5× on B1h tiles | running | — | pending | — | 0 (CPU) | "TTA on B1h" entry |
+| Two-stage on E4 boxes | crop classifier relabels E4 | pre-registered; waits for fp-crop | — | — | — | 0 (CPU) | "Two-stage" entry |
+| fp-crop (`auric-fp-crop`) | background-FP audit + crop classifier on B1h | running | — | — | — | 0 (CPU) | "E3 / E4" pre-registration, CPU (a)/(b) |
+| CPU analyses, done | e1-figs, s52-confirm, s52-floor, recall-gap, sanity-labels, predict-test, s54-char-merge | done | — | — | — | 0 (CPU) | their entries below |
+| CPU analyses, running | lc-per-class; B1h / E1 / E2 holdout checkpoint curves | running | — | — | — | 0 (CPU) | — |
 
 Seed noise for comparisons: B1h vs b1h_seed1 differ by 0.043 val / 0.017 holdout40 mAP50 (rows above).
 
@@ -105,7 +112,9 @@ First run. Starts from COCO-pretrained YOLO11s (`yolo11s.pt`).
 **Conclusion**
 **Result:** mAP50 = 0.002, indicating almost no useful detection.
 
-At 640 px, only 26% of trucks aligned sufficiently with a prediction slot, compared with 93% using 1024 px tiles. This confirms that tiling was necessary, although it did not solve every problem.
+At 640 px, only 26% of trucks aligned sufficiently with a prediction slot, compared with 93% using 1024 px tiles.
+*Source added 2026-10-04:* 26% = 396/1552 (`figures/b0_full640/gt_oracle/comparison.csv`, unflagged); 93% = 1449/1552
+(`figures/b1_tile1024/gt_oracle/comparison.csv`, unflagged). This confirms that tiling was necessary, although it did not solve every problem.
 
 **Next step**
 (Filled 2026-10-04 audit; was "Pending results.") B1, the native-resolution tiled baseline below. B1 was in fact run
@@ -127,6 +136,9 @@ before B0 (see Changes).
 - Written at: 2 Oct 2026, 1:35 pm IST, before seeing any sliced B1 result
 - Hypothesis: Trucks are tiny objects in huge 3000 px images. Shrinking to 640 px makes a truck about 5 px, too small to learn: B0's training error started extremely high (cls_loss 146.7). Tiling at full resolution keeps trucks at about 22 px, so B1 should find far more trucks than B0.
 - Predicted overall mAP50 range: 0.40–0.60, below the 0.75 target. 22 px is still small for YOLO's finest level (stride 8 means about 3 grid cells per truck), and val images are 10× denser than train.
+
+*Note 2026-10-04 (pre-registration text left unchanged):* val is about 4.1× denser than train by mean boxes per
+image, 70.5 vs 17.2 (`figures/eda/tables/boxes_per_image_stats.csv`), not 10×. By median it is 76.5 vs 7.
 - Predicted best class / worst class and why:
   - Best: Cargo Truck: about half of all training data and the most val instances (800).
   - Worst: Truck w/Liquid: only 2.5% of training data and 20 val instances, so its score will be low and very uncertain (wide CI).
@@ -180,12 +192,24 @@ I was right about classification being a major problem: the model often confuses
 
 Rejection condition (b) was largely met: trucks of 8–48 px (92% of val trucks) are missed at a flat 71–79%, so size isn't what limits most detections. Only the largest 5% (48–96 px, n = 73) are found more often (52% missed).
 
+*Forward pointer 2026-10-04:*
+- This was B1 at F1-optimal thresholds.
+- B1h at conf 0.25 shows a clear size gradient in right-class recall: 0.057 / 0.119 / 0.274 for < 16 / 16–32 / ≥ 32 px
+  (E1/E2 results table; `figures/b1h_tile1024_holdout40/errors/op_gt.csv`).
+- §5.2 C1 confirmed on unseen training boxes that never-detected boxes are mostly small.
+- What still holds: across 8–48 px, most trucks are missed at every size, so size alone does not explain the bulk of
+  the misses.
+- What is weakened: "size isn't what limits" is too strong. Size matters, and most strongly below 16 px.
+
 **Diagnosis log**
 
 * **Scoring bug?** Unlikely. The pipeline scored 0.40 on 40 training images the model had already seen.
 * **Tile merging?** Helps rather than hurts. Disabling it dropped the score from 0.071 to 0.048.
 * **Detection limit?** Minor effect; increasing it improved the score by just 0.006.
 * **Domain shift?** No clear evidence. AUCs were 0.34–0.45, with all 95% confidence intervals including 0.5.
+  *Forward pointer 2026-10-04:* this was a weak test (42 local images). The later recall-gap analysis found val recall
+  0.187 below holdout40 (CI 0.043–0.307), not explained by box size, image size or density. That points to a
+  scene-level shift. See "Val vs holdout40 recall gap".
 * **Poor image quality?** Not the main cause; normal and blurry/hazy images performed similarly.
 
 *What we found:* The model misses about 42% of trucks and correctly classifies their type only 55% of the time, barely above always predicting Cargo (51.5%). Average per-class accuracy is 39%, compared with 20% for random guessing, suggesting it has learned something but remains weak.
@@ -236,7 +260,10 @@ floor conf 0.001): 735/796, 629/738 and 1032/1552 GT. Sources:
 
 B1h confirms that the model struggles with unseen images, not just the validation set. Its mAP50 drops from 0.378 on training images to 0.151 on held-out images, indicating poor generalization with the current dataset of around 400 images.
 
-The held-out and validation confidence intervals overlap, suggesting that poor generalization is the main issue rather than a unique problem with the validation set. However, the model finds fewer trucks on validation images (66% vs. 85%). The cause is not yet known. Density is a candidate, but within the validation set miss rates did not vary with density, so this remains untested.
+The held-out and validation confidence intervals overlap, suggesting that poor generalization is the main issue rather than a unique problem with the validation set.
+*Forward pointer 2026-10-04:* poor generalisation remains the main issue, but val is also specifically harder: recall
+0.665 vs 0.852, gap 0.187 (CI 0.043–0.307), not explained by size, image size or density. See "Val vs holdout40
+recall gap". However, the model finds fewer trucks on validation images (66% vs. 85%). The cause is not yet known. Density is a candidate, but within the validation set miss rates did not vary with density, so this remains untested.
 
 Classification remains the biggest bottleneck, consistent with B1. More training data, stronger augmentation, and a separate classifier trained on cropped trucks are potential next steps.
 
@@ -253,6 +280,8 @@ Classification remains the biggest bottleneck, consistent with B1. More training
 ---
 
 ## Plan from here (2026-10-02, after B1h)
+
+*Historical (marked 2026-10-04): the plan as written on 2 Oct. Later work is in the entries below.*
 
 | # | What | Answers | Cost |
 |---|---|---|---|
@@ -322,6 +351,14 @@ The learning curve suggests that more labelled data would improve performance, p
 By my pre-registered rule: the projected held-out gain at +500 images (+0.080 mAP50) is larger than the seed-to-seed noise (0.017), so more labels should help. But the projection (0.215, interval 0.076–0.276) extrapolates 2.24× beyond the data and was flagged unreliable, so only the direction is trustworthy, not the size.
 
 **Conclusion:** More data should help, but additional labels alone are unlikely to achieve the target. Classification needs a separate improvement strategy.
+
+**Two verdicts, side by side (added 2026-10-04):**
+
+| question | verdict | basis |
+|---|---|---|
+| (a) Pre-registered: 500 more **images** (403 → 903) | helps by the pre-registered rule (+0.080 > 0.017 noise); direction only, because the fit extrapolates 2.24× and is flagged unreliable | `figures/learning_curve/power_law_fit.csv` |
+| (b) The brief: 500 more **instances** (~29 images, current class mix) | **no**: +0.006, below the 0.017 noise | same fit at 403 → 432 images; REPORT.md §5.3 |
+| (b′) 500 targeted instances of one class | pending (`auric-lc-per-class`) | — |
 
 ### Smallest useful training subset
 
@@ -502,6 +539,9 @@ it (best 0.085, random 302); full-data seed 1 itself scores 0.063. Weak evidence
 ---
 
 ## SANITY: why does B1h reach only ~0.38 mAP50 on its own training images? (kernel `aradhya1211/auric-sanity`, code `f2388f1`)
+
+*Update 2026-10-04:* the label checker used here had a pairing bug. It was fixed in `cc152a5`, and the re-run with
+the fixed checker gives 0 of 3439 tiles mismatched (`results/sanity/label_check_iou/label_check.json`).
 
 **Observation**
 - B1h scores 0.378 mAP50 on 40 of its own training images (`results/b1h_tile1024_holdout40/eval_train40/metrics.json`).
@@ -732,6 +772,8 @@ AP50 by size was not computed. E1's `errors/` and `figures/` folders were missin
 - **Next** (field added 2026-10-04 audit, from HANDOFF.md "Open items"): fix `analysis/sanity_check.check_labels` to
   pair by IoU as `analysis/label_mismatch.py` does. Not done yet (the lexsort pairing is still in
   `analysis/sanity_check.py`).
+- *Update 2026-10-04:* done. The checker was fixed in `cc152a5`, and its re-run gives 0 of 3439 tiles mismatched
+  (see "SANITY: label check re-run with the fixed checker").
 
 ### Kaggle GPU hours (update 4 Oct 2026, 10:xx IST)
 
@@ -743,6 +785,18 @@ AP50 by size was not computed. E1's `errors/` and `figures/` folders were missin
 | auric-label-mismatch v1, auric-e1e2-train40 v1 | 0 (CPU-only) |
 
 `kaggle quota`: **9.56 h used, 20.44 h remaining** of 30 h (refresh 2026-10-10).
+
+*Update 2026-10-04, ~14:15 IST:*
+
+| kernel | GPU h |
+|---|---|
+| auric-e3-dota v1 | 1.64 (kernel time, log `time` 5890 s) |
+| auric-e4-flipud-mixup v1 | 1.84 (kernel time, log `time` 6613 s) |
+| auric-e6-rfs, auric-e7-dota-frozen | running |
+| every other 4 Oct kernel | 0 (CPU-only) |
+
+`kaggle quota` at ~14:15 IST: **15.48 h used, 14.52 h remaining**. The web UI at 14:23 showed 10 h 53 min reserved by
+the running sessions (E6, E7).
 
 ## CHECK 0 (4 Oct 2026): which weights produced the reported scores?
 
@@ -770,6 +824,27 @@ val leak (E1's early stop). **Next** — the "From now on" bullets.
     pattern (train40 up, holdout40 down), so the E1/E2 verdict does not rest on this.
   - B1h (50 epochs) and E2 (150 epochs) never triggered it.
 - The val checkpoint curves (E1/E2 "peak at epoch 90" and so on) were reported as curves, never used to pick weights.
+- **Extended 2026-10-04: early-stopping check for every run.** Epochs completed (rows in `results/<run>/train/results.csv`)
+  vs configured epochs:
+
+  | run | configured | completed | stopped early? | best Ultralytics val fitness at epoch | epochs without improvement at end |
+  |---|---|---|---|---|---|
+  | b0_full640, b1_tile1024, b1h_tile1024_holdout40, b1h_seed1 | 50 | 50 | no | — | — |
+  | b1h_f25 | 199 | 199 | no | 112 | 87 |
+  | b1h_f50 / b1h_f50_seed1 | 101 | 101 / 101 | no | 54 / 68 | 47 / 33 |
+  | b1h_f75 / b1h_f75_seed1 | 67 | 67 / 67 | no | 45 / 44 | 22 / 23 |
+  | b1h_smart50 / b1h_smart75 | 104 / 66 | 104 / 66 | no | 64 / 52 | 40 / 14 |
+  | e1_b1h_150ep | 150 | **145** | **yes, at 145** | 45 | 100 |
+  | e2_b1h_150ep_scale02 | 150 | 150 | no | 61 | 89 |
+  | e3_b1h_dota, e4_b1h_flipud_mixup | 50 | 50 | no (`patience: 0`) | — | — |
+
+  - Fitness = 0.1 × mAP50 + 0.9 × mAP50-95, Ultralytics' default weights. It is recomputed from the per-epoch
+    `metrics/mAP50(B)` and `metrics/mAP50-95(B)` columns, which are Ultralytics' un-sliced val metrics.
+  - Patience was 100 (default) in every run before E3; `patience` is in `results/<run>/train/args.yaml` where that
+    file was copied.
+  - **Only E1 stopped early.** All learning-curve and §5.4 runs completed their configured epochs, so the
+    "equal iterations" design of §5.3 and §5.4 holds, and early stopping did not affect them.
+  - b1h_f25 came closest, ending 87 epochs after its best fitness. A 13-epoch longer schedule would have triggered it.
 - From now on:
   - every config sets `patience: 0`
   - only `last.pt` is evaluated
@@ -779,8 +854,8 @@ val leak (E1's early stop). **Next** — the "From now on" bullets.
 
 *Six-field labels (added 2026-10-04 audit; content below unchanged):* **Observation** — the "Context" line.
 **Hypothesis** — "Working hypothesis" and the per-run author's hypotheses and predictions (committed in `734299d`
-before any E3/E4 result). **Changes** — the settings list and per-run bullets. **Results** — none yet (launched 4 Oct;
-no result files in `results/` at the time of this audit). **Conclusion** — none yet. **Next** — not recorded.
+before any E3/E4 result). **Changes** — the settings list and per-run bullets. **Results** and **Conclusion** — see
+"E3: Results" and "E4: Results" below (*updated 2026-10-04*). **Next** — E7 (from E3) and E8 / two-stage (from E4).
 
 Context: E1/E2 rejected undertraining. From B1h to E1/E2, train40 rose 0.378 → 0.774 / 0.906 while holdout40 fell
 0.151 → 0.092 / 0.111.
@@ -943,13 +1018,16 @@ Source: `results/s52_confirm/test/claims.csv`.
 
 - **Observation:**
   - Truck Tractor and Truck w/Liquid have the lowest holdout40 AP (0.007, 0.073;
+    *Corrected 2026-10-04: Flatbed's holdout40 AP, 0.069, is below Liquid's 0.073, so the two lowest are Tractor and
+    Flatbed. Liquid is third. The rest of the observation, rarity and C3, stands.*
     `results/b1h_tile1024_holdout40/eval_holdout40/per_class.csv`).
   - They are the rarest training classes (625 and 192 train instances; `figures/eda/tables/class_counts.csv`).
   - §5.2 C3: Liquid is the class most often found but never classified correctly.
 - **Hypothesis (author's):** rare classes are under-sampled. Showing their tiles more often raises their AP.
 - **Changes vs B1h** (only these):
   - LVIS repeat-factor sampling (`detlib/rfs.py`, `train.py write_rfs_list`). For each class c, f_c is the fraction of
-    training **tiles** containing c. Tiles are the images Ultralytics trains on; the brief's "training images" are
+    training **tiles** containing c. Tiles are the images Ultralytics trains on; the author's instruction's "training images" are
+    (*corrected 2026-10-04: was "the brief's"*)
     read as tiles.
   - r_c = max(1, √(0.1 / f_c)), and each tile's r is the maximum r_c over its classes. The list
     `<run>/train_rfs.txt` holds floor(r) copies of each tile plus one more with probability r − floor(r) (seed 0).
