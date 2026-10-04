@@ -277,6 +277,38 @@ Cargo → Box 192 of 800; Box → Cargo 171 of 493; Tractor → Cargo 47 of 117;
   - Only the top 60 of 11684 unmatched predictions.
   - The effect on mAP50 is not quantified.
 
+### 3.3c Dataset construction audit (comparison with the public xView originals)
+
+Source: DETAILED_EXPERIMENTS.md "Data-integrity audit"; `results/xview_pixels/`, `results/xview_overlap/`.
+
+- **Provenance:** all 465 images are xView training images (stem and size; `match_summary.json`).
+- **Pixels:**
+  - All 403 train and 40 holdout40 images are byte-identical to xView.
+  - **8 of 22 val images are altered:**
+
+    | change | images |
+    |---|---|
+    | upscaled 2× | 2308, 2391 |
+    | downscaled 0.5× | 2384, 2460 |
+    | noise added | 2292 (noise ratio 2.73) |
+    | blur plus noise | 2543 (Laplacian ratio 0.66, noise ratio 1.72) |
+    | contrast halved | 1399 (contrast ratio 0.50) |
+    | contrast boosted | 2139 (ratio 1.41) |
+
+  - 2470 and 2472 are byte-identical; they are dark in the original imagery.
+  - Source: `pixels.csv`.
+- **Labels, one-to-one against xView's five types** (`label_compare_by_split.csv`, `label_changes_by_split.csv`):
+
+  | split | class changes vs xView | xView boxes missing from our labels | other |
+  |---|---|---|---|
+  | train | 341 / 6851 paired (5.0%), mostly xView Cargo/Box → our Flatbed, Tractor or Liquid | 384 | 378 shifted (IoU < 0.95) |
+  | holdout40 | 38 (5.2%) | 53 | |
+  | val | **0** | **178 (10.3%)** | |
+
+- **Link to E6b:** the rare classes' training labels are partly flipped Cargo/Box boxes. That is a plausible reason
+  repeating them did not help.
+- **Disclosure:** The val alterations and label differences were found by comparing against the public xView originals. Val labels and pixels were never used for training or for selecting anything, and E12's rules are chosen on synthetically degraded holdout40 only.
+
 ### 3.4 Generalisation and sanity checks
 
 - **Seen vs unseen (B1h):** train40 0.378, holdout40 0.151, val 0.107

@@ -1726,6 +1726,10 @@ scaling our boxes; `label_compare_by_split.csv`, `label_changes_by_split.csv`):
   - Cargo ← Box 27; Flatbed ← Box 26; Liquid ← Box 26; Tractor ← Box 19.
 - **Val's labels omit 10.3% of xView's boxes of the five types, vs 5.3% for train.**
 - Train also has more boxes shifted relative to xView than val (378 vs 10).
+- **Link to E6b:** the rare classes' training labels are partly flipped Cargo/Box boxes. For example, 54 of
+  our training Flatbed boxes and 48 of our Tractor boxes are Cargo in xView. Repeating those tiles (E6b) therefore
+  also repeats label noise, a plausible reason resampling did not help.
+- **Disclosure:** The val alterations and label differences were found by comparing against the public xView originals. Val labels and pixels were never used for training or for selecting anything, and E12's rules are chosen on synthetically degraded holdout40 only.
 - **Reading:** the training labels look like xView's with class noise added; val keeps xView's classes but drops
   about 1 in 10 boxes; and 8 of 22 val images were photometrically or geometrically altered.
 

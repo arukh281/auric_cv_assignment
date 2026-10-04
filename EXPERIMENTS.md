@@ -225,6 +225,22 @@ types our dataset excludes, mostly xView's generic "Truck". Most of these "false
 outside the five classes, so the metric counts them as errors.
 *[details →](DETAILED_EXPERIMENTS.md#e10-steps-13-xview-overlap-label-comparison-extra-data-fp-re-scoring-4-oct-2026-cpu-only-kernel-aradhya1211auric-xview-overlap-v2-code-59ef959)*
 
+### 🧪 How the dataset was built
+Comparing every image and label with its public xView original showed how this dataset was put together. All 443
+training and holdout images are byte-for-byte xView, but 8 of the 22 val images were altered:
+- four were rescaled: 2308 and 2391 by 2×, 2384 and 2460 by 0.5×;
+- one had noise added (2292);
+- one was blurred and noised (2543);
+- one had its contrast halved (1399);
+- one had its contrast boosted (2139).
+
+The dark port images 2470 and 2472 are untouched; they are just dark. The labels show the opposite pattern. About 5%
+of training boxes carry a different class than xView, mostly Cargo or Box turned into Flatbed, Tractor or Liquid,
+and 378 are shifted. Val keeps xView's classes exactly but leaves out 178 of its boxes (10.3%). That also hints at why
+showing rare classes more often (E6b) didn't help: some of those rare-class labels are relabelled Cargo and Box
+trucks. We found all this by comparing with the public originals; val was never used to train or choose anything.
+*[details →](DETAILED_EXPERIMENTS.md#data-integrity-audit-pixels-and-labels-vs-the-xview-originals-4-oct-2026-cpu-only-kernel-aradhya1211auric-xview-pixels-code-0c96e12-analysisxview_pixelspy)*
+
 ### 👀 An independent visual review
 Claude chat went through the val inspection sheets without seeing our interpretation first. It saw labels that are
 not shifted, Truck w/Box labels concentrated in two dark port images, Cargo vs Box looking inconsistent between
