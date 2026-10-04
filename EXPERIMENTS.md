@@ -1048,6 +1048,36 @@ Holdout40 checkpoint curve (`results/e3_b1h_dota/checkpoint_curve_holdout/checkp
   - The most plausible reading is that the backbone transfers aerial features that speed up memorisation of these
     403 images, not generalisation.
   - The holdout40 curve peaks at epoch 10, so more aggressive regularisation or a much shorter schedule might help.
-    That is untested, and choosing the epoch from this holdout curve would be selection on holdout40.
+    That is untested.
+  - *Corrected 2026-10-04 (author):* picking an epoch on holdout40 would not be test-set selection. Holdout40 is the
+    validation split and val is the test set, so it would be legitimate if declared in advance, with val reported
+    once afterwards. This project keeps `last.pt` as pre-registered and reports the per-checkpoint holdout curves
+    only descriptively. E3's best checkpoint (0.132, epoch 10) is below B1h anyway.
   - Single seed.
 - **Decision rule:** E3 does not beat B1h on holdout40, so it does not enter E5.
+
+## E7: DOTA initialisation with a frozen backbone (pre-registered 4 Oct 2026, before any run; `configs/e7_b1h_dota_frozen.yaml`)
+
+- **Observation (E3):** DOTA initialisation raised train40 to 0.729 while holdout40 fell to 0.082. The gap went from
+  0.227 to 0.647, and the holdout40 curve peaked at epoch 10 (0.132).
+- **Hypothesis (author's):** E3 overwrote the transferred aerial features while memorising the training images.
+  Freezing them reduces overfitting.
+- **Changes vs E3** (only this): `freeze: 11` in the Ultralytics train args. That freezes `model.0`–`model.10`, the
+  whole yolo11s backbone: Conv and C3k2 blocks 0–8, SPPF at 9 and C2PSA at 10 (Ultralytics `yolo11.yaml` backbone
+  section). The neck (11–22) and the Detect head (23) are trained.
+  - The kernel writes the frozen layer indices and the total and trainable parameter counts to
+    `<run>/trainable_params.json` (new `train.py` callback); they will be reported here.
+  - Ultralytics freezing sets `requires_grad = False`; BatchNorm running statistics in frozen layers still update in
+    train mode.
+- **Unchanged from E3:** 50 epochs, `patience: 0`, `last.pt` only, holdout40 scored at every 10-epoch checkpoint
+  (`scripts/run_e34.sh`).
+- **Prediction (author's):**
+  - **vs E3:** a smaller train40 − holdout40 gap than E3's 0.647, and holdout40 mAP50 above E3's 0.0817 by more than
+    0.017 (that is, > 0.099).
+  - **vs B1h:** we do **not** predict a win over B1h (0.1507).
+- **Decision rules:** the standing rules. E7 enters E5 only if it beats B1h on holdout40 by more than 0.017.
+- **Launch:** in the next free GPU slot after E4 finishes (E6 holds the other).
+
+**Holdout-curve note (author, 4 Oct):** holdout40 is the validation split; val is the test set. Epoch selection on
+holdout40 would be legitimate if declared in advance. This project keeps `last.pt` as pre-registered. Per-checkpoint
+holdout40 curves of E1–E4 and E6 are reported descriptively.

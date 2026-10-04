@@ -120,6 +120,7 @@ def main():
                 (run_dir / "init_weights.json").write_text(json.dumps(
                     {"model": cfg["model"], "path": str(init.resolve()), "sha256": sha256(init)}, indent=2))
             add_checkpoint_callback(model, cfg.get("checkpoint_every"))
+            add_param_count_callback(model, run_dir)
             model.train(data=str(data_yaml), project=str(run_dir), name="train", exist_ok=True,
                         epochs=cfg["epochs"], imgsz=cfg["imgsz"], batch=batch, workers=cfg.get("workers", 8),
                         seed=cfg["seed"], deterministic=cfg["deterministic"], device=cfg.get("device"),
@@ -202,6 +203,22 @@ def tiles_dir_name(t, holdout=None, subset=None):
     if subset:
         name += "_in" + hashlib.sha256(Path(subset).read_bytes()).hexdigest()[:10]
     return name
+
+
+def add_param_count_callback(model, run_dir):
+    """Write <run>/trainable_params.json at train start: total / trainable parameters and the frozen layer indices
+    (relevant when train_args.freeze is set; written for every run)."""
+    def log(trainer):
+        m = trainer.model
+        tot = sum(p.numel() for p in m.parameters())
+        tr = sum(p.numel() for p in m.parameters() if p.requires_grad)
+        frozen = sorted({int(n.split(".")[1]) for n, p in m.named_parameters()
+                         if not p.requires_grad and n.startswith("model.")})
+        info = dict(params_total=tot, params_trainable=tr, params_frozen=tot - tr, frozen_layer_indices=frozen,
+                    freeze_arg=getattr(trainer.args, "freeze", None))
+        (run_dir / "trainable_params.json").write_text(json.dumps(info, indent=2))
+        print("[train] parameters:", json.dumps(info), flush=True)
+    model.add_callback("on_pretrain_routine_end", log)
 
 
 def add_checkpoint_callback(model, every):
