@@ -584,3 +584,27 @@ CPU-only kernels run alongside (no GPU quota):
     `eval.py --from-preds`, and compared with 0.1507.
   - Val is not used.
 - (c) E1's missing `figures/` and `errors/`, regenerated from its saved val predictions.
+
+## §5.2 test-half confirmation (pre-registered 4 Oct 2026, before the test half is read)
+
+- **Halves:** `splits/s52_inspect_seed0.txt` (202 images) and `splits/s52_test_seed0.txt` (201 images), committed in
+  `b02413c` before any §5.2 computation.
+- **Test-half data:** `results/s52/per_box_test.csv` has never been opened. It will be read only inside the CPU
+  kernel by `analysis/s52_confirm.py`, after this entry is committed.
+- **Where the claims come from:** Claude derived them from the inspect half
+  (`figures/s52/inspect/counts_by_{class,size}.csv`). They are not author predictions; no author prediction for §5.2
+  was recorded.
+- **Pass rule:** a claim passes on the test half if its point estimate meets the criterion and so does the 2.5th
+  percentile of a 2000-sample bootstrap over images (seed 0).
+- **Control run:** the same script also runs on the inspect half and must reproduce the inspect values below.
+
+| claim | inspect value (source) | criterion on test half |
+|---|---|---|
+| C1 Small boxes are the ones never detected: never-detected share for boxes < 16 px minus the share for boxes ≥ 32 px | 608/903 − 72/744 = 0.673 − 0.097 = 0.576 (`counts_by_size.csv`) | > 0 |
+| C2a Truck w/Box is learned early more than any other class: its learned-early share minus the highest other class's | 167/976 = 0.171 vs Flatbed 1/333 = 0.003 → 0.168 (`counts_by_class.csv`) | > 0 |
+| C2b Truck w/Box is forgotten more than any other class: its forgotten share minus the highest other class's | 183/976 = 0.188 vs Tractor 26/349 = 0.074 → 0.113 | > 0 |
+| C3 Truck w/Liquid is never learned more than any other class: its never-learned share minus the highest other class's | 29/64 = 0.453 vs Flatbed 60/333 = 0.180 → 0.273 | > 0 |
+| C4 Most never-detected boxes are below threshold, not invisible: share with an epoch-50 prediction of any class at IoU ≥ 0.5 and conf ≥ 0.001 | 0.793 (in-session analysis 3 Oct, not saved to a file; this run saves it) | > 0.5 |
+| C5 Cargo Truck boxes are often never detected: never-detected share among Cargo Truck boxes | 846/1789 = 0.473 | > 0.3 |
+
+- **What a failure means:** the inspect-half pattern does not generalise and is not reported as a finding.
