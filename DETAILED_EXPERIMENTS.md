@@ -1501,7 +1501,8 @@ Holdout40 curve: 0.128 / 0.132 / 0.124 / 0.135 / 0.128 at epochs 10–50, flat
     IoU ≥ 0.5 (`label_summary.json`).
   - Our class vs the paired xView type (`label_pairs_crosstab.csv`):
     - The diagonal dominates: Cargo 4321, Box 2641, Tractor 645, Flatbed 677, Liquid 108.
-    - 411 pairs (4.7%) have a different xView type, mostly our Tractor / Flatbed / Liquid → xView Cargo (52 / 55 / 48)
+    - 379 pairs (4.3%; 8771 − 8392 on the diagonal) have a different xView type, mostly our Tractor / Flatbed / Liquid
+      → xView Cargo (52 / 55 / 48)
       and our Liquid → xView Box (32).
   - The supplied labels are therefore xView's boxes for these five types, with a small share of class changes. That
     count is pooled over train and val; the per-split breakdown and the 4 rescaled val images are pending (audit
