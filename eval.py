@@ -308,6 +308,10 @@ def main():
             preds = src
     else:
         raw = run_predictions(a, images)
+        extra = raw.cls >= len(names)  # models trained with extra classes (E10): only the data root's classes count
+        if extra.any():
+            print(f"[eval] dropping {int(extra.sum())} raw predictions of classes >= {len(names)} (not scored)")
+            raw = raw[~extra].reset_index(drop=True)
         raw.to_csv(out / "predictions_raw.csv", index=False)  # pre-merge; analysis/merge_sensitivity.py re-scores it
     if not a.from_preds or "tile_x0" in src.columns:
         method = a.merge if a.mode == "sliced" else "none"

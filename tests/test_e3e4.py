@@ -61,6 +61,19 @@ def test_repeat_factors():
     assert lst.count("a") == 1 and lst.count("c") in (1, 2)
 
 
+def test_e10_exclusion():
+    sys.path.insert(0, str(REPO / "tools"))
+    from make_xview_dataset import select_extra
+    excl = set(Path(l.strip()).stem for l in (REPO / "splits/e10_exclude.txt").read_text().splitlines() if l.strip())
+    hold = set(Path(l.strip()).stem for l in (REPO / "splits/holdout40_seed0.txt").read_text().splitlines() if l.strip())
+    im = pd.read_csv(REPO / "figures/eda/tables/images.csv")
+    vals = set(Path(i).stem for i in im[im.split == "val"].image)
+    assert len(vals) == 22 and len(hold) == 40 and hold | vals <= excl  # every val and holdout40 ID is excluded
+    xv = {"1", "2", "3"} | set(list(vals)[:3]) | set(list(hold)[:3])
+    sel = select_extra(xv, our_stems=set(list(hold)[:1]), exclude=excl)
+    assert sel == ["1", "2", "3"] and not set(sel) & (vals | hold)
+
+
 def test_crop_pads_and_resizes():
     img = np.zeros((50, 60, 3), np.uint8); img[:, :30] = 200
     c = crop(img, np.array([0, 0, 20, 10.]), 2.0, 96)

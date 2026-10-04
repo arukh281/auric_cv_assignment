@@ -1532,3 +1532,50 @@ Holdout40 curve: 0.128 / 0.132 / 0.124 / 0.135 / 0.128 at epochs 10–50, flat
     - 67 nothing.
   - **Conclusion:** most of B1h's confident "background" false positives are real trucks of types the dataset excludes.
     xView's generic "Truck" class dominates. Missing labels of our own five classes are rare (12 / 350).
+
+## E10: extra xView data, val and holdout40 excluded (pre-registered 4 Oct 2026, before launch; `configs/e10_b1h_xview_extra.yaml`)
+
+- **Observation:**
+  - All 465 of our images are xView train images (E10 steps 1–2).
+  - 62% of B1h's confident holdout40 false positives are trucks of types the dataset excludes; 12 of 350 are our own
+    classes missing from the labels (step 3).
+  - The 382 xView train images not in our dataset hold 1715 instances of our 5 classes (about 20 images) and 3753 of
+    the excluded truck types.
+- **Hypotheses (author's):**
+  - (a) More data improves generalisation.
+  - (b) Explicit labels for look-alike trucks reduce confident false positives in our five classes.
+  - Because the extra images contain few of our classes (+25% instances, concentrated in about 20 images), E10
+    mainly tests (b).
+- **Changes vs B1h:**
+  - **Training images:** our 403 (train minus holdout40) plus every labelled xView train image whose ID is not one
+    of our 465 images. The 22 val and 40 holdout40 IDs are hard-excluded (`splits/e10_exclude.txt`). The builder
+    asserts that none reaches the list, and `tests/test_e3e4.py::test_e10_exclusion` checks the list and the
+    selection rule. The list is written to `e10_train_list.txt` in the kernel.
+  - **Classes (13):** our 5, plus the 8 excluded truck types as extra classes on all training images, including our
+    403: Pickup Truck, Utility Truck, Truck, Trailer, Crane Truck, Dump Truck, Haul Truck, Cement Mixer.
+    - Our own 403 images keep their supplied 5-class labels unchanged.
+    - The extra images use xView's boxes, mapped 24→Cargo, 25→Box, 28→Flatbed, 26→Tractor, 29→Liquid.
+    - `tools/make_xview_dataset.py`.
+  - **Evaluation:** only our 5 classes count. `eval.py` drops predicted classes ≥ 5 before merging; this is a no-op
+    for 5-class models.
+  - **Recipe:** B1h's (YOLO11s COCO, 1024 tiles with overlap 256, `patience: 0`, `last.pt` only, holdout40 at every
+    checkpoint). Total iterations are matched to B1h's 10,750 (`target_iterations`; epochs set at run time), and
+    warmup and close_mosaic are matched to B1h's steps (as E6). The actual epochs and iterations will be reported.
+  - **Caveat:** some excluded-type boxes (for example haul trucks and trailers) may exceed the 256 px tile overlap
+    and are then clipped or dropped by the tiler's min_vis 0.5 rule.
+- **Predictions (author's direction; numbers from the §5.3 curve):**
+  1. **Holdout40 mAP50.**
+     - §5.3's power-law fit (a = 0.00424, b = 0.577; `figures/learning_curve/power_law_fit.csv`) at the added
+       instance count: 6880 → 8595 instances is about 403 → 504 image-equivalents. Fit 0.135 → 0.154, **a gain of
+       about +0.019**, i.e. holdout40 about 0.170.
+     - That is right at the 0.017 noise bar. **The prediction is a gain at the noise boundary, not a clear win.**
+     - E10 doubles as a direct test of §5.3. If the gain is well below +0.019, extra same-source instances are worth
+       less than the curve suggests, for example because they come from only about 20 images.
+     - mAP50 without Liquid and class-agnostic AP are also reported.
+  2. **Background false positives shrink**, because the excluded truck types are now labelled:
+     - (i) val TIDE Bkg error count and dAP below B1h's 9380 / +0.077 (`figures/b1h_tile1024_holdout40/errors/tide_dAP.csv`);
+     - (ii) among E10's holdout40 predictions with conf ≥ 0.25 and IoU < 0.1 to every GT box, fewer overlap an
+       excluded xView truck type than B1h's 216 (`analysis/xview_overlap.py`).
+- **Decision rule:** if E10 beats B1h on holdout40 by more than 0.017, it becomes the final model, and §3 and the
+  qualitative examples are redone on it. **E10 is the last training run;** afterwards the final model is frozen.
+- **Launch:** in the next free GPU slot. E6b and E8 are running.
