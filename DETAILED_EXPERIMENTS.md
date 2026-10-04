@@ -1426,3 +1426,29 @@ Holdout40 curve: 0.128 / 0.132 / 0.124 / 0.135 / 0.128 at epochs 10–50, flat
   - Fixed in `3226d48`.
   - The evaluations of the saved `last.pt` (val, holdout40, train40, class-agnostic, holdout40 checkpoint curve) run
     on CPU-only kernel `auric-e6-eval`. Same commands as `scripts/run_e34.sh`, on CPU; no retraining.
+
+## E6b: repeat-factor sampling with t = 0.3 (pre-registered 4 Oct 2026, before launch; `configs/e6b_b1h_rfs_t03.yaml`)
+
+- **Observation:** E6 (t = 0.1) repeated only Liquid tiles (r = 1.25). It added only 57 tile views (+1.6%), so it was
+  **too weak to test the hypothesis**; Tractor and Flatbed were not up-weighted at all.
+- **Hypothesis (author's):** rare classes are under-sampled. Showing their tiles more often helps them.
+- **Changes vs E6** (only this): t = 0.3. Same step matching (about 10,750 iterations; warmup and close_mosaic matched
+  to B1h's steps), `patience: 0`, `last.pt` only, holdout40 scored at every checkpoint (`scripts/run_e34.sh`).
+- **Repeat factors at t = 0.3**, computed before launch (CPU-only kernel `auric-rfs-preview`, code `0c8fc4a`;
+  `results/rfs_preview/rfs_preview.json`; the t = 0.1 row reproduces E6's 3496 entries):
+
+  | class | Cargo | Box | Flatbed | Tractor | Liquid |
+  |---|---|---|---|---|---|
+  | f_c (share of tiles) | 0.540 | 0.291 | 0.162 | 0.101 | 0.064 |
+  | r_c | 1.000 | 1.015 | 1.360 | 1.722 | 2.161 |
+  | tiles containing c → list entries containing c | 1856 → 2275 | 1001 → 1303 | 558 → 855 | 348 → 622 | 221 → 478 |
+
+  - The list has 4055 entries vs 3439 tiles: **+616 extra tile views (+17.9%)**, above the author's 10% bar.
+- **Prediction (author's):** Tractor and Flatbed holdout40 AP rise slightly; overall holdout40 mAP50 changes by less
+  than 0.017. Reasons:
+  - In §5.4, about twice as many Tractor boxes did not raise Tractor AP (smart 302: 559 vs 290 boxes, AP 0.006 vs
+    0.001 / 0.035).
+  - The per-class learning curve projects no single-class gain above noise (Tractor b < 0; Flatbed +0.007 mAP50 at
+    +500 instances).
+- **Launch:** in E8's GPU slot when E8 finishes. It needs ≥ 2.9 h available (about 1.9 h plus a 1 h margin) and more
+  than 5 h left after it; otherwise ask the author.
