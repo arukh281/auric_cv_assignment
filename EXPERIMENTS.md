@@ -1118,3 +1118,35 @@ Holdout40 checkpoint curve (`results/e4_b1h_flipud_mixup/checkpoint_curve_holdou
   - Neither E3 nor E4 beats B1h on holdout40 by more than 0.017, so there is **no E5** from E3/E4.
   - Per the standing rule, B1h stays the final model unless E6 or E7 beats it. Both were explicitly requested and
     pre-registered after this rule; E7 launched in E4's slot at 13:14.
+
+## Two-stage: crop classifier on E4's boxes (pre-registered 4 Oct 2026, before any run)
+
+- **Observation:** E4 finds more held-out trucks than B1h (class-agnostic holdout40 AP50 0.400 vs 0.362) but names
+  them worse (mAP50 0.130 vs 0.151; `results/e4_b1h_flipud_mixup/eval_holdout40/`).
+- **Hypothesis (author's):** the crop classifier names E4's detections better than E4's own head.
+- **Changes:** none to E4.
+  - The crop classifier trained in `auric-fp-crop` (`model.pt`, trained on train-minus-holdout40 GT crops) is
+    loaded with `analysis/crop_classifier.py --load-model`.
+  - It is applied to E4's holdout40 predictions exactly as to B1h's, with both scoring variants: argmax
+    (score = conf × p_max) and allclass (conf × p_c per class).
+  - Scored with `eval.py --from-preds --split holdout`.
+- **Prediction (author's):** E4 + classifier beats B1h's 0.1507 on holdout40 by more than 0.017, that is > 0.168.
+  This is pre-registered for the argmax variant, as for B1h; allclass is reported too.
+- **Rule:** only if it passes, score once on val.
+
+## E8: E4's recipe for 100 epochs (pre-registered 4 Oct 2026, before any run; `configs/e8_b1h_flipud_mixup_100ep.yaml`)
+
+- **Amendment to the decision rules (author, 4 Oct).**
+  - The standing rule said that if neither E3 nor E4 beats B1h, there is no more GPU training.
+  - E4 showed a new pattern: less overfitting (gap 0.135) and holdout40 still rising at epoch 50, though slowly:
+    +0.002 and +0.001 over the last 20 epochs (0.127 → 0.129 → 0.130).
+  - So longer training is retested with the extra augmentation.
+- **Hypothesis (author's):** with augmentation limiting overfitting, longer training helps instead of hurting
+  (contrast with E1, plain B1h recipe at 150 epochs: holdout40 0.092).
+- **Changes vs E4** (only this): `epochs: 100`. close_mosaic stays 10 epochs as in E4 (so not scaled to steps,
+  unlike E6). Also `patience: 0`, `last.pt` only, holdout40 scored at every 10-epoch checkpoint (`scripts/run_e34.sh`).
+- **Prediction (author's):** holdout40 mAP50 > 0.1507 + 0.017 = 0.168, with train40 − holdout40 staying below E1's
+  0.682. Stated honestly: E4's flattening curve makes a big gain unlikely.
+- **Cost and launch:** about 3.7 GPU-h. It launches in the next free GPU slot after E6 or E7 finishes, provided
+  `kaggle quota` shows more than 5 h remaining after subtracting 3.7 h and the running kernels' remaining time;
+  otherwise ask the author.

@@ -93,6 +93,8 @@ def main():
     ap.add_argument("--bs", type=int, default=128)
     ap.add_argument("--lr", type=float, default=1e-3)
     ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--load-model", help="skip training: load this model.pt (from an earlier run) and only re-label "
+                                         "--preds (holdout GT accuracy is still computed)")
     a = ap.parse_args()
     torch.manual_seed(a.seed); rng = np.random.default_rng(a.seed)
     torch.set_num_threads(max(1, torch.get_num_threads()))
@@ -105,8 +107,10 @@ def main():
     train_imgs = sorted(set(sizes) - set(hold))
     gt = lambda n: read_yolo_labels(root / "train" / "labels" / f"{Path(n).stem}.txt", *sizes[n])
     t0 = time.time()
+    if a.load_model:
+        train_imgs = []
     Xtr, mtr = crops_for(root, train_imgs, sizes, gt, a.context, a.size)
-    ytr = np.array([m[2] for m in mtr])
+    ytr = np.array([m[2] for m in mtr], int)
     Xte, mte = crops_for(root, hold, sizes, gt, a.context, a.size)
     yte = np.array([m[2] for m in mte])
     print(f"[crop] {len(Xtr)} train crops from {len(train_imgs)} images, {len(Xte)} holdout crops; "
@@ -117,22 +121,25 @@ def main():
     import torchvision
     net = torchvision.models.resnet18(weights=torchvision.models.ResNet18_Weights.IMAGENET1K_V1)
     net.fc = nn.Linear(net.fc.in_features, K)
-    opt = torch.optim.AdamW(net.parameters(), lr=a.lr, weight_decay=1e-4)
-    steps = a.epochs * ((len(Xtr) + a.bs - 1) // a.bs)
-    sched = torch.optim.lr_scheduler.OneCycleLR(opt, a.lr, total_steps=steps)
-    w = 1.0 / np.bincount(ytr, minlength=K).clip(1)
-    p = w[ytr] / w[ytr].sum()  # class-balanced sampling
-    log = []
-    for ep in range(a.epochs):
-        net.train(); idx = rng.choice(len(Xtr), len(Xtr), p=p); tot = 0.0
-        for i in range(0, len(idx), a.bs):
-            j = idx[i:i + a.bs]
-            loss = nn.functional.cross_entropy(net(to_tensor(augment(Xtr[j], rng))), torch.from_numpy(ytr[j]))
-            opt.zero_grad(); loss.backward(); opt.step(); sched.step(); tot += loss.item() * len(j)
-        log.append(dict(epoch=ep + 1, train_loss=tot / len(idx), seconds=time.time() - t0))
-        print(f"[crop] epoch {ep + 1}: loss {tot / len(idx):.4f} ({time.time() - t0:.0f} s)", flush=True)
-    pd.DataFrame(log).to_csv(out / "train_log.csv", index=False)
-    torch.save(net.state_dict(), out / "model.pt")
+    if a.load_model:
+        net.load_state_dict(torch.load(a.load_model, map_location="cpu"))
+    else:
+        opt = torch.optim.AdamW(net.parameters(), lr=a.lr, weight_decay=1e-4)
+        steps = a.epochs * ((len(Xtr) + a.bs - 1) // a.bs)
+        sched = torch.optim.lr_scheduler.OneCycleLR(opt, a.lr, total_steps=steps)
+        w = 1.0 / np.bincount(ytr, minlength=K).clip(1)
+        p = w[ytr] / w[ytr].sum()  # class-balanced sampling
+        log = []
+        for ep in range(a.epochs):
+            net.train(); idx = rng.choice(len(Xtr), len(Xtr), p=p); tot = 0.0
+            for i in range(0, len(idx), a.bs):
+                j = idx[i:i + a.bs]
+                loss = nn.functional.cross_entropy(net(to_tensor(augment(Xtr[j], rng))), torch.from_numpy(ytr[j]))
+                opt.zero_grad(); loss.backward(); opt.step(); sched.step(); tot += loss.item() * len(j)
+            log.append(dict(epoch=ep + 1, train_loss=tot / len(idx), seconds=time.time() - t0))
+            print(f"[crop] epoch {ep + 1}: loss {tot / len(idx):.4f} ({time.time() - t0:.0f} s)", flush=True)
+        pd.DataFrame(log).to_csv(out / "train_log.csv", index=False)
+        torch.save(net.state_dict(), out / "model.pt")
 
     P = predict(net, Xte); yhat = P.argmax(1)
     acc = pd.DataFrame([dict(cls=k, name=names[k], n=int((yte == k).sum()),
