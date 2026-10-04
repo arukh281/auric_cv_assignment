@@ -96,10 +96,14 @@ Why, in order of evidence strength:
      are correct or complete. The background-FP audit (`auric-fp-crop`) tests missing labels: **pending**.
    - **Model capacity:** YOLO11s has enough capacity to fit the training data. A 16-tile overfit test reaches AP50 1.000
      (§3.4), and E1/E2 reach train40 0.774 / 0.906. **Not tested:** whether a larger model would generalise better.
-   - **Tile-merge settings: ruled out as a main cause (for B1).** Re-scoring B1's saved raw predictions with NMS on IoS
-     0.5/0.6/0.7 and IoU 0.5 gives val mAP50 between 0.0707 and 0.0722. Removing the merge entirely costs
-     0.0715 → 0.0484. max_det 3000 adds 0.006 (`figures/b1_tile1024/merge_sensitivity.csv`,
-     `figures/b1_tile1024_maxdet3000/merge_sensitivity.csv`). This was not repeated on B1h.
+   - **Tile-merge settings: ruled out as a main cause.** Re-scoring saved raw tile predictions under other settings
+     (class-wise NMS on IoS 0.5/0.6/0.7, NMS on IoU 0.5):
+     - B1h val mAP50 stays between 0.1047 and 0.1077 (default 0.1065). Removing the merge drops it to 0.0805
+       (`figures/b1h_tile1024_holdout40/merge_sensitivity.csv`).
+     - B1 behaves the same, 0.0707–0.0722 (`figures/b1_tile1024/merge_sensitivity.csv`). max_det 3000 adds 0.006 on
+       B1 (`figures/b1_tile1024_maxdet3000/merge_sensitivity.csv`).
+     - *Corrected 2026-10-04:* an earlier version said this was not repeated on B1h. The B1h file already existed and
+       a CPU re-run (`auric-s54-char-merge`) reproduced it exactly.
 
 Experiments still running when this was written: E3 (aerial pretraining), E4 (flipud + mixup), a crop classifier on
 GT crops, and a background false-positive audit (§5.2 test-half confirmation done: all five claims hold).
