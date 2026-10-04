@@ -69,6 +69,10 @@ generalisation, not the eval pipeline.
 E5. **E6** (repeat-factor sampling, `configs/e6_b1h_rfs.yaml`, code `7ec3894`) launched in E3's slot. Also running:
 E4, `auric-fp-crop`, `auric-lc-per-class`, `auric-tta-b1h`. Quota before E3 finished: 18.64 h left.
 
+**E4 done (13:14):** holdout40 0.130 (below B1h by 0.020), gap 0.135, class-agnostic up; partly supported. No E5
+from E3/E4. **E7** (DOTA + freeze 11, code `e5a115e`) launched in E4's slot. CPU kernels running: fp-crop,
+lc-per-class, tta-b1h, e1/e2/b1h holdout curves.
+
 **Author's decision rules for E3/E4** (noise 0.017 on holdout40; B1h holdout40 0.1507):
 - **If E3 and/or E4 beats 0.1507 + 0.017 on holdout40:**
   - Pre-register E5 in EXPERIMENTS.md first.

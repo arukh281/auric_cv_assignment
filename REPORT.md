@@ -596,6 +596,7 @@ Class coverage, as boxes (images) and share of the pool's boxes of that class:
 | E1 | 150 epochs (stopped at 145) | 0.774 | 0.092 | 0.682 |
 | E2 | 150 epochs, scale 0.2 | 0.906 | 0.111 | 0.795 |
 | E3 | DOTA-pretrained initialisation | 0.729 | 0.082 | 0.647 |
+| E4 | flipud 0.5 + mixup 0.1 (more augmentation) | 0.266 | 0.130 | 0.135 |
 
 Sources: `results/{b1h_tile1024_holdout40,e1_b1h_150ep,e2_b1h_150ep_scale02,e3_b1h_dota}/{eval_train40,eval_holdout40}/metrics.json`.
 
@@ -603,8 +604,12 @@ Sources: `results/{b1h_tile1024_holdout40,e1_b1h_150ep,e2_b1h_150ep_scale02,e3_b
   moved train40 and holdout40 in opposite directions. The holdout40 losses (0.040–0.069) are all larger than the
   0.017 seed spread.
 - This is the strongest evidence that the binding limit is generalisation from 403 images, not under-fitting.
-- E4 (more augmentation) and E7 (frozen pretrained backbone) test the opposite direction. TODO-FINAL: add them to the
-  table.
+- E4 went the opposite direction: more augmentation lowered train40 (0.266) and the gap (0.135), and holdout40 was
+  still rising at epoch 50 (0.102 → 0.130; `results/e4_b1h_flipud_mixup/checkpoint_curve_holdout/`). Holdout40 mAP50
+  ended 0.020 below B1h, within about one seed spread, while class-agnostic AP rose (holdout40 0.400 vs 0.362). It
+  is consistent with the pattern: slower fitting means a smaller gap. It did not convert into better class-aware
+  mAP50 within 50 epochs.
+- TODO-FINAL: E7 (frozen pretrained backbone), E6, and B1h's own holdout curve.
 - Each run is a single seed.
 
 ### 6.2 Strength of each conclusion
