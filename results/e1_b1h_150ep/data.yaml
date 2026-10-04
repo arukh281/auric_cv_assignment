@@ -1,0 +1,10 @@
+path: /kaggle/tmp/work/tiles_1024_ov256_e0.2_v0.5_s0_hoc9ed14e746
+train: train/images
+val: /kaggle/tmp/data/val/images
+nc: 5
+names:
+  0: Cargo Truck
+  1: Truck w/Box
+  2: Truck w/Flatbed
+  3: Truck Tractor
+  4: Truck w/Liquid

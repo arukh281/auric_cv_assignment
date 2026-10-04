@@ -317,7 +317,7 @@ mode, all GT), `figures/b1h_tile1024_holdout40/errors/tide_dAP.csv`. For B1 the 
 - After 2 epochs, each run's training finish is projected inside the kernel (`scripts/run_pair.py`).
 - If both are projected to finish within 10.5 h of kernel start (about 4.2 min per epoch or less), both continue.
 - Otherwise E2 is stopped and relaunched as its own kernel after E1 finishes.
-- Decision: pending (to be recorded here from `pair_decision.json`).
+- Decision: not applied. E1 and E2 ran as two separate GPU kernels (see the launch record below), so the in-kernel rule was not used.
 
 ---
 
@@ -426,3 +426,97 @@ the flagged tiles with per-box differences (`analysis/label_mismatch.py`).
 
 - Total committed tonight: about 14 h at most, of 29.8 h.
 - Actual hours to be filled from `kaggle quota` and the kernel logs after the runs.
+
+### E1 / E2: Results (4 Oct 2026)
+
+Kernels `aradhya1211/auric-e1-b1h-150ep` and `aradhya1211/auric-e2-b1h-150ep-scale02`, code `e72d3b8`, 1 × T4 each.
+train40: CPU-only kernel `aradhya1211/auric-e1e2-train40` (code `1f3c5bf`), same sliced settings and scorer as B1h's
+train40, on the same 40 images (verified: identical `sampled_images`).
+
+**Training actually done**
+- **E1 stopped at epoch 145 of 150.** Ultralytics' EarlyStopping (default `patience=100`, never overridden in any of
+  our configs) watches Ultralytics' own un-sliced val fitness. Its best was at epoch 45, so it stopped 100 epochs later.
+  - 31,175 iterations, 4.43 h of training (`results/e1_b1h_150ep/train/results.csv`, `run.log`).
+  - `last.pt` = epoch 145, which had 4 of the 10 planned no-mosaic epochs.
+- E2 completed 150 epochs (32,250 iterations, 4.13 h).
+
+| | B1h (50 ep) | E1 (150 ep, stopped at 145) | E2 (150 ep, scale 0.2) |
+|---|---|---|---|
+| val mAP50 (95% CI) | 0.1065 (0.0563–0.1653) | 0.0680 (0.0355–0.1243) | 0.0620 (0.0326–0.1104) |
+| val AP50 Cargo / Box / Flatbed / Tractor / Liquid | 0.131 / 0.180 / 0.071 / 0.006 / 0.145 | 0.085 / 0.177 / 0.024 / 0.001 / 0.053 | 0.062 / 0.115 / 0.037 / 0.018 / 0.078 |
+| holdout40 mAP50 (95% CI) | 0.1507 (0.0558–0.1874) | 0.0923 (0.0302–0.1384) | 0.1112 (0.0344–0.1391) |
+| train40 mAP50 | 0.378 | **0.774** | **0.906** |
+| class-agnostic AP50 val / holdout / train40 | 0.255 / 0.362 / – | 0.210 / 0.259 / 0.900 | 0.178 / 0.278 / 0.936 |
+| final train loss box / cls / dfl | 1.588 / 1.596 / 1.003 (ep 50) | 1.179 / 0.795 / 0.893 (ep 145) | 0.864 / 0.543 / 0.837 (ep 150) |
+
+Sources: `results/<run>/eval/per_class.csv`, `eval_holdout40/per_class.csv`, `eval_train40/{metrics,class_agnostic}.json`,
+`train/results.csv` (B1h: `results/b1h_tile1024_holdout40/...`).
+
+**Checkpoint curves** (val mAP50, sliced, our scorer; `results/<run>/checkpoint_curve/checkpoint_curve.csv`).
+Holdout per checkpoint was never computed (the checkpoint curve scores val only).
+
+| epoch | 10 | 20 | 30 | 40 | 50 | 60 | 70 | 80 | 90 | 100 | 110 | 120 | 130 | 140 | last |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| E1 | 0.030 | 0.069 | 0.058 | 0.062 | 0.066 | 0.067 | 0.072 | 0.087 | 0.100 | 0.084 | 0.069 | 0.063 | 0.071 | 0.067 | 0.068 (145) |
+| E2 | 0.049 | 0.062 | 0.070 | 0.105 | 0.107 | 0.088 | 0.079 | 0.068 | 0.068 | 0.062 | 0.062 | 0.060 | 0.064 | 0.066 | 0.062 (150) |
+
+Val mAP50 is not rising at the end. It peaks (E1 0.100 at epoch 90; E2 0.107 at epochs 40–50) and then falls back.
+
+**Scale test: val recall by GT box size** (conf ≥ 0.25, IoU ≥ 0.5, right class; computed from each run's
+`eval/predictions.csv` with `detlib.scoring.match_image`, the matcher `errors.py` uses; B1h's values match its
+`errors/op_gt.csv`).
+
+| sqrt(area) | n GT | B1h | E1 | E2 |
+|---|---|---|---|---|
+| < 16 px | 263 | 0.057 | 0.061 | 0.061 |
+| 16–32 px | 818 | 0.119 | 0.127 | 0.103 |
+| ≥ 32 px | 471 | 0.274 | 0.255 | 0.208 |
+
+AP50 by size was not computed. E1's `errors/` and `figures/` folders are missing from its Kaggle output (cause unknown).
+
+### E1 / E2: Conclusion (verdicts against the pre-registered predictions; noise = seed spread 0.043 val / 0.017 holdout)
+
+- **E1 (undertraining): not supported.**
+  - The pre-registered condition was val and holdout above B1h by more than the spread, and train40 well above 0.38.
+  - train40 rose a lot (0.378 → 0.774). But held-out fell: val −0.039 (within noise, wrong direction) and holdout
+    −0.058 (beyond noise).
+  - Training loss fell (cls 1.60 → 0.80) while held-out performance got worse, with val peaking mid-training. That is
+    the pattern of overfitting, not undertraining.
+  - Caveat: E1 stopped at epoch 145 (EarlyStopping), not 150.
+- **E2 vs E1 (scale 0.5 hurts small trucks): inconclusive, leaning not supported.**
+  - E2 − E1: val −0.006 (noise); holdout +0.019 (just above the 0.017 spread).
+  - Recall on boxes under 16 px is identical (0.061 vs 0.061). 16–32 px is lower for E2 (0.103 vs 0.127).
+  - The predicted gain "mainly on boxes under 32 px" did not appear.
+- **What the two runs show together:** with 3× B1h's iterations, both runs fit their training images far better
+  (train40 0.77 / 0.91) while held-out mAP50 stayed at or below B1h's. The gap between seen and unseen images widened.
+
+### E1 / E2: Next
+- Ultralytics' `patience` should be set explicitly (0 or above the epoch count) in every config so runs end where
+  configured. It was 100 by default for all runs so far; only E1 was long enough to be affected.
+- The evidence now points at generalisation and overfitting, not training length. Candidates already noted in this
+  log: stronger augmentation or regularisation, more data (§5.3), and a separate crop classifier for Cargo vs Box.
+
+### SANITY: label-mismatch re-check (4 Oct 2026; CPU-only kernel `aradhya1211/auric-label-mismatch`, code `1f3c5bf`)
+
+- **All 85 flagged tiles** (from 32 source images) were re-paired one-to-one by IoU:
+  - **3,278 of 3,278 boxes "same"**: identical class, every coordinate within 0.5 px.
+  - 0 shifted, 0 re-classed, 0 missing, 0 extra (`results/sanity/label_mismatch/summary.json`, `box_diffs.csv`).
+- **Source images of the flagged tiles:** 2,856 GT boxes, 0 pairs at IoU ≥ 0.9, 0 exact duplicates, 19 pairs at
+  IoU ≥ 0.5 (`source_overlaps.csv`).
+- The flagged tiles are the densest ones (up to 263 boxes per tile). 8 of the 85 renders are in
+  `figures/sanity/label_mismatch/`.
+- **Conclusion: a checker artefact, not a label problem.** The original check (`sanity_check.check_labels`) paired
+  boxes by sorting coordinates. In dense tiles, near-equal coordinates (float round-trip of the YOLO text) reorder and
+  mis-pair; IoU pairing finds every label identical.
+- With this, both criteria of the sanity PASS rule hold: 0 real label mismatches, and overfit AP50 1.000.
+
+### Kaggle GPU hours (update 4 Oct 2026, 10:xx IST)
+
+| kernel | GPU h |
+|---|---|
+| auric-sanity v1 | ≤ 0.30 (22:53–23:11 IST, 2 Oct) |
+| auric-e1-b1h-150ep v1 | ~4.7 (run.log 17:55–22:36 UTC, 3 Oct, incl. evals; plus setup) |
+| auric-e2-b1h-150ep-scale02 v1 | ~4.4 (run.log 18:08–22:31 UTC, 3 Oct) |
+| auric-label-mismatch v1, auric-e1e2-train40 v1 | 0 (CPU-only) |
+
+`kaggle quota`: **9.56 h used, 20.44 h remaining** of 30 h (refresh 2026-10-10).

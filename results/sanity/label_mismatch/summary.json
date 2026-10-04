@@ -1,0 +1,9 @@
+{
+  "n_flagged_tiles": 85,
+  "n_sources": 32,
+  "box_types": {
+    "same": 3278
+  },
+  "shifted_max_abs_d": null,
+  "sources_with_iou09_pairs": 0
+}

@@ -1,0 +1,46 @@
+{
+  "modes": {
+    "pool/all": {
+      "n_gt": 1552,
+      "accuracy": 0.5225515463917526,
+      "mean_class_accuracy": 0.4029725739305013
+    },
+    "pool/unflagged": {
+      "n_gt": 1398,
+      "accuracy": 0.5207439198855508,
+      "mean_class_accuracy": 0.4015487044467724
+    },
+    "pool/flagged": {
+      "n_gt": 154,
+      "accuracy": 0.538961038961039,
+      "mean_class_accuracy": 0.33170823161800606
+    },
+    "best/all": {
+      "n_gt": 1552,
+      "accuracy": 0.4845360824742268,
+      "mean_class_accuracy": 0.3588993791034409
+    },
+    "best/unflagged": {
+      "n_gt": 1398,
+      "accuracy": 0.47854077253218885,
+      "mean_class_accuracy": 0.3534696497214239
+    },
+    "best/flagged": {
+      "n_gt": 154,
+      "accuracy": 0.538961038961039,
+      "mean_class_accuracy": 0.33170823161800606
+    }
+  },
+  "agreement_pool_vs_best": {
+    "n": 1552,
+    "n_agree": 1216,
+    "agreement": 0.7835051546391752,
+    "n_agree_unflagged": 1062,
+    "n_unflagged": 1398
+  },
+  "n_flagged_no_anchor_at_iou": 154,
+  "n_unflagged": 1398,
+  "iou": 0.5,
+  "weights": "/kaggle/working/runs/e2_b1h_150ep_scale02/train/weights/last.pt",
+  "mode": "sliced"
+}

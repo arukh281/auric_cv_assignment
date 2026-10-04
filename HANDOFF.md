@@ -10,6 +10,66 @@ generalisation, not the eval pipeline.
 
 ---
 
+## 0. CURRENT STATE (updated 2026-10-04 ~10:45 IST; supersedes older statements below where they differ)
+
+**Best model is still `b1h_tile1024_holdout40`.** Val mAP50 0.1065, holdout 0.1507. Weights in Kaggle kernel
+`aradhya1211/auric-b1h` v1 output, `runs/b1h_tile1024_holdout40/train/weights/last.pt`.
+
+**Done since the original handoff (all in EXPERIMENTS.md, committed):**
+
+1. **§5.4 smart vs random** (overnight 2–3 Oct): `figures/subset_compare/`.
+   - Smart beats both random seeds on held-out class-agnostic AP50 at 202 and 302 images (margins +0.052 / +0.028
+     vs seed spreads 0.011 / 0.013).
+   - It does not on held-out mAP50.
+   - No 50% or 75% subset reaches 0.128. No conclusion written yet.
+2. **§5.2 training dynamics** (inspect half only): `figures/s52/inspect/`, `results/s52/`.
+   - Never-detected confidence-floor numbers are in §5 below. They are still not saved to a file.
+3. **SANITY** (kernel `auric-sanity`, 2 Oct):
+   - B1h `args.yaml` copied to `results/b1h_tile1024_holdout40/train/args.yaml`: imgsz 1024, mosaic 1.0, scale 0.5,
+     close_mosaic 10, rect false.
+   - B1h losses still falling at epoch 50 (`figures/sanity/b1h_loss_curves.png`).
+   - 16-tile overfit test with augmentation off: AP50 0.355 / 0.987 / **1.000** at epochs 50 / 100 / 300; final
+     cls_loss 0.097.
+   - The label check flagged 85 tiles. The CPU re-check (`auric-label-mismatch`) found **all 3,278 boxes identical**,
+     so it is a **checker artefact** (coordinate-sort pairing in dense tiles), not a label problem
+     (`results/sanity/label_mismatch/`).
+   - The author overrode the NOT PASS before the re-check; with the re-check, both PASS criteria hold.
+4. **E1 / E2** (pre-registered; kernels `auric-e1-b1h-150ep`, `auric-e2-b1h-150ep-scale02`, code `e72d3b8`):
+
+| | B1h | E1 (150 ep; EarlyStopping stopped it at 145) | E2 (150 ep, scale 0.2) |
+|---|---|---|---|
+| val mAP50 (CI) | 0.1065 (0.056–0.165) | 0.0680 (0.036–0.124) | 0.0620 (0.033–0.110) |
+| holdout40 mAP50 (CI) | 0.1507 (0.056–0.187) | 0.0923 (0.030–0.138) | 0.1112 (0.034–0.139) |
+| train40 mAP50 | 0.378 | 0.774 | 0.906 |
+| final train cls_loss | 1.60 | 0.80 | 0.54 |
+
+   - Val peaks mid-training: E1 0.100 at epoch 90, E2 0.107 at epochs 40–50.
+   - Recall < 16 px at conf 0.25: 0.057 / 0.061 / 0.061 (B1h / E1 / E2).
+   - **Verdicts:** E1 (undertraining) **not supported**, and the pattern looks like overfitting. E2 (scale)
+     **inconclusive, leaning not supported**.
+   - Sources: `results/e1_b1h_150ep/`, `results/e2_b1h_150ep_scale02/` (incl. `eval_train40/` from the CPU kernel
+     `auric-e1e2-train40`), `figures/e2_b1h_150ep_scale02/`.
+   - E1's `figures/` and `errors/` are missing from its Kaggle output (cause unknown).
+
+**GPU budget:** `kaggle quota` shows 9.56 h used, **20.44 h remaining**, refresh 2026-10-10 (~05:30 local).
+- Rule from the author: never launch a GPU kernel projected over 10 h without asking.
+- CPU-only work goes in CPU-only Kaggle kernels: `scripts/kaggle_cli_script_kernel.sh <slug> '<cmd>' --cpu --push`.
+- **No compute on the Mac** (author's explicit rule), and no Colab for training.
+
+**Open items**
+- **New bug:** Ultralytics `patience` defaults to 100 and is not set in any config. It stopped E1 early, and it
+  depends on Ultralytics' val, which conflicts with "no decisions on val". Set `patience: 0` in future configs.
+- Next experiment not chosen. The evidence points at generalisation and overfitting, not training length. Candidates
+  in EXPERIMENTS.md: stronger augmentation or regularisation, a crop classifier for Cargo vs Box (planned as a
+  CPU-only kernel), more data.
+- Write-ups still missing: §5.2 interpretation (and confirmation on the test half), §5.3 per-class "which classes
+  benefit", §5.4 conclusion, §6 final analysis, the full REPORT.md.
+- `STATUS.md` is stale. `REPORT.md` says `val: false`, but the configs use `val: true`.
+- `analysis/sanity_check.py`'s `check_labels` should pair by IoU (as `analysis/label_mismatch.py` does) to avoid the
+  false flags.
+
+---
+
 ## 1. Project map
 
 ### Directory tree (tracked files, without raw images or caches)
