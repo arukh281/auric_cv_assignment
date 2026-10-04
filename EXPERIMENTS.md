@@ -989,3 +989,17 @@ Source: `results/s52_confirm/test/claims.csv`.
 - **Rule:** score on holdout40 first. Only if all four beat 0.1507 + 0.017, score once on val and apply TTA to
   whichever model ends up final. The single-variant subsets are descriptive; the pre-registered test is the
   all-four set.
+
+### §5.2 confidence floor, descriptive (4 Oct 2026; CPU-only kernel `aradhya1211/auric-s52-floor`, code `095cf9b` era, `analysis/s52_floor.py`)
+
+**Computed after the test half was opened; not pre-registered.** The three thresholds in the author's 4 Oct message
+(≥ 70%, chance < 1%, 30–50% at ≥ 0.10) were not committed before the test half was read, so they are not judged here.
+
+| conf floor | inspect: never-detected with IoU ≥ 0.5 prediction | test | chance (inspect / test) |
+|---|---|---|---|
+| ≥ 0.001 | 0.793 (1022/1288) | 0.778 (988/1270) | 0.0020 / 0.0009 |
+| ≥ 0.05 | 0.538 | 0.543 | 0.0003 / 0.0009 |
+| ≥ 0.10 | 0.396 | 0.400 | 0.0003 / 0.0006 |
+
+- Source: `results/s52_floor/{inspect,test}/floor.csv`. No chance boxes were dropped.
+- The inspect values reproduce the unsaved 3 Oct session analysis (0.793 / 0.538 / 0.396 / 0.002).

@@ -1,0 +1,19 @@
+{
+  "per_box": "/kaggle/input/notebooks/aradhya1211/auric-s52/s52/per_box_inspect.csv",
+  "never_detected": 1288,
+  "chance_boxes_dropped": 0,
+  "by_floor": {
+    "0.001": {
+      "share": 0.7934782608695652,
+      "chance_share": 0.0019937339789233835
+    },
+    "0.05": {
+      "share": 0.5380434782608695,
+      "chance_share": 0.0002848191398461977
+    },
+    "0.1": {
+      "share": 0.39596273291925466,
+      "chance_share": 0.0002848191398461977
+    }
+  }
+}

@@ -362,10 +362,20 @@ though the model trains on them.
 | C4 | Most never-detected boxes are "never confident", not invisible: share with an IoU ≥ 0.5 prediction at conf ≥ 0.001 | > 0.5 | 0.778 (0.716–0.848) |
 | C5 | Cargo Truck boxes often never detected | > 0.3 | 0.474 (0.427–0.532) |
 
-**Descriptive only (computed after the test half was opened; not pre-registered):** the chance-box rate and the
-never-detected share at conf ≥ 0.05 / ≥ 0.10, from `analysis/s52_floor.py` (CPU kernel `auric-s52-floor`). TODO-FINAL:
-numbers from `results/s52_floor/test/summary.json` when the kernel finishes. Inspect-half values from the unsaved
-3 Oct session analysis were 0.002 (chance) and 0.396 (≥ 0.10).
+**Descriptive only (computed after the test half was opened; not pre-registered).** The rows below give the
+never-detected boxes with an epoch-50 prediction of any class at IoU ≥ 0.5, by confidence floor. The chance control
+places one random box per GT box (same image and size, IoU 0 with every GT box; seed 0). Sources:
+`analysis/s52_floor.py`, CPU-only kernel `auric-s52-floor`, `results/s52_floor/{inspect,test}/floor.csv`.
+
+| conf floor | inspect half (1288 boxes) | test half (1270 boxes) | chance, test half (3369 boxes) |
+|---|---|---|---|
+| ≥ 0.001 | 0.793 | 0.778 | 0.0009 |
+| ≥ 0.05 | 0.538 | 0.543 | 0.0009 |
+| ≥ 0.10 | 0.396 | 0.400 | 0.0006 |
+
+The inspect column reproduces the unsaved 3 Oct session numbers. About 40% of never-detected training boxes have a
+correctly placed prediction at conf ≥ 0.10, against well under 1% for random boxes of the same size. That is far
+above chance, and the effect is the same in both halves.
 
 **What resists learning** (interpretation written after the result; no author prediction recorded):
 1. **Small trucks.** Under 16 px they are mostly never detected at the operating threshold, even in training images.
