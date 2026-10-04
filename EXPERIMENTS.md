@@ -407,9 +407,45 @@ Box (now planned as the E3/E4 side kernel (b)).
 
   Val mAP50: smart50 0.0562, smart75 0.0832, f50_seed1 0.0573, f75_seed1 0.0736 (`figures/subset_compare/subset_compare.csv`).
   No 50% or 75% run reached the 0.128 "recovers 90%" threshold; the highest was f75_seed1 at 0.1230 (same file).
-- **Conclusion:** not yet written by the author. Facts only: by the pre-registered primary rule smart beats random at
-  both sizes on held-out class-agnostic AP50; it does not on held-out mAP50; no tested subset recovers 90%.
-- **Next:** not recorded. UNKNOWN.
+- **Corrected 2026-10-04:** Conclusion and Next were "not yet written" / UNKNOWN; added below.
+
+**Conclusion (written 2026-10-04, after the results; no prediction was recorded before the runs).**
+- **No tested subset reached the threshold.** "Recovers 90%" means holdout40 mAP50 ≥ 0.128; the best 50% or 75% run
+  was random seed 1 at 302 images, 0.1230 (`figures/subset_compare/subset_compare.csv`). The smallest qualifying
+  subset is therefore larger than 302 images and **was not found**.
+- **Smart vs random by size** (holdout40; `figures/subset_compare/decision_rule.csv`):
+
+  | size | metric | smart | random s0 / s1 | margin over best random | seed spread | beats both by > spread |
+  |---|---|---|---|---|---|---|
+  | 202 | class-agnostic AP50 (primary) | 0.284 | 0.232 / 0.221 | +0.052 | 0.011 | yes |
+  | 202 | mAP50 | 0.105 | 0.095 / 0.082 | +0.010 | 0.013 | no |
+  | 302 | class-agnostic AP50 (primary) | 0.334 | 0.293 / 0.306 | +0.028 | 0.013 | yes |
+  | 302 | mAP50 | 0.104 | 0.105 / 0.123 | −0.019 | 0.018 | no |
+
+  Smart selection finds more trucks (class-agnostic) but does not improve class-aware mAP50, the metric the threshold
+  uses. The primary metric was chosen before the runs, so the "smart wins" result is real by the pre-registered rule;
+  it does not answer the 90% question.
+- **Per class** (holdout40 AP50, `results/<run>/eval_holdout40/per_class.csv`; smart / random s0 / random s1):
+  - 202 images: Cargo 0.057 / 0.051 / 0.032; Box 0.412 / 0.371 / 0.345; Flatbed 0.036 / 0.014 / 0.021;
+    Tractor 0.001 / 0.000 / 0.002; Liquid 0.019 / 0.037 / 0.008.
+  - 302 images: Cargo 0.079 / 0.049 / 0.062; Box 0.421 / 0.422 / 0.439; Flatbed 0.013 / 0.038 / 0.033;
+    Tractor 0.006 / 0.001 / 0.035; Liquid 0.000 / 0.012 / 0.047.
+  - Smart is highest for Cargo at both sizes and for Box and Flatbed at 202. Otherwise it is not consistently ahead.
+    Tractor (35 holdout instances) and Liquid (29) are too few for any per-class conclusion; there is no per-class
+    seed spread.
+- **Disclosures:**
+  - The implemented coverage step adds the image with the **most boxes of the class still needed**
+    (`tools/make_smart_subsets.py`). The pre-registration says "in order of rarest class contained". The runs used
+    the implemented rule.
+  - No author prediction was recorded before the runs.
+  - The smart and seed-1 runs ran on a different Kaggle torch build (2.11.0) than the seed-0 random runs (2.10.0).
+
+**Next.** Fractions above 75% (for example 85% and 95%, about 343 and 383 images) were not tested.
+- The answer lies there, since 75% falls short (best 0.123) and 100% passes (0.151 / 0.133).
+- Each size needs three runs (smart plus two random seeds).
+- They were not run because E1/E2 showed the bottleneck is generalisation and classification, not the choice of
+  training images (§3.4). The remaining GPU budget (20.44 h until 10 Oct, before E3/E4) went to experiments that
+  could move mAP50 rather than refine a subset size.
 
 ---
 
