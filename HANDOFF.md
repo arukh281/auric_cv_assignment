@@ -243,7 +243,7 @@ auric_cv_assignment/
 
 ### Git
 
-- Branch `main`; remote GitHub `arukh281/auric_cv_assignment` (private). 45 commits, HEAD `78337f2` (2026-10-03 06:59 +0530).
+- Branch `main`; remote GitHub `arukh281/auric_cv_assignment` (public; corrected 2026-10-04). 45 commits, HEAD `78337f2` (2026-10-03 06:59 +0530).
 - Working tree clean at the time of writing, apart from this HANDOFF.md.
 - Most recent commits (newest first):
 

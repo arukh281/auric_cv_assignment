@@ -14,27 +14,52 @@ YOLO11s (COCO-pretrained) on a 5-class overhead truck dataset. Target: mAP50 ≥
 - **Environment:** `requirements.txt` is the installable set used by the setup scripts. `requirements-lock.txt`
   holds the exact versions of the final model's training session: Ultralytics 8.4.171, torch 2.10.0+cu128,
   torchvision 0.25.0, numpy 2.0.2, Python 3.12.13, plus the full `pip freeze`.
-  ```bash
-  python -m venv .venv && . .venv/bin/activate
-  pip install torch==2.10.0 torchvision==0.25.0 --index-url https://download.pytorch.org/whl/cu128   # or the CPU wheels
-  pip install -r requirements.txt
-  gh release download weights-b1h-v1 -p b1h_tile1024_holdout40_last.pt
-  ```
-- **Predict / evaluate**, with one entry point. It uses the same tiling, merge and scorer as every reported number:
-  ```bash
-  # predictions only (any folder of images)
-  python predict.py --weights b1h_tile1024_holdout40_last.pt --images path/to/images --out out/ [--device cpu]
-  # predictions + mAP50 (YOLO .txt labels with the same stems)
-  python predict.py --weights b1h_tile1024_holdout40_last.pt --images data/val/images --labels data/val/labels --out out/
-  ```
-  Outputs:
-  - `out/predictions.csv`: image, cls, conf, x1, y1, x2, y2 in full-image pixels.
-  - `out/predictions_raw.csv`: tile predictions before merging.
-  - `out/metrics.json` and `out/per_class.csv` (only with `--labels`).
 
-  Reproducibility check: CPU-only kernel `aradhya1211/auric-predict-test` ran it on the first 2 val images and
-  compared the result with the saved B1h predictions (`tools/compare_preds.py`). Result: every prediction
-  reproduced, max confidence difference 3e-6 (`results/predict_test/`, `DETAILED_EXPERIMENTS.md` "Deliverables").
+### Reproduce the reported val mAP50 (0.1065) from scratch
+
+You need Python 3.11–3.13, `git`, `curl`, about 3 GB of disk, and the assignment's dataset (`cv_dataset.zip`; it
+is not redistributed here). No GPU is needed. Every command below runs from a terminal, and none needs a GitHub login.
+
+```bash
+# 1. code
+git clone https://github.com/arukh281/auric_cv_assignment.git
+cd auric_cv_assignment
+
+# 2. environment (CPU wheels; on an NVIDIA GPU use --index-url https://download.pytorch.org/whl/cu128 instead)
+python3 -m venv .venv && . .venv/bin/activate
+pip install torch==2.10.0 torchvision==0.25.0 --index-url https://download.pytorch.org/whl/cpu
+pip install -r requirements.txt
+
+# 3. final weights (public GitHub release, no login) and checksum
+curl -L -o b1h_tile1024_holdout40_last.pt \
+  https://github.com/arukh281/auric_cv_assignment/releases/download/weights-b1h-v1/b1h_tile1024_holdout40_last.pt
+sha256sum b1h_tile1024_holdout40_last.pt   # macOS: shasum -a 256
+# expected: 3fa2406665706b9f44a155ca8b411b73e1c9eb4ffdc58ab03c4cb0e5bae37ffb
+
+# 4. data: unzip the dataset so that data/ contains classmap.txt, val/images/*.png and val/labels/*.txt
+unzip -q /path/to/cv_dataset.zip -d data_unzipped
+ln -s "$(dirname "$(find "$PWD/data_unzipped" -name classmap.txt | head -1)")" data
+ls data   # expected: classmap.txt  data.yaml  train  val
+
+# 5. predict + score all 22 val images
+python predict.py --weights b1h_tile1024_holdout40_last.pt --images data/val/images --labels data/val/labels \
+  --out out_val --device cpu
+```
+
+**Expected output:**
+- The last line printed is `[predict] mAP50 0.1065 (COCO 101-point, conf >= 0.001)`.
+- `out_val/per_class.csv`'s `AP50_coco` column equals `results/b1h_tile1024_holdout40/eval/per_class.csv`:
+  Cargo 0.1306, Box 0.1797, Flatbed 0.0711, Tractor 0.0062, Liquid 0.1447.
+- `out_val/predictions.csv` holds image, cls, conf, x1, y1, x2, y2 in full-image pixels;
+  `out_val/predictions_raw.csv` holds the tile predictions before merging; `out_val/metrics.json` holds the summary.
+
+`predict.py` uses exactly the tiling, merge and scorer of every reported number: the `eval:` section of
+`configs/b1h.yaml`, that is 1024 tiles with overlap 256, conf 0.001, class-wise NMS on IoS 0.6 and max_det 902. It
+computes no bootstrap CIs; those come from `eval.py`. To get predictions only, for any folder of images, drop
+`--labels`.
+
+**Clean-room check:** TODO-FINAL. CPU kernel `auric-clean-repro` runs exactly these commands and records the
+runtime.
 
 ## Reproduce everything
 
