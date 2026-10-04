@@ -485,6 +485,8 @@ Learning curve at equal iterations (~10,750), held-out = holdout40, seed 0 unles
 
 ### 5.4 Smallest subset retaining ≥ 90%
 
+**The smallest successful subset we tested is the full training set (403 images); no tested smaller subset (202 or 302 images, smart or random) reached 90% on holdout40 or on val.**
+
 Pre-registered in commit `b02413c` before any S54 run (DETAILED_EXPERIMENTS.md "S54"): smart = class coverage (rarest class
 first) then greedy k-center on DINOv2-small embeddings; "recovers 90%" = held-out mAP50 ≥ 0.90 × 0.1420 = 0.128
 (0.1420 = mean of the two full-data seeds). **The author's prediction was never provided** (an unfilled placeholder);

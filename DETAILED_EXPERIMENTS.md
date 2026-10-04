@@ -461,6 +461,8 @@ are unchanged. This confounds smart vs random: no box-count-matched random subse
 **Validation-mAP50 version (brief's definition, added 2026-10-04):** threshold 0.9 × 0.1065 = 0.0959; no subset reaches
 it (best 0.085, random 302); full-data seed 1 itself scores 0.063. Weak evidence: val seed spread 0.043.
 
+**Stated explicitly (added 2026-10-04):** The smallest successful subset we tested is the full training set (403 images); no tested smaller subset (202 or 302 images, smart or random) reached 90% on holdout40 or on val.
+
 **Conclusion (written 2026-10-04, after the results; no prediction was recorded before the runs).**
 - **No tested subset reached the threshold.** "Recovers 90%" means holdout40 mAP50 ≥ 0.128; the best 50% or 75% run
   was random seed 1 at 302 images, 0.1230 (`figures/subset_compare/subset_compare.csv`). The smallest qualifying
