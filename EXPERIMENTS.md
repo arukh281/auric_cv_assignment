@@ -158,7 +158,6 @@ classifier trained on truck crops was 61% accurate, no better than the detector'
 it lowered holdout40 to 0.100–0.117. Neither second opinion knew more than the first.
 *TTA: Aradhya asked "can't we augment?", designed by Claude chat. Crop classifier: first proposed in an earlier session; specified by Claude chat · run by Aradhya · [details →](DETAILED_EXPERIMENTS.md#tta-on-b1h-results-4-oct-2026-cpu-only-kernel-aradhya1211auric-tta-b1h-code-095cf9b) · [details →](DETAILED_EXPERIMENTS.md#crop-classifier-on-b1hs-holdout40-detections-4-oct-2026-cpu-only-kernel-aradhya1211auric-fp-crop-code-734299d)*
 
-![crop classifier confusion](figures/story/crop_classifier_confusion.png)
 
 ### Does even B1h overfit?
 We scored B1h's own saved checkpoints on holdout40. It climbs to 0.154 at epoch 40 and sits at 0.151 at epoch 50:

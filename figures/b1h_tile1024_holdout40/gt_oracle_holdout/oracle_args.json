@@ -1,0 +1,24 @@
+{
+  "config": "configs/b1h.yaml",
+  "runs_root": "runs",
+  "weights": "/kaggle/input/notebooks/aradhya1211/auric-b1h/runs/b1h_tile1024_holdout40/train/weights/last.pt",
+  "data_root": "/kaggle/tmp/data",
+  "out_root": "/kaggle/working/oracle",
+  "iou": 0.5,
+  "batch": 8,
+  "device": "cpu",
+  "max_images": null,
+  "holdout_list": "splits/holdout40_seed0.txt",
+  "eval": {
+    "mode": "sliced",
+    "imgsz": 1024,
+    "tile": 1024,
+    "overlap": 256,
+    "merge": "nms",
+    "merge_metric": "ios",
+    "merge_thr": 0.6,
+    "conf": 0.001,
+    "nms_iou": 0.7,
+    "max_det": 902
+  }
+}

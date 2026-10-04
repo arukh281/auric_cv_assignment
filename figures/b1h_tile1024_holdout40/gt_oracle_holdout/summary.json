@@ -1,0 +1,46 @@
+{
+  "modes": {
+    "pool/all": {
+      "n_gt": 738,
+      "accuracy": 0.6897018970189702,
+      "mean_class_accuracy": 0.41111975842398013
+    },
+    "pool/unflagged": {
+      "n_gt": 726,
+      "accuracy": 0.6942148760330579,
+      "mean_class_accuracy": 0.40949818380852865
+    },
+    "pool/flagged": {
+      "n_gt": 12,
+      "accuracy": 0.4166666666666667,
+      "mean_class_accuracy": 0.41666666666666663
+    },
+    "best/all": {
+      "n_gt": 738,
+      "accuracy": 0.6842818428184282,
+      "mean_class_accuracy": 0.41124780174409564
+    },
+    "best/unflagged": {
+      "n_gt": 726,
+      "accuracy": 0.6887052341597796,
+      "mean_class_accuracy": 0.40974490388283485
+    },
+    "best/flagged": {
+      "n_gt": 12,
+      "accuracy": 0.4166666666666667,
+      "mean_class_accuracy": 0.41666666666666663
+    }
+  },
+  "agreement_pool_vs_best": {
+    "n": 738,
+    "n_agree": 647,
+    "agreement": 0.8766937669376694,
+    "n_agree_unflagged": 635,
+    "n_unflagged": 726
+  },
+  "n_flagged_no_anchor_at_iou": 12,
+  "n_unflagged": 726,
+  "iou": 0.5,
+  "weights": "/kaggle/input/notebooks/aradhya1211/auric-b1h/runs/b1h_tile1024_holdout40/train/weights/last.pt",
+  "mode": "sliced"
+}

@@ -1619,3 +1619,36 @@ Holdout40 curve: 0.128 / 0.132 / 0.124 / 0.135 / 0.128 at epochs 10–50, flat
 - **Final candidate:** E10's model with E12's scale-robust inference, each only if it passes its own pre-registered
   test. Combining them is inference only, so it costs no extra training. Otherwise B1h, and/or plain inference.
 - The quota floor is about 4.5 h after E10 + E12 (approved).
+
+## Robustness check: mAP50 without Truck w/Liquid (post-hoc; 4 Oct 2026; CPU-only kernel `auric-oracle-noliq-figs`, `analysis/no_liquid.py`)
+
+**Post-hoc, not pre-registered.** This is the mean AP50 of the other four classes, from each run's `per_class.csv`
+(`results/no_liquid/no_liquid.csv`). Liquid has 29 holdout40 and 20 val boxes.
+
+| run | holdout40 mAP50 | holdout40 without Liquid | val mAP50 | val without Liquid |
+|---|---|---|---|---|
+| B1h | 0.151 | 0.170 | 0.106 | 0.097 |
+| B1h seed 1 | 0.133 | 0.167 | 0.063 | 0.078 |
+| E1 | 0.092 | 0.108 | 0.068 | 0.072 |
+| E2 | 0.111 | 0.136 | 0.062 | 0.058 |
+| E3 | 0.082 | 0.102 | 0.088 | 0.097 |
+| E4 | 0.130 | 0.163 | 0.076 | 0.095 |
+| E7 | 0.128 | 0.153 | 0.072 | 0.085 |
+| TTA, all four | 0.138 | 0.167 | — | — |
+
+- The holdout40 seed spread is 0.017 with Liquid (0.151 vs 0.133) and 0.004 without it (0.170 vs 0.167). Liquid AP
+  alone is 0.073 vs 0.000 across the two seeds, which is worth 0.015 of mAP50. **Most of the seed spread is Liquid.**
+- Without Liquid, E4 (0.163) and TTA (0.167) are within 0.007 of B1h (0.170). They are **no better than B1h**,
+  rather than worse.
+  - The pre-registered verdicts stand unchanged (E4 partly supported; TTA not supported).
+- **The E1–E3 conclusions stand:** they remain 0.034–0.068 below B1h without Liquid.
+
+## GT-box oracle on holdout40: detector head vs crop classifier on the same boxes (4 Oct 2026; same kernel)
+
+- **B1h's head at the true boxes** (pool mode): 0.690 accuracy on holdout40's 738 boxes, mean per class 0.411
+  (`figures/b1h_tile1024_holdout40/gt_oracle_holdout/comparison.csv`).
+- **The crop classifier on the same 738 boxes:** 0.610 (`results/crop_classifier/summary.json`).
+- **Always "Cargo":** 321 / 738 = 0.435.
+- **The detector head is better than the dedicated crop classifier**, by 0.080 on the same boxes.
+- The main confusion is still Cargo ↔ Box: 42 Cargo called Box and 41 Box called Cargo (`confusion_pool.csv`).
+- This replaces the earlier rough comparison of 60% (val oracle) vs 61% (holdout crop classifier) on different sets.
