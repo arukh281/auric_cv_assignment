@@ -1081,3 +1081,40 @@ Holdout40 checkpoint curve (`results/e3_b1h_dota/checkpoint_curve_holdout/checkp
 **Holdout-curve note (author, 4 Oct):** holdout40 is the validation split; val is the test set. Epoch selection on
 holdout40 would be legitimate if declared in advance. This project keeps `last.pt` as pre-registered. Per-checkpoint
 holdout40 curves of E1–E4 and E6 are reported descriptively.
+
+### E4: Results (4 Oct 2026; GPU kernel `aradhya1211/auric-e4-flipud-mixup`, code `734299d`, ~1.84 GPU-h kernel time)
+
+| | B1h | E4 (flipud 0.5 + mixup 0.1) |
+|---|---|---|
+| val mAP50 (95% CI) | 0.1065 (0.056–0.165) | 0.0761 (0.054–0.107) |
+| holdout40 mAP50 (95% CI) | 0.1507 (0.056–0.187) | **0.1304 (0.047–0.156)** |
+| train40 mAP50 | 0.378 | 0.266 |
+| train40 − holdout40 | 0.227 | **0.135** |
+| class-agnostic AP50, val / holdout40 / train40 | 0.255 / 0.362 / 0.649 | **0.290 / 0.400** / 0.575 |
+| holdout40 AP50: Cargo / Box / Flatbed / Tractor / Liquid | 0.096 / 0.509 / 0.069 / 0.007 / 0.073 | 0.091 / 0.531 / 0.024 / 0.006 / 0.000 |
+| val AP50: Cargo / Box / Flatbed / Tractor / Liquid | 0.131 / 0.180 / 0.071 / 0.006 / 0.145 | 0.112 / 0.110 / 0.120 / 0.039 / 0.000 |
+| final train losses box / cls / dfl | 1.588 / 1.596 / 1.003 | 1.694 / 1.863 / 1.031 |
+
+Sources: `results/e4_b1h_flipud_mixup/{eval,eval_holdout40,eval_train40}/{per_class.csv,class_agnostic.json}`,
+`train/results.csv`. All evals used `last.pt`.
+
+Holdout40 checkpoint curve (`results/e4_b1h_flipud_mixup/checkpoint_curve_holdout/checkpoint_curve_holdout.csv`):
+
+| epoch | 10 | 20 | 30 | 40 | 50 |
+|---|---|---|---|---|---|
+| holdout40 mAP50 | 0.102 | 0.116 | 0.127 | 0.129 | 0.130 |
+
+- **Verdict against the pre-registered prediction:** **partly supported.**
+  - The gap shrank: 0.135 vs 0.227.
+  - Holdout40 mAP50 did **not** beat B1h by more than 0.017; it is 0.020 *lower*, about one seed spread, so within
+    noise in either direction.
+- **The direction is opposite to E1–E3.**
+  - E4 fits the training images less (train40 0.266), and holdout40 is still rising at epoch 50.
+  - Class-agnostic AP *improved* on both held-out sets: holdout40 0.400 vs 0.362, val 0.290 vs 0.255. Class-aware
+    mAP50 fell, mostly because Liquid fell to 0 and Flatbed dropped on holdout40.
+  - Read together: the augmentation helps finding trucks but not naming them, and it under-fits in 50 epochs.
+  - Single seed. The two settings (flipud and mixup) are tested together, not separately.
+- **Decision rule:**
+  - Neither E3 nor E4 beats B1h on holdout40 by more than 0.017, so there is **no E5** from E3/E4.
+  - Per the standing rule, B1h stays the final model unless E6 or E7 beats it. Both were explicitly requested and
+    pre-registered after this rule; E7 launched in E4's slot at 13:14.
