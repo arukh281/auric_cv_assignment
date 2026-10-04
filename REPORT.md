@@ -721,6 +721,9 @@ confirmed on the unseen half).
   - A better classifier: the crop classifier did not help.
   - More labels: projected below noise.
   - All of them would be measured on the same flawed labels.
+  - Ensembling: the top xView solutions combined several detectors, for example the first-place RFL (Reduced Focal
+    Loss) solution, arXiv 1903.01347. E13 tests an ensemble of our existing models with no new training.
+    TODO-FINAL: result.
 
 ## 7. Deliverables
 
