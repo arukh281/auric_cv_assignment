@@ -2,7 +2,7 @@
 
 **AI assistance.** This project was built with AI assistance: Claude Code for code, analysis and drafting, and a
 chat assistant for experiment planning. Hypotheses, predictions and decision rules marked "author's" in
-EXPERIMENTS.md were chosen and approved by the author before each run; other interpretations were drafted by
+DETAILED_EXPERIMENTS.md were chosen and approved by the author before each run; other interpretations were drafted by
 Claude Code and reviewed by the author. The brief allows this: "External resources and AI-assisted code are
 permitted, but you remain responsible for understanding, documenting and defending the submitted system and
 conclusions."
@@ -23,7 +23,7 @@ inflate validation mAP in a way we cannot measure or remove.
 |---|---|
 | Architecture, initialization | `configs/*.yaml` (`model`), `runs/<run>/init_weights.json` |
 | Image size / preprocessing, tiling | `configs/*.yaml`, `runs/<run>/tiling_params.json` |
-| Train/val usage | Train split for training only. **Corrected 2026-10-04:** an earlier version said `val: false`; the configs actually set `val: true` (`configs/*.yaml`). Ultralytics then computes its own per-epoch val metrics on un-sliced full images, used for training curves only; `last.pt` is always reported (`results/*/eval*/metrics.json`, field `weights`). One leak: Ultralytics EarlyStopping (default `patience=100`, unset in configs before E3/E4) watches that val fitness and stopped E1 at epoch 145 of 150 (EXPERIMENTS.md, "CHECK 0"). From E3/E4 on, configs set `patience: 0` and checkpoint curves are scored on holdout40 |
+| Train/val usage | Train split for training only. **Corrected 2026-10-04:** an earlier version said `val: false`; the configs actually set `val: true` (`configs/*.yaml`). Ultralytics then computes its own per-epoch val metrics on un-sliced full images, used for training curves only; `last.pt` is always reported (`results/*/eval*/metrics.json`, field `weights`). One leak: Ultralytics EarlyStopping (default `patience=100`, unset in configs before E3/E4) watches that val fitness and stopped E1 at epoch 145 of 150 (DETAILED_EXPERIMENTS.md, "CHECK 0"). From E3/E4 on, configs set `patience: 0` and checkpoint curves are scored on holdout40 |
 | Augmentations, optimizer, scheduler, batch, epochs, losses | `runs/<run>/train/args.yaml` (full Ultralytics args, defaults included) |
 | Seed / determinism | `seed: 0`, `deterministic: true` in config and `args.yaml` |
 | Inference thresholds / post-processing | `runs/<run>/eval/eval_args.json` (conf 0.001, NMS IoU 0.7, max_det, tile merge) |
@@ -152,7 +152,7 @@ Full-dataset statistics (`figures/eda/summary.json`, `figures/eda/tables/*.csv`)
 ### 2.2 Baselines: B0 → B1 → B1h
 
 All runs: COCO-pretrained YOLO11s, SGD lr0 0.01, 50 epochs, seed 0, `last.pt`, sliced eval for tiled runs
-(EXPERIMENTS.md, B0/B1/B1h entries).
+(DETAILED_EXPERIMENTS.md, B0/B1/B1h entries).
 
 | Run | Input | Train imgs | Iterations | eval max_det | val mAP50 (95% CI) | holdout40 mAP50 (95% CI) |
 |---|---|---|---|---|---|---|
@@ -174,7 +174,7 @@ Per-class val AP50 (95% CI), `results/<run>/eval/per_class.csv`:
 | Truck w/Liquid | 0.000 (no preds) | 0.079 (0.000–0.329) | 0.145 (0.005–0.416) |
 
 Caveats:
-- B0 vs B1 is equal epochs, not equal compute (1400 vs 11850 iterations; EXPERIMENTS.md B0).
+- B0 vs B1 is equal epochs, not equal compute (1400 vs 11850 iterations; DETAILED_EXPERIMENTS.md B0).
 - B1 vs B1h differ in training set (443 vs 403), max_det (334 vs 902) and platform (Colab vs Kaggle;
   `results/<run>/env/train_hardware.json`). B1h's seed-1 repeat scored 0.0634 val / 0.1333 holdout
   (`results/b1h_seed1/eval/per_class.csv`, `eval_holdout40/per_class.csv`): a seed spread of 0.043 val and 0.017
@@ -219,7 +219,7 @@ Localisation is small.
 | holdout40 | 0.1507 | 0.3617 | 629/738 = 0.852 |
 
 Sources: `results/b1h_tile1024_holdout40/eval/class_agnostic.json`, `eval_holdout40/class_agnostic.json` (via
-EXPERIMENTS.md B1h). Ignoring the class roughly doubles AP. At conf 0.25 only 361/1552 (0.233) val GT are matched by
+DETAILED_EXPERIMENTS.md B1h). Ignoring the class roughly doubles AP. At conf 0.25 only 361/1552 (0.233) val GT are matched by
 any class (`results/b1h_tile1024_holdout40/eval/class_agnostic.json`).
 
 Class confusion at GT locations (B1h, pooled anchors; rows = GT, `figures/b1h_tile1024_holdout40/gt_oracle/confusion_pool.csv`):
@@ -261,7 +261,7 @@ Cargo → Box 192 of 800; Box → Cargo 171 of 493; Tractor → Cargo 47 of 117;
     where holdout has no images.
   - The gap is therefore a difference between the scenes themselves, not size, density or resolution, and these
     analyses cannot name it. Val has only 22 images.
-  - Sources: `results/recall_gap/standardised.csv`, `recall_by_factor.csv`; EXPERIMENTS.md "Val vs holdout40 recall
+  - Sources: `results/recall_gap/standardised.csv`, `recall_by_factor.csv`; DETAILED_EXPERIMENTS.md "Val vs holdout40 recall
     gap".
 - **Overfit test** (16 tiles, all 5 classes, augmentation off): AP50 0.355 / 0.987 / 1.000 at epochs 50 / 100 / 300;
   final cls_loss 0.097 (`results/sanity/overfit/`). The model and pipeline can fit these labels.
@@ -269,13 +269,13 @@ Cargo → Box 192 of 800; Box → Cargo 171 of 493; Tractor → Cargo 47 of 117;
   fixed to pair boxes by IoU, the re-run flags 0 of 3439 (`results/sanity/label_check_iou/label_check.json`). The IoU-paired
   re-check found all 3,278 boxes in those tiles identical (`results/sanity/label_mismatch/summary.json`): an artefact
   of coordinate-sort pairing in dense tiles, not a tiling error (annotation correctness was not tested here; see the FP audit). The author overrode the original NOT PASS before
-  the re-check; with it, both PASS criteria hold (EXPERIMENTS.md, SANITY).
+  the re-check; with it, both PASS criteria hold (DETAILED_EXPERIMENTS.md, SANITY).
 - Effective B1h settings: imgsz 1024, mosaic 1.0, scale 0.5, close_mosaic 10
   (`results/b1h_tile1024_holdout40/train/args.yaml`).
 
 ## 4. Experiment records
 
-Full entries are in EXPERIMENTS.md under the headings named below. "Pre-registered" means written before results.
+Full entries are in DETAILED_EXPERIMENTS.md under the headings named below. "Pre-registered" means written before results.
 
 | Exp. | Observation | Hypothesis | Changes | Results | Conclusion | Next |
 |---|---|---|---|---|---|---|
@@ -288,7 +288,7 @@ Full entries are in EXPERIMENTS.md under the headings named below. "Pre-register
 | **E1/E2** ("E1 / E2") | B1h losses still falling | Pre-registered: E1 undertraining; E2 scale 0.5 hurts small trucks | E1 150 ep; E2 150 ep + scale 0.2 | below | E1 not supported (overfitting); E2 inconclusive, leaning not supported | E3/E4 |
 | **E3/E4** ("E3 / E4") | E1/E2 overfit | Pre-registered (author's): aerial pretraining (E3) / flipud 0.5 + mixup 0.1 (E4) reduce overfitting; holdout > 0.1507 + 0.017 | B1h recipe, 50 ep, `patience: 0`, holdout checkpoint curves | **pending (launched)** | pending | pending |
 
-E1/E2 results (EXPERIMENTS.md "E1 / E2: Results"; `results/<run>/eval/per_class.csv`, `eval_holdout40/per_class.csv`,
+E1/E2 results (DETAILED_EXPERIMENTS.md "E1 / E2: Results"; `results/<run>/eval/per_class.csv`, `eval_holdout40/per_class.csv`,
 `eval_train40/metrics.json`):
 
 | | B1h (50 ep) | E1 (150 ep, early-stopped at 145) | E2 (150 ep, scale 0.2) |
@@ -405,7 +405,7 @@ Learning curve at equal iterations (~10,750), held-out = holdout40, seed 0 unles
 | 403 (100%), seed 0 / 1 | 0.151 / 0.133 | 0.362 / 0.362 | 0.106 / 0.063 |
 
 - The curve is still rising at 403 images (pre-registered prediction: correct; 25% point 0.061 vs predicted
-  0.07–0.12, CI 0.012–0.090 overlaps; EXPERIMENTS.md "LC").
+  0.07–0.12, CI 0.012–0.090 overlaps; DETAILED_EXPERIMENTS.md "LC").
 - Power-law fit on holdout mAP50 (403 point = mean of seeds, 0.142) extrapolates to **0.215 at 903 images (95% CI
   0.076–0.276)**, a gain of +0.080 vs seed spread 0.017. **Every fit is flagged unreliable** (2.24× beyond the data;
   several per-class fits non-monotone or failed) (`figures/learning_curve/power_law_fit.csv`). Only the direction is
@@ -457,7 +457,7 @@ Learning curve at equal iterations (~10,750), held-out = holdout40, seed 0 unles
 
 ### 5.4 Smallest subset retaining ≥ 90%
 
-Pre-registered in commit `b02413c` before any S54 run (EXPERIMENTS.md "S54"): smart = class coverage (rarest class
+Pre-registered in commit `b02413c` before any S54 run (DETAILED_EXPERIMENTS.md "S54"): smart = class coverage (rarest class
 first) then greedy k-center on DINOv2-small embeddings; "recovers 90%" = held-out mAP50 ≥ 0.90 × 0.1420 = 0.128
 (0.1420 = mean of the two full-data seeds). **The author's prediction was never provided** (an unfilled placeholder);
 nothing was written before the runs. Implementation note: the coverage step adds the image with the most boxes of
@@ -632,7 +632,7 @@ Sources: `results/{b1h_tile1024_holdout40,e1_b1h_150ep,e2_b1h_150ep_scale02,e3_b
 | Overhead augmentation reduces overfitting (E4) | TODO-FINAL | |
 | Missing labels cap the score | TODO-FINAL (FP audit) | |
 | A second-stage crop classifier fixes Cargo vs Box | TODO-FINAL | |
-| **Weakened or rejected:** B1 would reach 0.40–0.60 (pre-registered) | rejected (0.0715) | EXPERIMENTS.md B1 |
+| **Weakened or rejected:** B1 would reach 0.40–0.60 (pre-registered) | rejected (0.0715) | DETAILED_EXPERIMENTS.md B1 |
 | **Weakened or rejected:** B1h is undertrained (E1) | rejected | E1 |
 | **Weakened or rejected:** scale 0.5 hurts small trucks (E2) | inconclusive, leaning not supported | E2 |
 

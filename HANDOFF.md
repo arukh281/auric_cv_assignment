@@ -20,7 +20,7 @@ generalisation, not the eval pipeline.
 **Done on 4 Oct (commits after `727d7c7`):**
 - **Check 0:** every reported score used `last.pt`. The training `data.yaml` uses the official val set, but only
   for Ultralytics' own curves. One leak: early stopping (patience 100) watched that val score and cut E1 at epoch 145.
-  From E3/E4 on, configs set `patience: 0` and checkpoints are scored on holdout40 (`EXPERIMENTS.md` "CHECK 0").
+  From E3/E4 on, configs set `patience: 0` and checkpoints are scored on holdout40 (`DETAILED_EXPERIMENTS.md` "CHECK 0").
 - **E3** (DOTA `yolo11s-obb.pt` init) and **E4** (flipud 0.5 + mixup 0.1): pre-registered, launched as GPU kernels
   `auric-e3-dota` and `auric-e4-flipud-mixup` (code `734299d`, `scripts/run_e34.sh`). Results pending.
 - **CPU kernels:**
@@ -31,7 +31,7 @@ generalisation, not the eval pipeline.
   - `auric-sanity-labels`: label check with the IoU-paired checker; pending.
   - `auric-predict-test`: `predict.py` on 2 val images vs the saved predictions; pending.
 - **§5.2 test-half confirmation** pre-registered (claims C1–C5) before the test half was read (`95953f3`).
-- **EXPERIMENTS.md audit** (`ba8da62`): index table, six fields per entry, numbers checked against sources,
+- **DETAILED_EXPERIMENTS.md audit** (`ba8da62`): index table, six fields per entry, numbers checked against sources,
   visible corrections. The E1 no-mosaic epoch count changed 4 → 5, and the E1/E2 launch and sanity dates changed
   2 Oct → 3 Oct.
 - **REPORT.md:**
@@ -75,7 +75,7 @@ lc-per-class, tta-b1h, e1/e2/b1h holdout curves.
 
 **Author's decision rules for E3/E4** (noise 0.017 on holdout40; B1h holdout40 0.1507):
 - **If E3 and/or E4 beats 0.1507 + 0.017 on holdout40:**
-  - Pre-register E5 in EXPERIMENTS.md first.
+  - Pre-register E5 in DETAILED_EXPERIMENTS.md first.
   - Then launch two GPU kernels at once: the combination of whatever helped, at seed 0 and seed 1.
   - Both run 50 epochs, `patience: 0`, `last.pt` only, with holdout40 scored at every 10-epoch checkpoint.
   - A winner counts only if both seeds beat B1h.
@@ -91,7 +91,7 @@ lc-per-class, tta-b1h, e1/e2/b1h holdout curves.
 **Kernel gotcha:** after `kaggle_cli_package.sh`, the dataset can report `ready` before kernels mount the new
 version (s52-confirm v1 got `734299d`). New script kernels now start with `grep -q <commit> CODE_COMMIT || exit 3`.
 
-**Done since the original handoff (all in EXPERIMENTS.md, committed):**
+**Done since the original handoff (all in DETAILED_EXPERIMENTS.md, committed):**
 
 1. **§5.4 smart vs random** (overnight 2–3 Oct): `figures/subset_compare/`.
    - Smart beats both random seeds on held-out class-agnostic AP50 at 202 and 302 images (margins +0.052 / +0.028
@@ -135,7 +135,7 @@ version (s52-confirm v1 got `734299d`). New script kernels now start with `grep 
 **Open items**
 - ~~`patience` bug~~ fixed for E3/E4 (`patience: 0`); older configs are unchanged by design.
 - Next experiment not chosen. The evidence points at generalisation and overfitting, not training length. Candidates
-  in EXPERIMENTS.md: stronger augmentation or regularisation, a crop classifier for Cargo vs Box (planned as a
+  in DETAILED_EXPERIMENTS.md: stronger augmentation or regularisation, a crop classifier for Cargo vs Box (planned as a
   CPU-only kernel), more data.
 - Write-ups still missing: §5.2 interpretation (and confirmation on the test half), §5.3 per-class "which classes
   benefit", §5.4 conclusion, §6 final analysis, the full REPORT.md.
@@ -155,7 +155,7 @@ auric_cv_assignment/
 ├── requirements.txt         Pinned non-torch deps (see §2)
 ├── README.md                How to run (Colab Terminal, Colab notebook, Kaggle notebook, Kaggle via CLI, local)
 ├── REPORT.md                Technical report, IN PROGRESS (pretrained-weights choice, reproducibility table, metric, error taxonomy)
-├── EXPERIMENTS.md           Experiment log: B0, B1, B1h, Plan, LC (§5.3), §5.1, S54 (§5.4) pre-registration
+├── DETAILED_EXPERIMENTS.md           Experiment log: B0, B1, B1h, Plan, LC (§5.3), §5.1, S54 (§5.4) pre-registration
 ├── STATUS.md                STALE: Phase-2 status from 2 Oct (pre-training)
 ├── MORNING.md               Overnight report 2–3 Oct (§5.2 inspect-half counts, §5.4 runs, GPU hours, commits)
 ├── HANDOFF.md               This file
@@ -302,7 +302,7 @@ Sources: `figures/eda/summary.json` and `figures/eda/tables/*.csv`, computed on 
 - **Label issues** (`label_issues_summary.csv`): 1 empty train image (1938.png), and 36 boxes with a side < 4 px (train 10, val 26).
 - **Near-duplicates (pHash ≤ 8):** 0 cross-split pairs and 0 within-split pairs (`summary.json`).
 - **Recorded observations:**
-  - `EXPERIMENTS.md` (B0/B1 Observation): letterboxing ~3200 px to 640 shrinks a median truck to ~4–5 px (derived, not measured).
+  - `DETAILED_EXPERIMENTS.md` (B0/B1 Observation): letterboxing ~3200 px to 640 shrinks a median truck to ~4–5 px (derived, not measured).
   - `analysis/notes/visual_inspection.md`: 42 images of data_small. It covers haze (val 2460, 2470, 2472), blur (val 2292, 2308, 2543), apparent scale difference (val 2391, 2308), water speckle (val 1399, 1447, 1456), visible-but-unlabelled trucks in both splits, and possibly offset GT boxes in 2470/2472. All of these are marked as uncertain.
 
 ### Splits (none of these split val; val is always the full 22 images)
@@ -390,7 +390,7 @@ Common to every run (from `configs/*.yaml`):
 
 All analyses below use **val** (22 images) unless stated otherwise. The only use of the §5.2 halves is in the §5.2 rows.
 
-| Analysis | Script | Inputs → outputs | Key numbers (source) | Conclusion recorded (EXPERIMENTS.md unless noted) |
+| Analysis | Script | Inputs → outputs | Key numbers (source) | Conclusion recorded (DETAILED_EXPERIMENTS.md unless noted) |
 |---|---|---|---|---|
 | EDA | `analysis/eda.py` | full dataset → `figures/eda/` | §3 above | B0/B1 Observations |
 | Checkpoint curve | `analysis/checkpoint_curve.py` | kept checkpoints → `figures/<run>/checkpoint_curve.csv` | B1 ep10/20/30/40/50: 0.036/0.058/0.055/0.056/0.071; B1h: 0.043/0.072/0.067/0.097/0.106; B0: ≤0.002 throughout | none written |
@@ -435,7 +435,7 @@ The test half is untouched apart from its per-box table, which was written and c
 |---|---|---|---|
 | 2. Dataset observations, baseline, mAP + per-class for every model, qualitative predictions | PARTIAL | EDA (`figures/eda/`), visual notes, configs/scripts/tests, `per_class.csv` for all 11 runs, grids/overviews (`figures/<run>/grid_*.png`, `overview_*.png`, `errors/crops_*.png`) | Written prose in REPORT.md; EXPERIMENTS B0/B1 "Results" fields still say "Pending Colab" |
 | 3. Failure diagnosis | PARTIAL | TIDE bins with dAP50, sliced FN/FP rates, confusion matrices, competing explanations tested (scoring, merge, max_det, domain shift, image quality, generalisation via B1h) | Consolidated write-up in REPORT.md; FP population (background FPs 4701 B1 / 9380 B1h) not discussed in prose |
-| 4. Experiment records | PARTIAL | EXPERIMENTS.md entries for B0, B1, B1h, LC, §5.1, S54 | B0 Hypothesis "TODO (me)"; B0/B1 "Results: Pending" and "Next step: Pending results"; B1h lacks Observation/Hypothesis/Changes fields; S54 has no Results/Conclusion |
+| 4. Experiment records | PARTIAL | DETAILED_EXPERIMENTS.md entries for B0, B1, B1h, LC, §5.1, S54 | B0 Hypothesis "TODO (me)"; B0/B1 "Results: Pending" and "Next step: Pending results"; B1h lacks Observation/Hypothesis/Changes fields; S54 has no Results/Conclusion |
 | 5.1 Perfect locations | DONE (draft) | EXPERIMENTS §5.1, `gt_oracle/` for B0/B1/B1h | Move into REPORT.md |
 | 5.2 Resisting examples | PARTIAL | categories + counts + crops for the inspect half; confidence-floor analysis (unsaved) | Interpretation; confirmatory check on the test half; save the confidence-floor numbers |
 | 5.3 500 more labels | PARTIAL | LC entry with conclusion; per-class holdout AP50 in `learning_curve.csv` | "Which classes benefit most/least" not written (per-class holdout curves: Box 0.236→0.509, Cargo 0.018→0.096, Flatbed 0.034→0.069, Tractor 0.000→0.007, Liquid 0.015→0.073 from 101→403 images, seed 0) |
@@ -459,18 +459,18 @@ The 90% threshold is 0.128 held-out mAP50. No 50% or 75% run reached it; the hig
 
 ## 7. Open hypotheses and planned next steps (as recorded)
 
-- **B1h "Next steps"** (EXPERIMENTS.md): learning curves (since done), stronger data augmentation, and a separate classifier on
+- **B1h "Next steps"** (DETAILED_EXPERIMENTS.md): learning curves (since done), stronger data augmentation, and a separate classifier on
   cropped trucks for Cargo vs Box.
 - **B1h conclusion:** the gap in "trucks found" on val vs holdout (66% vs 85%) has an unknown cause. Density is a candidate,
   but val miss rates did not vary with density, so this remains untested.
 - **LC conclusion:** "More data should help, but additional labels alone are unlikely to achieve the target.
   Classification needs a separate improvement strategy."
-- **Plan table** (EXPERIMENTS.md "Plan from here"): item 4, "Final analysis + report + README", is outstanding.
+- **Plan table** (DETAILED_EXPERIMENTS.md "Plan from here"): item 4, "Final analysis + report + README", is outstanding.
 - **REPORT.md** is labelled "Technical report (in progress)". Sections "dataset observations, baselines, experiment chain,
   failure analysis, research investigations 5.1–5.4, final analysis" are noted there as to come.
 - **§5.2:** the test half is reserved for confirming whatever is found on the inspect half. No hypothesis is written yet.
 - **`analysis/notes/visual_inspection.md`:** possible label noise (unlabelled trucks; offset GT in 2470/2472), recorded as observations, not tested.
-- **Code comments:** no TODO/FIXME in code. The only TODO is `EXPERIMENTS.md` line 37 (B0 Hypothesis).
+- **Code comments:** no TODO/FIXME in code. The only TODO is `DETAILED_EXPERIMENTS.md` line 37 (B0 Hypothesis).
 
 ---
 
@@ -480,12 +480,12 @@ The 90% threshold is 0.128 held-out mAP50. No 50% or 75% run reached it; the hig
 2. **Run-to-run noise is large.** b1h_tile1024_holdout40 vs b1h_seed1 differ by 0.043 on val mAP50 and 0.017 on holdout. Single-run comparisons (e.g. B1 0.071 vs B1h 0.107) are within noise.
 3. **B1 vs B1h are not a clean comparison.** They differ in platform/env (Colab torch 2.11 cu130 vs Kaggle 2.10 cu128), training set (443 vs 403 images), and eval max_det (334 vs 902).
 4. **The Kaggle environment changed between 2 Oct and 3 Oct runs** (torch 2.10.0 / Python 3.12.13 → 2.11.0 / 3.13.15). The §5.4 smart and seed-1 runs therefore ran on a different stack from the random f50/f75 seed-0 runs they are compared with.
-5. **B0 vs B1 is "equal epochs, not equal compute"** (1400 vs 11850 iterations; EXPERIMENTS.md).
+5. **B0 vs B1 is "equal epochs, not equal compute"** (1400 vs 11850 iterations; DETAILED_EXPERIMENTS.md).
 6. **Ultralytics val cross-check** was only ever done on B0, where AP is near zero. Our scorer matches pycocotools on every run.
 7. **Per-epoch Ultralytics val** during tiled training runs on un-sliced full images. It is curves only, not comparable with the reported metric.
 8. **REPORT.md contradicts the configs.** It says `val: false`, but the configs set `val: true` (per-epoch curves only; `last.pt` is still reported).
 9. **STATUS.md is stale** (Phase 2, pre-training).
-10. **EXPERIMENTS.md has placeholder text:** B0 Hypothesis "TODO (me)"; B0/B1 "Results: Pending Colab"; "Next step: Pending results".
+10. **DETAILED_EXPERIMENTS.md has placeholder text:** B0 Hypothesis "TODO (me)"; B0/B1 "Results: Pending Colab"; "Next step: Pending results".
 11. **`figures/b1_tile1024_maxdet3000/merge_sensitivity.csv` predates the merge_sensitivity fix.** Its `default` column is all False and it has no `max_det` column. The max_det used (3000) is inferred from the folder name; the exact command is UNKNOWN.
 12. **The §5.2 never-detected confidence-floor numbers are not saved in any repo file** (see §5).
 13. **§5.2 categories depend on the conf 0.25 threshold.** 79.3% of inspect-half "never-detected" boxes have an IoU ≥ 0.5 prediction at a lower confidence (unsaved analysis above).

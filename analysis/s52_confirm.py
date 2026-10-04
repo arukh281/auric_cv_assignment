@@ -1,4 +1,4 @@
-"""§5.2 confirmation: test the pre-registered claims C1-C5 (EXPERIMENTS.md, "§5.2 test-half confirmation") on one
+"""§5.2 confirmation: test the pre-registered claims C1-C5 (DETAILED_EXPERIMENTS.md, "§5.2 test-half confirmation") on one
 half of the §5.2 per-box table, with a 2000-sample bootstrap over images (seed 0). Run it on the inspect half first
 (must reproduce the inspect numbers the claims came from), then on the test half. CPU only.
 

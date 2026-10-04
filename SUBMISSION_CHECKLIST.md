@@ -13,7 +13,7 @@ it matters.
 | Requirement (verbatim) | Status | Where |
 |---|---|---|
 | "Develop an object detector that achieves at least 0.75 mAP50 on the provided validation set." | **missing (not met)**: best 0.1065 | REPORT.md summary; `results/b1h_tile1024_holdout40/eval/per_class.csv` |
-| "the quality of your diagnosis, experimental reasoning and reproducibility will be evaluated alongside the score." | partial | REPORT.md, EXPERIMENTS.md, README.md |
+| "the quality of your diagnosis, experimental reasoning and reproducibility will be evaluated alongside the score." | partial | REPORT.md, DETAILED_EXPERIMENTS.md, README.md |
 
 ## 1. Dataset and Task
 
@@ -27,7 +27,7 @@ it matters.
 |---|---|---|
 | "Study the supplied dataset before or alongside model development. Report the observations that materially influence your modeling or evaluation decisions." | done | REPORT.md §2.1; `figures/eda/` |
 | "Establish a reasonable initial detection baseline and document the complete training setup required to reproduce it." | done | REPORT.md §2.2; `configs/b0.yaml`, `configs/b1.yaml`, `configs/b1h.yaml`; README "Reproduce everything" |
-| "For every reported model, provide overall mAP50 and per-class AP50 on the validation set." | partial: B0/B1/B1h per-class in REPORT §2.2; E1/E2 per-class only in EXPERIMENTS.md; LC/S54 runs' per-class val AP50 in `figures/learning_curve/learning_curve.csv` and `results/<run>/eval/per_class.csv` but not in REPORT; E3/E4 **pending** | REPORT.md §2.2, §4; EXPERIMENTS.md index |
+| "For every reported model, provide overall mAP50 and per-class AP50 on the validation set." | partial: B0/B1/B1h per-class in REPORT §2.2; E1/E2 per-class only in DETAILED_EXPERIMENTS.md; LC/S54 runs' per-class val AP50 in `figures/learning_curve/learning_curve.csv` and `results/<run>/eval/per_class.csv` but not in REPORT; E3/E4 **pending** | REPORT.md §2.2, §4; DETAILED_EXPERIMENTS.md index |
 | "Include representative qualitative predictions and misclassification details. Do not limit the report to successful examples." | partial: grids and crops exist and are referenced; no images are embedded in REPORT.md | REPORT.md §2.3; `figures/<run>/grid_*.png`, `errors/crops_*.png`, confusion matrices |
 | "Minimum reproducibility information: architecture and initialization, image size/preprocessing, train/validation usage, augmentations, optimizer and scheduler, batch size, epochs, sampling strategy, losses or class weighting if modified, random seed where applicable, inference thresholds/post-processing, software dependencies and hardware/runtime details." | done (by pointer) | REPORT.md "Reproducibility details"; `results/b1h_tile1024_holdout40/train/args.yaml`; `eval_args.json`; `env/*_hardware.json`; `requirements-lock.txt` |
 
@@ -38,16 +38,16 @@ it matters.
 | "Investigate false positives and false negatives as populations, not only as isolated examples." | partial: TIDE bins, size/density/brightness slices, recall gap done; background-FP audit **pending** (`auric-fp-crop`) | REPORT.md §3.1, §3.3, §3.4; `figures/<run>/errors/slices.csv` |
 | "Develop a useful failure taxonomy and quantify the dominant failure modes." | done | REPORT.md "Error taxonomy", §3.1 (`tide_dAP.csv`) |
 | "Report class-confusion / misclassification behavior and identify any systematic patterns." | done | REPORT.md §3.2 (Cargo ↔ Box); `figures/*/gt_oracle/confusion_pool.csv`, `errors/confusion_matrix_*.csv` |
-| "Where several explanations are plausible, state the alternatives and design an analysis or experiment that helps discriminate between them." | partial: recall-gap (size / density / resolution / scene), E1 vs overfitting, E2 scale; missing-labels hypothesis **pending** (FP audit) | REPORT.md summary point 4, §3.4; EXPERIMENTS.md |
+| "Where several explanations are plausible, state the alternatives and design an analysis or experiment that helps discriminate between them." | partial: recall-gap (size / density / resolution / scene), E1 vs overfitting, E2 scale; missing-labels hypothesis **pending** (FP audit) | REPORT.md summary point 4, §3.4; DETAILED_EXPERIMENTS.md |
 | "Evidence standard: … Show how you established the claim, how large the effect is, and what competing explanation could produce a similar observation." | partial: applied in the summary and §3 (ruled out / no evidence for / not tested); not yet re-checked for §5.3–§5.4 wording | REPORT.md |
 
 ## 4. Experimentation Toward the Target
 
 | Requirement (verbatim) | Status | Where |
 |---|---|---|
-| "Each experiment should follow a traceable research chain rather than being an isolated hyperparameter trial." | done up to E1/E2; E3/E4 **pending** | REPORT.md §4; EXPERIMENTS.md |
-| Experiment record fields: "Observation", "Hypothesis", "Changes vs. previous run", "Results", "Conclusion", "Next experiment setup (if required)" | done in EXPERIMENTS.md (six fields per entry, audit `ba8da62`); E3/E4 Results and Conclusion **pending** | EXPERIMENTS.md; REPORT.md §4 table |
-| "Results: Quantitative and qualitative results, including relevant class-wise behavior." | partial: class-wise yes; qualitative only by figure pointers | EXPERIMENTS.md |
+| "Each experiment should follow a traceable research chain rather than being an isolated hyperparameter trial." | done up to E1/E2; E3/E4 **pending** | REPORT.md §4; DETAILED_EXPERIMENTS.md |
+| Experiment record fields: "Observation", "Hypothesis", "Changes vs. previous run", "Results", "Conclusion", "Next experiment setup (if required)" | done in DETAILED_EXPERIMENTS.md (six fields per entry, audit `ba8da62`; E3/E4 results in); E6–E8 pending. A 5-minute human-readable summary is in EXPERIMENTS.md | DETAILED_EXPERIMENTS.md; EXPERIMENTS.md; REPORT.md §4 table |
+| "Results: Quantitative and qualitative results, including relevant class-wise behavior." | partial: class-wise yes; qualitative only by figure pointers | DETAILED_EXPERIMENTS.md |
 
 ## 5. Research Investigations
 

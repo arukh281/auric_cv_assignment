@@ -3,7 +3,7 @@
 YOLO11s (COCO-pretrained) on a 5-class overhead truck dataset. Target: mAP50 ≥ 0.75 on the provided val set.
 
 **Result:** the target was not reached. Best val mAP50 is 0.1065 (95% CI 0.0563–0.1653), from B1h. Why: see
-`REPORT.md` (summary at the top) and `EXPERIMENTS.md` (one entry per run, index at the top).
+`REPORT.md` (summary at the top) and `DETAILED_EXPERIMENTS.md` (one entry per run, index at the top).
 
 ## Final model and prediction (deliverable)
 
@@ -34,7 +34,7 @@ YOLO11s (COCO-pretrained) on a 5-class overhead truck dataset. Target: mAP50 ≥
 
   Reproducibility check: CPU-only kernel `aradhya1211/auric-predict-test` ran it on the first 2 val images and
   compared the result with the saved B1h predictions (`tools/compare_preds.py`). Result: every prediction
-  reproduced, max confidence difference 3e-6 (`results/predict_test/`, `EXPERIMENTS.md` "Deliverables").
+  reproduced, max confidence difference 3e-6 (`results/predict_test/`, `DETAILED_EXPERIMENTS.md` "Deliverables").
 
 ## Reproduce everything
 
@@ -68,7 +68,7 @@ Every compute step ran on Kaggle, launched from a laptop with the Kaggle CLI.
 | FP audit / crop classifier | `python analysis/fp_audit.py --preds <B1h>/eval_holdout40/predictions.csv --data-root "$DATA_ROOT" --out <dir>`; `python analysis/crop_classifier.py --data-root "$DATA_ROOT" --holdout splits/holdout40_seed0.txt --preds <B1h>/eval_holdout40/predictions.csv --out <dir>` | contact sheet, classifier results |
 | Val vs holdout recall gap | `python analysis/recall_gap.py --val-preds <B1h>/eval/predictions.csv --holdout-preds <B1h>/eval_holdout40/predictions.csv --holdout splits/holdout40_seed0.txt --data-root "$DATA_ROOT" --out <dir>` | `standardised.csv`, `recall_by_factor.csv` |
 
-Each kernel used is named in its `EXPERIMENTS.md` entry, together with its code commit. Results (CSV/JSON/PNG, no
+Each kernel used is named in its `DETAILED_EXPERIMENTS.md` entry, together with its code commit. Results (CSV/JSON/PNG, no
 weights) are copied into `results/<run>/` and `figures/<run>/`.
 
 ## Layout
@@ -90,7 +90,7 @@ weights) are copied into `results/<run>/` and `figures/<run>/`.
 | `scripts/kaggle_setup.sh`, `scripts/kaggle_push_results.sh`, `notebooks/kaggle_train.ipynb` | Kaggle: setup, push of small result files, end-to-end notebook |
 | `runs/<run>/` | Config, command, env, metrics, training curves per run. Not in git (`.gitignore`); kept on Drive with the weights |
 | `analysis/merge_sensitivity.py` | Re-scores saved raw tile predictions under other merge settings (no re-inference) |
-| `EXPERIMENTS.md`, `REPORT.md` | Experiment log and report |
+| `DETAILED_EXPERIMENTS.md`, `REPORT.md` | Experiment log and report |
 
 ## Dataset
 Expected layout (the `cv_dataset.zip` root):

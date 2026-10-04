@@ -1,4 +1,4 @@
-"""§5.4 "smart" training subsets (S54 pre-registration in EXPERIMENTS.md) and their configs.
+"""§5.4 "smart" training subsets (S54 pre-registration in DETAILED_EXPERIMENTS.md) and their configs.
 
 Two steps:
   python tools/make_smart_subsets.py embed --data-root /kaggle/tmp/data --out <dir>      # GPU (Kaggle): embeddings

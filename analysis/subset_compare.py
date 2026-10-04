@@ -1,4 +1,4 @@
-"""§5.4 smart vs random subsets (S54 pre-registration in EXPERIMENTS.md). CPU only, from saved predictions.
+"""§5.4 smart vs random subsets (S54 pre-registration in DETAILED_EXPERIMENTS.md). CPU only, from saved predictions.
 
 Usage:
   python analysis/subset_compare.py [--results-root results] [--out figures/subset_compare]
