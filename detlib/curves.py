@@ -22,7 +22,10 @@ def summarize_training(run_dir):
     res.columns = [c.strip() for c in res.columns]
     data = yaml.safe_load(open(args["data"]))
     train_dir = Path(data["path"]) / data["train"]
-    n_train = sum(1 for p in train_dir.iterdir() if p.suffix.lower() in IMG_EXTS)
+    if train_dir.is_file():  # a list of image paths (E6 repeat-factor sampling): one entry per line, repeats counted
+        n_train = sum(1 for l in train_dir.read_text().splitlines() if l.strip())
+    else:
+        n_train = sum(1 for p in train_dir.iterdir() if p.suffix.lower() in IMG_EXTS)
     batch = int(args["batch"])
     per_epoch = math.ceil(n_train / batch)  # Ultralytics' train loader does not drop the last partial batch
     summary = dict(
