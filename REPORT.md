@@ -16,7 +16,7 @@ inflate validation mAP in a way we cannot measure or remove.
 |---|---|
 | Architecture, initialization | `configs/*.yaml` (`model`), `runs/<run>/init_weights.json` |
 | Image size / preprocessing, tiling | `configs/*.yaml`, `runs/<run>/tiling_params.json` |
-| Train/val usage | Train split for training only. Val is used only for final evaluation (`val: false`, `last.pt` reported, no epoch selection on val) |
+| Train/val usage | Train split for training only. **Corrected 2026-10-04:** an earlier version said `val: false`; the configs actually set `val: true` (`configs/*.yaml`). Ultralytics then computes its own per-epoch val metrics on un-sliced full images, used for training curves only; `last.pt` is always reported (`results/*/eval*/metrics.json`, field `weights`). One leak: Ultralytics EarlyStopping (default `patience=100`, unset in configs before E3/E4) watches that val fitness and stopped E1 at epoch 145 of 150 (EXPERIMENTS.md, "CHECK 0"). From E3/E4 on, configs set `patience: 0` and checkpoint curves are scored on holdout40 |
 | Augmentations, optimizer, scheduler, batch, epochs, losses | `runs/<run>/train/args.yaml` (full Ultralytics args, defaults included) |
 | Seed / determinism | `seed: 0`, `deterministic: true` in config and `args.yaml` |
 | Inference thresholds / post-processing | `runs/<run>/eval/eval_args.json` (conf 0.001, NMS IoU 0.7, max_det, tile merge) |
@@ -59,5 +59,267 @@ Rates and confusion matrices are reported at two threshold sets, tagged in every
 - The per-class F1-optimal confidence. It is chosen on val, which is the only test set, so it is an optimistic
   diagnostic, not a deployable setting.
 
-Sections to come: dataset observations, baselines, experiment chain, failure analysis, research investigations
-5.1-5.4, final analysis.
+---
+
+**Status (2026-10-04).** Target: ≥ 0.75 mAP50 on the 22-image val set. **Not reached.** Best val mAP50 is 0.1065
+(95% CI 0.0563–0.1653), run `b1h_tile1024_holdout40` (`results/b1h_tile1024_holdout40/eval/per_class.csv`).
+
+## 2. Dataset and baselines
+
+### 2.1 Dataset
+
+Full-dataset statistics (`figures/eda/summary.json`, `figures/eda/tables/*.csv`):
+
+| Class | train inst. | val inst. | train imgs | val imgs | train share | val share |
+|---|---|---|---|---|---|---|
+| Cargo Truck | 3773 | 800 | 368 | 19 | 0.495 | 0.516 |
+| Truck w/Box | 2366 | 493 | 261 | 17 | 0.311 | 0.318 |
+| Truck w/Flatbed | 662 | 122 | 195 | 14 | 0.087 | 0.079 |
+| Truck Tractor | 625 | 117 | 128 | 11 | 0.082 | 0.075 |
+| Truck w/Liquid | 192 | 20 | 99 | 8 | 0.025 | 0.013 |
+
+(`figures/eda/tables/class_counts.csv`)
+
+- 443 train images / 7618 boxes; 22 val images / 1552 boxes (`figures/eda/summary.json`).
+- **Val is much denser:** boxes per image mean 17.2 (median 7) in train vs 70.5 (median 76.5) in val
+  (`figures/eda/tables/boxes_per_image_stats.csv`).
+- **Images are large, objects tiny:** median width × height 3228 × 2891 px (train), 3114 × 2911.5 px (val)
+  (`figures/eda/tables/images.csv`); median sqrt(box area) 22.05 px train, 25.50 px val (`figures/eda/summary.json`);
+  77.2% of train boxes (5881/7618) are COCO-small (`figures/eda/tables/size_bins.csv`). Largest train box side 161 px
+  (`figures/eda/tables/boxes.csv`).
+- **Imbalance:** Cargo + Box are 81% of train instances; Liquid has 20 val instances, so its AP has very wide CIs.
+- **Label issues:** 1 empty train image (1938.png), 36 boxes with a side < 4 px (train 10, val 26)
+  (`figures/eda/tables/label_issues_summary.csv`). No near-duplicates within or across splits at pHash ≤ 8
+  (`figures/eda/summary.json`).
+- **Visual observations** (`analysis/notes/visual_inspection.md`, 42 images of a local 20-train/22-val subset, all
+  marked uncertain by the author): haze (val 2460, 2470, 2472), strong blur (val 2292, 2308, 2543), an apparently
+  finer or upsampled scale (val 2391), water speckle (val 1399, 1447, 1456), visible-but-unlabelled trucks in both
+  splits, and possibly offset GT boxes in 2470/2472. Val has more ports and dense truck yards than the train sample.
+  Truck w/Liquid median sqrt(area) is 41.5 px in val vs 25.5 px in train (from 20 val boxes;
+  `figures/domain_shift/tables/box_sizes_full_dataset.csv`).
+
+### 2.2 Baselines: B0 → B1 → B1h
+
+All runs: COCO-pretrained YOLO11s, SGD lr0 0.01, 50 epochs, seed 0, `last.pt`, sliced eval for tiled runs
+(EXPERIMENTS.md, B0/B1/B1h entries).
+
+| Run | Input | Train imgs | Iterations | eval max_det | val mAP50 (95% CI) | holdout40 mAP50 (95% CI) |
+|---|---|---|---|---|---|---|
+| B0 `b0_full640` | whole image → 640 | 443 | 1400 | 334 | 0.0020 (0.0009–0.0045) | – |
+| B1 `b1_tile1024` | 1024 tiles, overlap 256 | 443 | 11850 | 334 | 0.0715 (0.0419–0.1242) | – |
+| B1h `b1h_tile1024_holdout40` | as B1, 40 train imgs held out | 403 | 10750 | 902 | 0.1065 (0.0563–0.1653) | 0.1507 (0.0558–0.1874) |
+
+Sources: `results/<run>/eval/per_class.csv`, `results/<run>/training_summary.json`,
+`results/b1h_tile1024_holdout40/eval_holdout40/per_class.csv`.
+
+Per-class val AP50 (95% CI), `results/<run>/eval/per_class.csv`:
+
+| Class | B0 | B1 | B1h |
+|---|---|---|---|
+| Cargo Truck | 0.002 (0.001–0.005) | 0.089 (0.047–0.150) | 0.131 (0.063–0.203) |
+| Truck w/Box | 0.008 (0.003–0.020) | 0.130 (0.035–0.226) | 0.180 (0.034–0.323) |
+| Truck w/Flatbed | 0.000 (no preds) | 0.053 (0.012–0.099) | 0.071 (0.007–0.155) |
+| Truck Tractor | 0.000 (no preds) | 0.006 (0.001–0.019) | 0.006 (0.000–0.022) |
+| Truck w/Liquid | 0.000 (no preds) | 0.079 (0.000–0.329) | 0.145 (0.005–0.416) |
+
+Caveats:
+- B0 vs B1 is equal epochs, not equal compute (1400 vs 11850 iterations; EXPERIMENTS.md B0).
+- B1 vs B1h differ in training set (443 vs 403), max_det (334 vs 902) and platform (Colab vs Kaggle;
+  `results/<run>/env/train_hardware.json`). B1h's seed-1 repeat scored 0.0634 val / 0.1333 holdout
+  (`results/b1h_seed1/eval/per_class.csv`, `eval_holdout40/per_class.csv`): a seed spread of 0.043 val and 0.017
+  holdout, as large as the B1→B1h difference. B1h's "best" status is within noise.
+- Scorer: ours equals pycocotools on every run (`results/<run>/eval/scorer_comparison.csv`).
+
+### 2.3 Qualitative predictions
+
+Grids of TP / FN / FP (background, localisation, wrong class) and full-image overviews:
+`figures/b1_tile1024/grid_*.png`, `overview_{1211,1929,2308,2472}.png`;
+`figures/b1h_tile1024_holdout40/grid_*.png`, `overview_{1457,1929,20,2470}.png`; error crops in
+`figures/<run>/errors/crops_*.png`. Observations recorded from B1's grids (`analysis/notes/visual_inspection.md`):
+- Missed trucks include clearly visible white trailers in 2391 and visible tankers in 1362, as well as blurred (2543),
+  hazy (2460, 2472) and very dark (1399) cases.
+- Background FPs cluster in 1206, 1211, 2470, 2472, 2293 and 31; some of them look like unlabelled trucks (uncertain).
+- Class confusions are mostly Box ↔ Cargo, Tractor ↔ Box and Flatbed ↔ Cargo.
+- No duplicate errors at conf 0.25 (`crops_dupe.png` empty).
+
+## 3. Failure diagnosis
+
+### 3.1 Error bins (TIDE order, val)
+
+Gain in mAP50 if each error type were fixed by the oracle (`figures/<run>/errors/tide_dAP.csv`):
+
+| Fix | B0 n / dAP50 | B1 n / dAP50 | B1h n / dAP50 |
+|---|---|---|---|
+| Cls | 100 / +0.102 | 621 / **+0.190** | 723 / **+0.147** |
+| Loc | 248 / +0.004 | 190 / +0.014 | 386 / +0.022 |
+| Both | 324 / +0.000 | 247 / +0.002 | 422 / +0.003 |
+| Dupe | 20 / +0.000 | 0 / 0 | 0 / 0 |
+| Bkg | 6287 / +0.007 | 4701 / +0.053 | 9380 / +0.077 |
+| Missed | 1205 / +0.005 | 584 / +0.041 | 419 / +0.044 |
+
+For the tiled runs, classification errors are the largest single loss, followed by background FPs and misses.
+Localisation is small.
+
+### 3.2 Class-agnostic vs class-aware
+
+| B1h | mAP50 (class-aware) | class-agnostic AP50 | trucks found (any class, conf ≥ 0.001) |
+|---|---|---|---|
+| val | 0.1065 | 0.2551 | 1032/1552 = 0.665 |
+| holdout40 | 0.1507 | 0.3617 | 629/738 = 0.852 |
+
+Sources: `results/b1h_tile1024_holdout40/eval/class_agnostic.json`, `eval_holdout40/class_agnostic.json` (via
+EXPERIMENTS.md B1h). Ignoring the class roughly doubles AP. At conf 0.25 only 361/1552 (0.233) val GT are matched by
+any class (`results/b1h_tile1024_holdout40/eval/class_agnostic.json`).
+
+Class confusion at GT locations (B1h, pooled anchors; rows = GT, `figures/b1h_tile1024_holdout40/gt_oracle/confusion_pool.csv`):
+Cargo → Box 192 of 800; Box → Cargo 171 of 493; Tractor → Cargo 47 of 117; Liquid predicted correctly 2 of 20.
+**Classification, in particular Cargo vs Box, is the main bottleneck** (also §5.1).
+
+### 3.3 Size, density, image quality
+
+- **Size:** B1 misses 71–79% of val trucks in every 8–48 px bin (1434 of 1552 GT) at F1-optimal thresholds, vs 52%
+  at 48–96 px (n = 73) (`figures/b1_tile1024/errors/slices.csv`). B1h at conf 0.25: miss rate 0.94 / 0.90 / 0.86 /
+  0.76 / 0.56 for 8–16 / 16–24 / 24–32 / 32–48 / 48–96 px (`figures/b1h_tile1024_holdout40/errors/slices.csv`).
+  Size matters at the extremes but most trucks are missed regardless of size.
+- **Density:** B1h conf-0.25 miss rate 0.88 / 0.87 / 0.90 / 0.81 across per-image object-count bins
+  (`figures/b1h_tile1024_holdout40/errors/slices.csv`); no clear trend.
+- **Image quality:** B1's 10 visually unflagged val images score 0.079 (0.037–0.179), the 12 flagged (haze, blur,
+  dark, speckle) 0.063 (0.036–0.090); CIs overlap (`figures/b1_tile1024/per_image/subset_map_val.csv`).
+- **Domain shift (train vs val):** domain-classifier AUCs 0.336 (0.168–0.515) on image stats, 0.453 (0.334–0.564) on
+  crop embeddings, 0.368 (0.209–0.549) per image; every CI includes 0.5
+  (`figures/domain_shift/tables/domain_auc.csv`). Computed on the local 20-train / 22-val subset only.
+- **Pipeline checks:** in-sample train40 mAP50 0.4027 for B1 (`results/b1_tile1024/eval_train40/metrics.json`);
+  disabling tile merge drops B1 0.0715 → 0.0484 (`figures/b1_tile1024/merge_sensitivity.csv`); max_det 3000 adds
+  0.006 (`figures/b1_tile1024_maxdet3000/merge_sensitivity.csv`).
+
+### 3.4 Generalisation and sanity checks
+
+- **Seen vs unseen (B1h):** train40 0.378, holdout40 0.151, val 0.107
+  (`results/b1h_tile1024_holdout40/{eval_train40,eval_holdout40,eval}/metrics.json`). Holdout and val CIs overlap,
+  so the gap is generalisation in general, not a val-specific problem. Why val has fewer trucks found (66% vs 85%) is
+  UNKNOWN.
+- **Overfit test** (16 tiles, all 5 classes, augmentation off): AP50 0.355 / 0.987 / 1.000 at epochs 50 / 100 / 300;
+  final cls_loss 0.097 (`results/sanity/overfit/`). The model and pipeline can fit these labels.
+- **Label check:** the first check flagged 85 of 3439 tiles (`results/sanity/label_check.json`). The IoU-paired
+  re-check found all 3,278 boxes in those tiles identical (`results/sanity/label_mismatch/summary.json`): an artefact
+  of coordinate-sort pairing in dense tiles, not a label error. The author overrode the original NOT PASS before
+  the re-check; with it, both PASS criteria hold (EXPERIMENTS.md, SANITY).
+- Effective B1h settings: imgsz 1024, mosaic 1.0, scale 0.5, close_mosaic 10
+  (`results/b1h_tile1024_holdout40/train/args.yaml`).
+
+## 4. Experiment records
+
+Full entries are in EXPERIMENTS.md under the headings named below. "Pre-registered" means written before results.
+
+| Exp. | Observation | Hypothesis | Changes | Results | Conclusion | Next |
+|---|---|---|---|---|---|---|
+| **B0** (EXPERIMENTS "B0") | ~3200 px images, ~22 px trucks | Not recorded before the run; reconstructed afterwards: 640 letterbox makes trucks ~4–5 px, so B0 is a floor | whole image @640, 50 ep | val 0.0020 (0.0009–0.0045) | Almost no detection; tiling needed | B1 |
+| **B1** ("B1") | as B0; max box side 161 px < overlap 256 | Pre-registered: 0.40–0.60 mAP50; Cls dominant; Liquid worst | 1024 tiles, overlap 256, sliced eval | val 0.0715 (0.0419–0.1242) | Far below prediction; Cls dominant (correct); rejection condition (b) largely met (size not the main limiter) | test generalisation |
+| **B1h** ("B1h") | is val unusually hard? | No prediction written before this run | 40 train imgs held out; max_det 902 | val 0.1065, holdout 0.1507, train40 0.378 | Poor generalisation, not val-specific; B1→B1h gain within seed noise | learning curves |
+| **LC** ("LC") | train/holdout gap | Pre-registered: curve still rising; 25% → 0.07–0.12 holdout | 25/50/75% subsets at equal iterations + seed 1 | §5.3 | Rising; 25% gave 0.061 | §5.4 |
+| **S54** ("S54") | – | Selection and rule pre-registered (`b02413c`); prediction never provided | smart vs random subsets | §5.4 | rule computed; no subset ≥ 90% | – |
+| **SANITY** ("SANITY") | train40 only 0.378 | settings / labels / capacity | args check, label check, overfit test | §3.4 | pipeline can fit; labels fine (re-check) | E1/E2 |
+| **E1/E2** ("E1 / E2") | B1h losses still falling | Pre-registered: E1 undertraining; E2 scale 0.5 hurts small trucks | E1 150 ep; E2 150 ep + scale 0.2 | below | E1 not supported (overfitting); E2 inconclusive, leaning not supported | E3/E4 |
+| **E3/E4** ("E3 / E4") | E1/E2 overfit | Pre-registered (author's): aerial pretraining (E3) / flipud 0.5 + mixup 0.1 (E4) reduce overfitting; holdout > 0.1507 + 0.017 | B1h recipe, 50 ep, `patience: 0`, holdout checkpoint curves | **pending (launched)** | pending | pending |
+
+E1/E2 results (EXPERIMENTS.md "E1 / E2: Results"; `results/<run>/eval/per_class.csv`, `eval_holdout40/per_class.csv`,
+`eval_train40/metrics.json`):
+
+| | B1h (50 ep) | E1 (150 ep, early-stopped at 145) | E2 (150 ep, scale 0.2) |
+|---|---|---|---|
+| val mAP50 (95% CI) | 0.1065 (0.0563–0.1653) | 0.0680 (0.0355–0.1243) | 0.0620 (0.0326–0.1104) |
+| holdout40 mAP50 (95% CI) | 0.1507 (0.0558–0.1874) | 0.0923 (0.0302–0.1384) | 0.1112 (0.0344–0.1391) |
+| train40 mAP50 | 0.378 | 0.774 | 0.906 |
+| final train cls_loss | 1.596 | 0.795 | 0.543 |
+
+More training fits the training images far better while held-out mAP50 falls: overfitting, not undertraining.
+Val checkpoint curves peak mid-training (E1 0.100 at epoch 90, E2 0.107 at 40–50;
+`results/<run>/checkpoint_curve/checkpoint_curve.csv`); they were reported as curves only, never used to pick weights.
+E1's early stop was chosen by Ultralytics val (see Reproducibility, corrected row).
+
+## 5. Research questions
+
+### 5.1 If locations were perfect
+
+Method (`analysis/gt_box_oracle.py`): at every val GT box, take the model's own class scores at the matching anchor
+and check whether the top class is right. This removes detection and measures classification alone.
+
+| Model | accuracy (1552 GT) | mean per-class accuracy | GT with an anchor at IoU ≥ 0.5 |
+|---|---|---|---|
+| B0 | 0.481 | 0.215 | 396 |
+| B1 | 0.553 | 0.387 | 1449 |
+| B1h | 0.601 | 0.436 | 1455 |
+
+Sources: `figures/{b0_full640,b1_tile1024,b1h_tile1024_holdout40}/gt_oracle/comparison.csv`, `summary.json`.
+Baselines: always "Cargo" = 0.516 (800/1552, `figures/eda/tables/class_counts.csv`); uniform guessing = 0.20 per class.
+
+With perfect locations B1h names the type correctly 60% of the time, barely above always answering Cargo; per class it
+is 44% vs 20% chance. The TIDE oracle agrees: fixing Cls adds +0.147, Loc +0.022, Missed +0.044
+(`figures/b1h_tile1024_holdout40/errors/tide_dAP.csv`). **Even with perfect boxes, mAP50 would stay far from 0.75;
+classification is the ceiling.** The mAP50 under perfect localisation alone (B1h + Loc fix) is 0.129 (same file).
+
+### 5.2 Resisting examples
+
+*Pending.* Inspect-half results exist (`figures/s52/inspect/`); test-half confirmation is pre-registered
+(EXPERIMENTS.md "§5.2 test-half confirmation") and not yet run.
+
+### 5.3 Value of 500 more labels
+
+Learning curve at equal iterations (~10,750), held-out = holdout40, seed 0 unless noted
+(`figures/learning_curve/learning_curve.csv`, `power_law_fit.csv`):
+
+| Train images | holdout mAP50 | holdout class-agnostic AP50 | val mAP50 |
+|---|---|---|---|
+| 101 (25%) | 0.061 | 0.160 | 0.017 |
+| 202 (50%) | 0.095 | 0.232 | 0.049 |
+| 302 (75%) | 0.105 | 0.293 | 0.085 |
+| 403 (100%), seed 0 / 1 | 0.151 / 0.133 | 0.362 / 0.362 | 0.106 / 0.063 |
+
+- The curve is still rising at 403 images (pre-registered prediction: correct; 25% point 0.061 vs predicted
+  0.07–0.12, CI 0.012–0.090 overlaps; EXPERIMENTS.md "LC").
+- Power-law fit on holdout mAP50 (403 point = mean of seeds, 0.142) extrapolates to **0.215 at 903 images (95% CI
+  0.076–0.276)**, a gain of +0.080 vs seed spread 0.017. **Every fit is flagged unreliable** (2.24× beyond the data;
+  several per-class fits non-monotone or failed) (`figures/learning_curve/power_law_fit.csv`). Only the direction is
+  trustworthy.
+- Per class (holdout, seed 0, 101 → 403 images; `figures/learning_curve/learning_curve.csv` via HANDOFF.md §6):
+  Box 0.236 → 0.509, Cargo 0.018 → 0.096, Flatbed 0.034 → 0.069, Liquid 0.015 → 0.073, Tractor 0.000 → 0.007.
+  Box benefits most; Tractor barely moves.
+- **Answer:** more labels should help, but the optimistic projection is far below 0.75. Classification needs its own
+  remedy.
+
+### 5.4 Smallest subset retaining ≥ 90%
+
+Pre-registered in commit `b02413c` before any S54 run (EXPERIMENTS.md "S54"): smart = class coverage (rarest class
+first) then greedy k-center on DINOv2-small embeddings; "recovers 90%" = held-out mAP50 ≥ 0.90 × 0.1420 = 0.128
+(0.1420 = mean of the two full-data seeds). **The author's prediction was never provided** (an unfilled placeholder);
+nothing was written before the runs. Implementation note: the coverage step adds the image with the most boxes of
+the needed class (`tools/make_smart_subsets.py`), which differs from the pre-registered wording "in order of rarest
+class contained".
+
+Held-out results (`figures/subset_compare/subset_compare.csv`):
+
+| Run | Size | Selection | seed | held-out mAP50 (95% CI) | held-out class-agn. AP50 | % of full |
+|---|---|---|---|---|---|---|
+| b1h_f50 | 202 | random | 0 | 0.095 (0.026–0.127) | 0.232 | 66.8 |
+| b1h_f50_seed1 | 202 | random | 1 | 0.082 (0.028–0.109) | 0.221 | 57.5 |
+| b1h_smart50 | 202 | smart | 0 | 0.105 (0.028–0.142) | 0.284 | 74.1 |
+| b1h_f75 | 302 | random | 0 | 0.105 (0.028–0.144) | 0.293 | 73.6 |
+| b1h_f75_seed1 | 302 | random | 1 | 0.123 (0.038–0.165) | 0.306 | 86.6 |
+| b1h_smart75 | 302 | smart | 0 | 0.104 (0.033–0.132) | 0.334 | 73.3 |
+
+Pre-registered rule (`figures/subset_compare/decision_rule.csv`): smart beats random on class-agnostic AP50 at both
+sizes (+0.052 at 202, +0.028 at 302, vs seed spreads 0.011 / 0.013), but **not** on mAP50 (+0.010 at 202 vs spread
+0.013; −0.019 at 302).
+
+**Answer:** no tested subset (50% or 75%, smart or random) reaches 0.128; the smallest subset retaining 90% is
+therefore UNKNOWN, larger than 302 images. Smart selection helps detection (class-agnostic) but not class-aware mAP50.
+Caveat: the smart and seed-1 runs ran on a different Kaggle stack (torch 2.11.0) than the seed-0 random runs
+(torch 2.10.0) (`results/<run>/env/train_hardware.json`, via HANDOFF.md §8).
+
+## 6. Final analysis and next experiment
+
+*Pending* (awaits E3/E4 and §5.2).
+
+## 7. Deliverables
+
+*Pending.*
