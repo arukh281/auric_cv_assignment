@@ -4,11 +4,13 @@
   python analysis/e12_robust.py val  --weights <last.pt> --data-root "$DATA_ROOT" --rule <name> --out <dir>
 
 Degraded holdout40 copies (test only; fixed, seed 0):
-  clean      original
-  s0.5, s2   bilinear rescale by 0.5 / 2
-  noise      + Gaussian noise sigma 10 (8-bit), clipped
-  blurnoise  Gaussian blur sigma 1.5, then + noise sigma 8
-  c0.5, c1.4 contrast x0.5 / x1.4 about each image's mean, clipped
+  clean                      original
+  s0.5 s0.75 s1.25 s1.5 s2   bilinear rescale
+  noise5 noise10             + Gaussian noise sigma 5 / 10 (8-bit), clipped
+  blur1 blur2                Gaussian blur sigma 1 / 2
+  c0.6 c1.4                  contrast x0.6 / x1.4 about each image's mean
+  b-30 b+30                  brightness -30 / +30
+  jpeg50 jpeg20              JPEG re-encode at quality 50 / 20
 Rules (applied per image, before eval.py's sliced inference; merge and scorer as eval.py):
   plain    nothing
   auto     E12's scale rule (predict at 1x; median sqrt(area) of conf>=0.25 predictions -> s in {0.5,1,2} closest
@@ -17,8 +19,8 @@ Rules (applied per image, before eval.py's sliced inference; merge and scorer as
            holdout40, computed once at start)
   denoise  cv2.bilateralFilter(d=5, sigmaColor=20, sigmaSpace=5)
   combo    denoise, then cnorm, then auto
-A rule passes if (i) clean holdout40 mAP50 >= plain clean - 0.017 and (ii) its mean over the 6 degraded copies is
-above plain's mean over them. Chosen: the passing rule with the highest degraded mean (written to chosen_rule.json);
+A rule passes if (i) clean holdout40 mAP50 >= plain clean - 0.017 and (ii) its mean over the 15 corrupted copies
+(the suite average) is above plain's. Scores for selection use holdout40-clean labels when --clean-root is given. Chosen: the passing rule with the highest degraded mean (written to chosen_rule.json);
 val is then scored once with it (mode val).
 """
 import argparse
@@ -38,7 +40,8 @@ from detlib.data import EDA_TABLES, list_images  # noqa: E402
 from detlib.scoring import ap_from_records, score_images  # noqa: E402
 from eval import collect, finalize, image_sizes, run_predictions  # noqa: E402
 
-VERSIONS = ["clean", "s0.5", "s2", "noise", "blurnoise", "c0.5", "c1.4"]
+VERSIONS = ["clean", "s0.5", "s0.75", "s1.25", "s1.5", "s2", "noise5", "noise10", "blur1", "blur2", "c0.6", "c1.4",
+            "b-30", "b+30", "jpeg50", "jpeg20"]  # amendment 2 (after external review): generic suite, fixed in advance
 RULES = ["plain", "auto", "cnorm", "denoise", "combo"]
 RESCALED_VAL = {"2308.png", "2384.png", "2391.png", "2460.png"}
 ALTERED_VAL = RESCALED_VAL | {"2292.png", "2543.png", "1399.png", "2139.png"}
@@ -47,16 +50,21 @@ ALTERED_VAL = RESCALED_VAL | {"2292.png", "2543.png", "1399.png", "2139.png"}
 def degrade(im, v, rng):
     if v == "clean":
         return im
-    if v in ("s0.5", "s2"):
-        s = 0.5 if v == "s0.5" else 2.0
-        return cv2.resize(im, (round(im.shape[1] * s), round(im.shape[0] * s)), interpolation=cv2.INTER_LINEAR)
+    if v.startswith("s"):
+        k = float(v[1:])
+        return cv2.resize(im, (round(im.shape[1] * k), round(im.shape[0] * k)), interpolation=cv2.INTER_LINEAR)
+    if v.startswith("jpeg"):
+        ok, buf = cv2.imencode(".jpg", im, [cv2.IMWRITE_JPEG_QUALITY, int(v[4:])])
+        return cv2.imdecode(buf, cv2.IMREAD_COLOR)
     f = im.astype(np.float32)
-    if v == "noise":
-        f = f + rng.normal(0, 10, f.shape)
-    elif v == "blurnoise":
-        f = cv2.GaussianBlur(f, (0, 0), 1.5) + rng.normal(0, 8, f.shape)
-    elif v in ("c0.5", "c1.4"):
-        k = 0.5 if v == "c0.5" else 1.4; m = f.mean(axis=(0, 1), keepdims=True); f = (f - m) * k + m
+    if v.startswith("noise"):
+        f = f + rng.normal(0, float(v[5:]), f.shape)
+    elif v.startswith("blur"):
+        f = cv2.GaussianBlur(f, (0, 0), float(v[4:]))
+    elif v.startswith("c"):
+        k = float(v[1:]); m = f.mean(axis=(0, 1), keepdims=True); f = (f - m) * k + m
+    elif v.startswith("b"):
+        f = f + float(v[1:])
     return np.clip(f, 0, 255).astype(np.uint8)
 
 
@@ -142,9 +150,14 @@ def train_stats(root, hold):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("mode", choices=["test", "val"]); ap.add_argument("--weights", required=True)
+    ap.add_argument("mode", choices=["test", "select", "val"]); ap.add_argument("--weights")
+    ap.add_argument("--versions", help="test: comma-separated subset of versions (parallel CPU parts); default all")
+    ap.add_argument("--part", default="all", help="test: tag for this part's CSV (robust_test_<part>.csv)")
+    ap.add_argument("--parts-dir", help="select: folder containing every robust_test_*.csv")
     ap.add_argument("--data-root", required=True); ap.add_argument("--out", required=True)
     ap.add_argument("--rule", choices=RULES); ap.add_argument("--device", default=None)
+    ap.add_argument("--clean-root", help="data root whose train/labels hold holdout40-clean labels (xView originals; "
+                                         "tools/make_xview_relabel.py); selection uses these, supplied labels reported too")
     a = ap.parse_args()
     cfg = yaml.safe_load(open(REPO / "configs" / "b1h.yaml")); ev = cfg["eval"]; root = Path(a.data_root); out = Path(a.out); out.mkdir(parents=True, exist_ok=True)
     A = SimpleNamespace(weights=a.weights, device=a.device, batch=16, mode="sliced", imgsz=ev["imgsz"], tile=ev["tile"],
@@ -156,28 +169,32 @@ def main():
     if not stf.exists():
         stf.write_text(json.dumps(train_stats(root, set(hold)), indent=2))
     cnorm = make_cnorm(json.loads(stf.read_text()))
-    if a.mode == "test":
-        base = [root / "train" / "images" / n for n in hold]; rows = []
-        for v in VERSIONS:
-            rng = np.random.default_rng(0)
-            imgs = write(base, lambda im: degrade(im, v, rng), tmp / f"v_{v}") if v != "clean" else base
-            sizes = image_sizes(imgs)
-            for rule in RULES:
-                p, ch = R.rule(rule, imgs, sizes, f"{v}_{rule}", cnorm)
-                m, nl = score(p, imgs, root / "train" / "labels", sizes)
-                rows.append(dict(version=v, rule=rule, mAP50=m, mAP50_no_liquid=nl,
-                                 chosen_scales=pd.Series(ch).astype(str).value_counts().to_dict() if ch else "")); print(rows[-1], flush=True)
-        T = pd.DataFrame(rows); T.to_csv(out / "robust_test.csv", index=False)
+    if a.mode == "select":
+        T = pd.concat([pd.read_csv(f) for f in sorted(Path(a.parts_dir).rglob("robust_test_*.csv"))], ignore_index=True)
+        assert set(T.version) == set(VERSIONS) and len(T) == len(VERSIONS) * len(RULES), "missing parts"
+        T.to_csv(out / "robust_test.csv", index=False)
         piv = T.pivot(index="rule", columns="version", values="mAP50")
         deg = [v for v in VERSIONS if v != "clean"]; piv["degraded_mean"] = piv[deg].mean(1)
         base_clean, base_deg = piv.loc["plain", "clean"], piv.loc["plain", "degraded_mean"]
         piv["passes"] = (piv["clean"] >= base_clean - 0.017) & (piv["degraded_mean"] > base_deg)
         piv.loc["plain", "passes"] = False
         piv.to_csv(out / "robust_test_pivot.csv")
-        ok = piv[piv.passes]
-        chosen = ok.degraded_mean.idxmax() if len(ok) else "plain"
+        ok = piv[piv.passes]; chosen = ok.degraded_mean.idxmax() if len(ok) else "plain"
         (out / "chosen_rule.json").write_text(json.dumps(dict(chosen=chosen, pivot=piv.round(4).reset_index().to_dict("records")), indent=2, default=str))
-        print(piv.round(4).to_string()); print("CHOSEN", chosen)
+        print(piv.round(4).to_string()); print("CHOSEN", chosen); return
+    if a.mode == "test":
+        base = [root / "train" / "images" / n for n in hold]; rows = []
+        for v in (a.versions.split(",") if a.versions else VERSIONS):
+            rng = np.random.default_rng(0)
+            imgs = write(base, lambda im: degrade(im, v, rng), tmp / f"v_{v}") if v != "clean" else base
+            sizes = image_sizes(imgs)
+            for rule in RULES:
+                p, ch = R.rule(rule, imgs, sizes, f"{v}_{rule}", cnorm)
+                m_sup, nl_sup = score(p, imgs, root / "train" / "labels", sizes)
+                m, nl = score(p, imgs, Path(a.clean_root) / "train" / "labels", sizes) if a.clean_root else (m_sup, nl_sup)
+                rows.append(dict(version=v, rule=rule, mAP50=m, mAP50_no_liquid=nl, mAP50_supplied=m_sup,
+                                 chosen_scales=pd.Series(ch).astype(str).value_counts().to_dict() if ch else "")); print(rows[-1], flush=True)
+        pd.DataFrame(rows).to_csv(out / f"robust_test_{a.part}.csv", index=False)
     else:
         imgs = list_images(root / "val" / "images"); sizes = image_sizes(imgs)
         p, ch = R.rule(a.rule, imgs, sizes, f"val_{a.rule}", cnorm); p.to_csv(out / f"val_preds_{a.rule}.csv", index=False)

@@ -112,6 +112,13 @@ def finalize(raw, sizes, method, thr, metric, max_det):
 def run_predictions(a, images):
     """Returns raw predictions (RAW_COLS). Full mode: one 'tile' at (0, 0) per image."""
     from ultralytics import YOLO
+    if getattr(a, "multi_label", False):  # each box may carry every class with score >= conf (as Ultralytics' validator)
+        import functools
+        from ultralytics.utils import nms as _nms
+        if not getattr(_nms.non_max_suppression, "_multi_label", False):
+            f = functools.partial(_nms.non_max_suppression, multi_label=True)
+            f._multi_label = True
+            _nms.non_max_suppression = f
     model = YOLO(a.weights)
     rows, t0 = [], time.time()
     for i, p in enumerate(images):
@@ -247,6 +254,8 @@ def main():
     ap.add_argument("--from-preds", help="skip inference; score this predictions.csv")
     ap.add_argument("--ultra-crosscheck", action="store_true", help="also run Ultralytics val (full mode)")
     ap.add_argument("--no-coco-crosscheck", action="store_true", help="skip the pycocotools cross-check")
+    ap.add_argument("--multi-label", action="store_true",
+                    help="NMS with multi_label=True (Ultralytics validator behaviour); default single-label, unchanged")
     a = ap.parse_args()
 
     cfg = yaml.safe_load(open(a.config)) if a.config else {}
