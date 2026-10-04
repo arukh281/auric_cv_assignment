@@ -123,17 +123,19 @@ GT crops, and a background false-positive audit (§5.2 test-half confirmation do
 **(1) Is the training the problem? Mostly no.**
 - Training longer (E1, E2) or starting from aerial weights (E3) made the model fit its training images better and do
   worse on new ones: holdout40 0.092 / 0.111 / 0.082 vs B1h's 0.151.
-- More augmentation (E4) and a frozen aerial backbone (E7) overfitted less but still did not beat B1h (0.130 / 0.128).
+- More augmentation (E4) and a frozen aerial backbone (E7) overfitted less, with **no detectable effect** on
+  holdout40 vs B1h (0.130 / 0.128 vs 0.151; without Liquid 0.163 / 0.153 vs 0.170; seed spread 0.017).
 - B1h's own holdout40 curve is flat from epoch 40 to 50, and no ensemble of these is final yet (E13 pending).
 
 **(2) Are the rare classes the problem? They are weak, but not because they are rare.**
-- Showing rare-class tiles more often (E6b) did not raise Tractor or Flatbed AP (0.007 → 0.002, 0.069 → 0.061).
+- Showing rare-class tiles more often (E6b) had **no detectable effect** overall (0.136 vs 0.151) and did not
+  raise Tractor or Flatbed AP (0.007 → 0.002, 0.069 → 0.061).
 - Neither did doubling Tractor boxes in the §5.4 subsets.
 - 500 targeted instances project below noise (§5.3).
 - Part of the rare-class training labels are relabelled Cargo/Box trucks (5.0% class changes vs xView).
 
 **(3) Can smarter inference help? Partly.**
-- Second opinions did not help: TTA 0.138 vs 0.151; the crop classifier 0.100–0.117, and 0.610 vs the head's 0.690 on
+- Second opinions did not help: TTA had no detectable effect (0.138 vs 0.151; without Liquid 0.167 vs 0.170); the crop classifier 0.100–0.117, and 0.610 vs the head's 0.690 on
   the same boxes.
 - Scale-adaptive inference recovers synthetically rescaled holdout40 copies: 0.135 vs 0.092 mean, without hurting
   clean images (0.157). The robust-inference amendment and the single val score are pending.
@@ -674,7 +676,7 @@ Class coverage, as boxes (images) and share of the pool's boxes of that class:
 ## 6. Final analysis and next experiment
 
 **Final model: B1h** (`b1h_tile1024_holdout40`, `last.pt`). Val mAP50 0.1065 (CI 0.056–0.165), holdout40 0.1507.
-Nothing tested so far beats it on holdout40 by more than the 0.017 seed spread. TODO-FINAL: E6b and E8 can still
+Nothing tested so far beats it on holdout40 by more than the 0.017 seed spread. TODO-FINAL: E13/E15 can still
 change this under their pre-registered rules.
 
 ### 6.1 Dominant limitations, with evidence
@@ -695,9 +697,11 @@ holdout values are in DETAILED_EXPERIMENTS.md "E1 / E2: Results". Picture: `figu
 
 - **Fitting faster hurts.** E1, E2 and E3 all raised train40 and lowered holdout40, by more than the seed noise each
   time.
-- **Freezing helps relative to E3.** E7 recovered +0.046 of E3's loss, but it is still below B1h.
+- **Freezing helps relative to E3.** E7 recovered +0.046 of E3's loss; vs B1h there is no detectable effect
+  (−0.023, without Liquid −0.017).
 - **Augmentation helps detection, not naming.** E4 overfits least, and it is the only run that finds *more* held-out
-  trucks than B1h (class-agnostic 0.400 vs 0.362). Its class-aware mAP50 is still 0.020 lower.
+  trucks than B1h (class-agnostic 0.400 vs 0.362). Its class-aware mAP50 differs by −0.020, which is within seed noise: **no detectable effect** (without Liquid
+  0.163 vs 0.170).
 - **B1h stops near the right point.** Its own holdout curve is flat from epoch 40 to 50 (0.154 → 0.151;
   `results/b1h_tile1024_holdout40/checkpoint_curve_holdout/`).
 - Each run is a single seed.
@@ -761,11 +765,11 @@ confirmed on the unseen half).
 | *Rejected:* B1 reaches 0.40–0.60 (pre-registered) | rejected (0.0715) | B1 |
 | *Rejected:* B1h is undertrained (E1) | rejected | E1 |
 | *Rejected:* aerial pretraining reduces overfitting (E3) | rejected, reversed | E3 |
-| *Rejected:* TTA improves holdout40 (pre-registered) | rejected (−0.013) | TTA |
+| *Rejected:* TTA improves holdout40 (pre-registered) | rejected: no detectable effect (−0.013, within noise) | TTA |
 | *Weakened:* scale 0.5 hurts small trucks (E2) | inconclusive, leaning not supported | E2 |
 | *Weakened:* "size isn't what limits detections" (B1) | weakened: size matters most below 16 px | §5.2 C1; DETAILED B1 note |
 | *Weakened:* "no domain shift" (B1 diagnosis) | weakened by the recall gap | §3.4 |
-| Rare-class resampling helps Tractor/Flatbed (E6b) | TODO-FINAL | E6 was too weak a test (+1.6% tile views) |
+| Rare-class resampling helps Tractor/Flatbed (E6b) | not supported (Tractor 0.007 → 0.002, Flatbed 0.069 → 0.061; overall no detectable effect) | E6b; E6 was too weak a test (+1.6% tile views) |
 | Longer training helps when augmentation limits overfitting (E8) | TODO-FINAL | |
 
 ### 6.3 What changed most between the initial and final system
@@ -811,6 +815,6 @@ confirmed on the unseen half).
 ## 7. Deliverables
 
 See `SUBMISSION_CHECKLIST.md` and the README sections "Final model and prediction" and "Reproduce everything".
-Final weights: GitHub release `weights-b1h-v1` (TODO-FINAL: replace only if E6b or E8 passes its rule).
+Final weights: GitHub release `weights-b1h-v1` (TODO-FINAL: replace only if the E13 final system passes its rule).
 `predict.py` on CPU reproduced B1h's saved predictions for 2 val images (all paired; max confidence difference 3e-6;
 `results/predict_test/compare.json`).

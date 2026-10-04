@@ -18,17 +18,19 @@ experiments (E10 and E12) try to fix exactly that.
 **(1) Is the training the problem? Mostly no.**
 - Training longer (E1, E2) or starting from aerial weights (E3) made the model fit its training images better and do
   worse on new ones: holdout40 0.092 / 0.111 / 0.082 vs B1h's 0.151.
-- More augmentation (E4) and a frozen aerial backbone (E7) overfitted less but still did not beat B1h (0.130 / 0.128).
+- More augmentation (E4) and a frozen aerial backbone (E7) overfitted less, with **no detectable effect** on
+  holdout40 vs B1h (0.130 / 0.128 vs 0.151; without Liquid 0.163 / 0.153 vs 0.170; seed spread 0.017).
 - B1h's own holdout40 curve is flat from epoch 40 to 50, and no ensemble of these is final yet (E13 pending).
 
 **(2) Are the rare classes the problem? They are weak, but not because they are rare.**
-- Showing rare-class tiles more often (E6b) did not raise Tractor or Flatbed AP (0.007 → 0.002, 0.069 → 0.061).
+- Showing rare-class tiles more often (E6b) had **no detectable effect** overall (0.136 vs 0.151) and did not
+  raise Tractor or Flatbed AP (0.007 → 0.002, 0.069 → 0.061).
 - Neither did doubling Tractor boxes in the §5.4 subsets.
 - 500 targeted instances project below noise (§5.3).
 - Part of the rare-class training labels are relabelled Cargo/Box trucks (5.0% class changes vs xView).
 
 **(3) Can smarter inference help? Partly.**
-- Second opinions did not help: TTA 0.138 vs 0.151; the crop classifier 0.100–0.117, and 0.610 vs the head's 0.690 on
+- Second opinions did not help: TTA had no detectable effect (0.138 vs 0.151; without Liquid 0.167 vs 0.170); the crop classifier 0.100–0.117, and 0.610 vs the head's 0.690 on
   the same boxes.
 - Scale-adaptive inference recovers synthetically rescaled holdout40 copies: 0.135 vs 0.092 mean, without hurting
   clean images (0.157). The robust-inference amendment and the single val score are pending.
@@ -202,7 +204,8 @@ predicted. Freezing helps, but it isn't a win.
 
 ### TTA and the crop classifier: second opinions at test time
 If the model is unsure, maybe asking it twice helps. Test-time augmentation looked at each tile four ways (original,
-two flips, an upscale), and every extra view lowered the score, mostly through Liquid (0.138 vs 0.151). A separate
+two flips, an upscale): every extra view lowered the score, mostly through Liquid (0.138 vs 0.151), which is within
+seed noise, so no detectable effect. A separate
 classifier trained on truck crops was 61% accurate on the 738 held-out truck boxes, worse than the detector's own
 head on the very same boxes (69%), and re-labelling with it lowered holdout40 to 0.100–0.117. Neither second opinion knew more than the first.
 *[details →](DETAILED_EXPERIMENTS.md#tta-on-b1h-results-4-oct-2026-cpu-only-kernel-aradhya1211auric-tta-b1h-code-095cf9b) · [details →](DETAILED_EXPERIMENTS.md#crop-classifier-on-b1hs-holdout40-detections-4-oct-2026-cpu-only-kernel-aradhya1211auric-fp-crop-code-734299d)*
