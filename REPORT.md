@@ -312,6 +312,23 @@ is 44% vs 20% chance. The TIDE oracle agrees: fixing Cls adds +0.147, Loc +0.022
 (`figures/b1h_tile1024_holdout40/errors/tide_dAP.csv`). **Classification is the ceiling.** Fixing only localisation errors gives
 0.129 mAP50; fixing only classification errors gives 0.254; both are far from 0.75 (same file).
 
+**What this experiment cannot establish.**
+- **It does not capture the interaction between detection and classification.** The GT-box oracle reads the raw head's
+  class scores, max-pooled over every anchor whose decoded box has IoU ≥ 0.5 with the GT (`pool` mode; the reported
+  0.601). The detector's own box choice, NMS and tile merging therefore play no part. A
+  detector whose boxes were perfect might still score classes differently, for example after a box survives NMS
+  against a neighbour of another class. The TIDE oracle fixes errors one type at a time on real predictions, so it
+  also cannot model fixing two error types jointly.
+- **It measures this model's classifier, not the best achievable one.** 60% is what B1h's head does with perfect
+  locations. It says nothing about what a dedicated classifier, more context or higher resolution could achieve. The
+  crop-classifier experiment (`auric-fp-crop`, pending) is the first test of that.
+- **It cannot separate ambiguity in the data from weakness of the model.** Some Cargo vs Box confusions may be
+  genuinely ambiguous from above, or inconsistently labelled. The oracle cannot tell these apart from model errors.
+- **Small sample.** It is measured on the 22 val images (1552 boxes, but only 20 Liquid and 117 Tractor). Accuracy is
+  pooled over boxes and carries no CI, and per-class accuracy for the rare classes is unstable.
+- **Matching rule.** "Matching anchor" means IoU ≥ 0.5 with the anchor's decoded box. 97 of 1552 val GT boxes (6%)
+  had no such anchor for B1h (`comparison.csv`, "flagged") and are scored from the best available anchor.
+
 ### 5.2 Resisting examples
 
 **Method** (`analysis/training_dynamics.py`):
