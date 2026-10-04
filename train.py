@@ -19,6 +19,7 @@ import subprocess
 import sys
 from pathlib import Path
 
+import numpy as np
 import yaml
 
 REPO = Path(__file__).resolve().parent
@@ -78,7 +79,10 @@ def main():
             cfg["overrides"]["max_tile_images"] = a.max_tile_images
         subprocess.run(cmd, check=True)
         (run_dir / "tiling_params.json").write_text((tiles / "tiling_params.json").read_text())
-        data_yaml = write_resolved_data_yaml(run_dir / "data.yaml", tiles, "train/images",
+        train_entry = "train/images"
+        if cfg.get("repeat_factor"):  # E6: LVIS repeat-factor sampling by repeating entries of a train list
+            train_entry = str(write_rfs_list(cfg, tiles, run_dir, len(names)))
+        data_yaml = write_resolved_data_yaml(run_dir / "data.yaml", tiles, train_entry,
                                              str(root / "val" / "images"), names)
     else:
         if cfg.get("holdout_list") or cfg.get("train_list"):
@@ -129,6 +133,29 @@ def main():
             print(f"[train] {cfg['batch_note']}")
     from detlib.curves import summarize_training
     print("[train] summary:", json.dumps(summarize_training(run_dir)))
+
+
+def write_rfs_list(cfg, tiles, run_dir, nc):
+    """Write <run>/train_rfs.txt (repeated tile image paths) and rfs.json; if cfg has target_iterations, set
+    cfg["epochs"] so epochs x ceil(len(list) / batch) is as close as possible to it (recorded in config.yaml)."""
+    import math
+    from detlib.rfs import build_list, repeat_factors, tile_classes
+    imgs = {p.stem: p.resolve() for p in sorted((tiles / "train" / "images").iterdir()) if p.suffix == ".png"}
+    rf = cfg["repeat_factor"]
+    f, rc, rt = repeat_factors(tile_classes(tiles / "train" / "labels", imgs), nc, rf.get("t", 0.1))
+    lst = build_list(imgs, rt, rf.get("seed", 0))
+    out = run_dir / "train_rfs.txt"
+    out.write_text("\n".join(lst) + "\n")
+    info = dict(t=rf.get("t", 0.1), tiles=len(imgs), list_entries=len(lst), class_image_fraction=f.tolist(),
+                class_repeat_factor=rc.tolist(), mean_tile_repeat=float(np.mean(list(rt.values()))))
+    if cfg.get("target_iterations"):
+        it_ep = math.ceil(len(lst) / cfg["batch"])
+        cfg["epochs"] = max(1, round(cfg["target_iterations"] / it_ep))
+        info.update(iterations_per_epoch=it_ep, epochs=cfg["epochs"], total_iterations=cfg["epochs"] * it_ep)
+    (run_dir / "rfs.json").write_text(json.dumps(info, indent=2))
+    (run_dir / "config.yaml").write_text(yaml.safe_dump(cfg, sort_keys=False))
+    print("[train] repeat-factor sampling:", json.dumps(info), flush=True)
+    return out
 
 
 def transfer_weights(model, src):

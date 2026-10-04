@@ -930,3 +930,54 @@ Source: `results/s52_confirm/test/claims.csv`.
 - **2-image mAP50:** 0.0577 (`results/predict_test/metrics.json`). This is only a smoke value, not comparable with the
   22-image score.
 - **Conclusion:** `predict.py` reproduces the saved predictions on CPU, up to floating-point noise.
+
+## E6: rare-class repeat-factor sampling (pre-registered 4 Oct 2026, before any run; `configs/e6_b1h_rfs.yaml`)
+
+- **Observation:**
+  - Truck Tractor and Truck w/Liquid have the lowest holdout40 AP (0.007, 0.073;
+    `results/b1h_tile1024_holdout40/eval_holdout40/per_class.csv`).
+  - They are the rarest training classes (625 and 192 train instances; `figures/eda/tables/class_counts.csv`).
+  - §5.2 C3: Liquid is the class most often found but never classified correctly.
+- **Hypothesis (author's):** rare classes are under-sampled. Showing their tiles more often raises their AP.
+- **Changes vs B1h** (only these):
+  - LVIS repeat-factor sampling (`detlib/rfs.py`, `train.py write_rfs_list`). For each class c, f_c is the fraction of
+    training **tiles** containing c. Tiles are the images Ultralytics trains on; the brief's "training images" are
+    read as tiles.
+  - r_c = max(1, √(0.1 / f_c)), and each tile's r is the maximum r_c over its classes. The list
+    `<run>/train_rfs.txt` holds floor(r) copies of each tile plus one more with probability r − floor(r) (seed 0).
+    The per-class f_c and r_c are written to `<run>/rfs.json` and will be reported here.
+  - Epochs are set at run time so that epochs × ceil(list length / 16) is closest to B1h's 10,750 iterations. Only
+    which tiles are seen changes, not how many steps are taken.
+  - Caveat: warmup (3) and close_mosaic (10) are counted in epochs, so they cover a different number of iterations
+    if the epoch count differs from 50.
+  - `patience: 0`; `last.pt` only; holdout40 scored at every 10-epoch checkpoint (`scripts/run_e34.sh`).
+- **Prediction (author's):** Truck Tractor and Truck w/Liquid holdout40 AP rise; overall holdout40 mAP50 changes by
+  less than 0.017 (noise).
+- **Decision rules:**
+  - The standing E3/E4 rules apply.
+  - E6 alone cannot make a new final model unless it beats B1h on holdout40 by more than 0.017.
+  - Per the standing rule for any winner, it would then also need a seed-1 repeat that beats B1h.
+- **Launch:** when a GPU slot is free (E3 and E4 currently hold both).
+
+## TTA on B1h (pre-registered 4 Oct 2026, before any run; `analysis/tta_eval.py`, CPU-only kernel)
+
+- **Observation:**
+  - §5.2 C4: about 78% of never-detected boxes do get a prediction, but at low confidence.
+  - Small trucks dominate the misses.
+- **Hypothesis (author's):** averaging predictions over flips and an upscale stabilises confidence on small or
+  ambiguous trucks.
+- **Changes:** none to the model (B1h `last.pt`). Each 1024 tile is predicted four ways, and every prediction is
+  mapped back to original coordinates:
+  1. original
+  2. horizontal flip
+  3. vertical flip
+  4. 1.5× bilinear upscale, predicted at imgsz 1536
+- **Merging and scoring:** the union of predictions goes through the usual merge (class-wise NMS on IoS 0.6,
+  max_det 902) and scorer, via `eval.py --from-preds`. Ultralytics `augment=True` is not used, because it also
+  downscales.
+- **Scored subsets:** {orig}, {orig, hflip}, {orig, vflip}, {orig, up1.5} and all four. {orig} must reproduce
+  B1h's holdout40 score of 0.1507.
+- **Prediction (author's):** holdout40 mAP50 with all four variants improves on B1h by more than 0.017.
+- **Rule:** score on holdout40 first. Only if all four beat 0.1507 + 0.017, score once on val and apply TTA to
+  whichever model ends up final. The single-variant subsets are descriptive; the pre-registered test is the
+  all-four set.
