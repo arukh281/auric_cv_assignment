@@ -77,7 +77,8 @@ Why, in order of evidence strength:
    right type 60% of the time vs 52% for always answering "Cargo Truck" (§5.1). Oracle-fixing classification errors
    adds +0.147 mAP50, localisation errors +0.022 (`figures/b1h_tile1024_holdout40/errors/tide_dAP.csv`).
 3. **More data helps, but not enough.** The learning curve is still rising, but the (unreliable) power-law
-   extrapolation to 903 images gives 0.215 holdout mAP50 (CI 0.076–0.276) (§5.3).
+   extrapolation to 903 images gives 0.215 holdout mAP50 (CI 0.076–0.276). The 500 extra *instances* the brief asks
+   about (~29 images) project to about +0.006, within seed noise (§5.3).
 4. **Other candidate causes.** Terms used: "ruled out" means a discriminating test was run; "no evidence for" means
    a signal was looked for and not found; "not tested" means neither. *Corrected 2026-10-04: this point previously
    said all of the following were "ruled out".*
