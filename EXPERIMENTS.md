@@ -848,7 +848,7 @@ CPU-only kernels run alongside (no GPU quota):
 | C5 Cargo never-detected share | 0.474 (0.427–0.532) | > 0.3 | **pass** |
 
 Source: `results/s52_confirm/test/claims.csv`.
-- **Conclusion:** all five pre-registered inspect-half patterns hold on the unseen test half, by the pre-registered
+- **Conclusion:** all five pre-registered claims (C1–C5, commit `95953f3`; six rows because C2 has parts a and b) hold on the unseen test half, by the pre-registered
   rule.
 - **Interpretation** (written after the result; no author prediction was recorded):
   - Never-detected boxes are mostly small.

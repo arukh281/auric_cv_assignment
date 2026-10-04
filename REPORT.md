@@ -78,12 +78,30 @@ Why, in order of evidence strength:
    adds +0.147 mAP50, localisation errors +0.022 (`figures/b1h_tile1024_holdout40/errors/tide_dAP.csv`).
 3. **More data helps, but not enough.** The learning curve is still rising, but the (unreliable) power-law
    extrapolation to 903 images gives 0.215 holdout mAP50 (CI 0.076–0.276) (§5.3).
-4. **Ruled out as main causes:** label errors in the tiling pipeline (all 3278 boxes in the 85 flagged tiles match their source labels; §3.4), model capacity
-   (16-tile overfit test reaches AP50 1.000; §3.4), image quality and train/val domain shift (CIs overlap / include
-   AUC 0.5; §3.3), tile-merge settings (§3.3).
+4. **Other candidate causes.** Terms used: "ruled out" means a discriminating test was run; "no evidence for" means
+   a signal was looked for and not found; "not tested" means neither. *Corrected 2026-10-04: this point previously
+   said all of the following were "ruled out".*
+   - **Train/val domain shift: not ruled out; the leading explanation for val < holdout40.** B1h finds 0.665 of val
+     trucks vs 0.852 of holdout40 trucks, a gap of 0.187 (CI 0.043–0.307). Box size explains 3% of it and image size
+     7%; density does not explain it where it can be compared. That leaves a scene-level difference
+     (`results/recall_gap/standardised.csv`, §3.4). The earlier domain classifier found no separation (AUC CIs include
+     0.5; §3.3), but it ran on only 42 local images and is a weak test.
+   - **Image quality: not tested as a cause of the gap; possible contributor to the scene difference.** The visual
+     notes report haze and blur in val (`analysis/notes/visual_inspection.md`, author-marked uncertain). The only
+     related analysis is a 10-vs-12-image split of val by visual flags. Its CIs overlap (§3.3), so it gives no
+     evidence for an effect, but it could only have detected a large one.
+   - **Label errors: partly tested.** The label check verified that tiling preserves the labels: 0 of 3439 tiles differ
+     from their source (`results/sanity/label_check_iou/label_check.json`). It did **not** test whether the annotations
+     are correct or complete. The background-FP audit (`auric-fp-crop`) tests missing labels: **pending**.
+   - **Model capacity:** YOLO11s has enough capacity to fit the training data. A 16-tile overfit test reaches AP50 1.000
+     (§3.4), and E1/E2 reach train40 0.774 / 0.906. **Not tested:** whether a larger model would generalise better.
+   - **Tile-merge settings: ruled out as a main cause (for B1).** Re-scoring B1's saved raw predictions with NMS on IoS
+     0.5/0.6/0.7 and IoU 0.5 gives val mAP50 between 0.0707 and 0.0722. Removing the merge entirely costs
+     0.0715 → 0.0484. max_det 3000 adds 0.006 (`figures/b1_tile1024/merge_sensitivity.csv`,
+     `figures/b1_tile1024_maxdet3000/merge_sensitivity.csv`). This was not repeated on B1h.
 
 Experiments still running when this was written: E3 (aerial pretraining), E4 (flipud + mixup), a crop classifier on
-GT crops, and the §5.2 test-half confirmation.
+GT crops, and a background false-positive audit (§5.2 test-half confirmation done: all five claims hold).
 
 ## 2. Dataset and baselines
 
@@ -204,11 +222,17 @@ Cargo → Box 192 of 800; Box → Cargo 171 of 493; Tractor → Cargo 47 of 117;
   Size matters at the extremes but most trucks are missed regardless of size.
 - **Density:** B1h conf-0.25 miss rate 0.88 / 0.87 / 0.90 / 0.81 across per-image object-count bins
   (`figures/b1h_tile1024_holdout40/errors/slices.csv`); no clear trend.
-- **Image quality:** B1's 10 visually unflagged val images score 0.079 (0.037–0.179), the 12 flagged (haze, blur,
-  dark, speckle) 0.063 (0.036–0.090); CIs overlap (`figures/b1_tile1024/per_image/subset_map_val.csv`).
-- **Domain shift (train vs val):** domain-classifier AUCs 0.336 (0.168–0.515) on image stats, 0.453 (0.334–0.564) on
-  crop embeddings, 0.368 (0.209–0.549) per image; every CI includes 0.5
-  (`figures/domain_shift/tables/domain_auc.csv`). Computed on the local 20-train / 22-val subset only.
+- **Image quality: no evidence for an effect, from a weak test.**
+  - B1's 10 visually unflagged val images score 0.079 (0.037–0.179); the 12 flagged ones (haze, blur, dark, speckle)
+    score 0.063 (0.036–0.090). The CIs overlap (`figures/b1_tile1024/per_image/subset_map_val.csv`).
+  - The flags are subjective, and 10 vs 12 images could only detect a large effect.
+  - Not tested as a cause of the val/holdout40 gap (§3.4).
+- **Domain shift (train vs val): no evidence for it from this test, which is weak.**
+  - Domain-classifier AUCs: 0.336 (0.168–0.515) on image stats, 0.453 (0.334–0.564) on crop embeddings and
+    0.368 (0.209–0.549) per image. Every CI includes 0.5 (`figures/domain_shift/tables/domain_auc.csv`).
+  - It was computed on the local 20-train / 22-val subset only.
+  - The recall-gap analysis (§3.4) later found a scene-level gap between val and holdout40 that this classifier did
+    not detect, so domain shift is **not** ruled out.
 - **Pipeline checks:** in-sample train40 mAP50 0.4027 for B1 (`results/b1_tile1024/eval_train40/metrics.json`);
   disabling tile merge drops B1 0.0715 → 0.0484 (`figures/b1_tile1024/merge_sensitivity.csv`); max_det 3000 adds
   0.006 (`figures/b1_tile1024_maxdet3000/merge_sensitivity.csv`).
@@ -216,8 +240,9 @@ Cargo → Box 192 of 800; Box → Cargo 171 of 493; Tractor → Cargo 47 of 117;
 ### 3.4 Generalisation and sanity checks
 
 - **Seen vs unseen (B1h):** train40 0.378, holdout40 0.151, val 0.107
-  (`results/b1h_tile1024_holdout40/{eval_train40,eval_holdout40,eval}/metrics.json`). Holdout and val CIs overlap,
-  so the gap is generalisation in general, not a val-specific problem. Why val has fewer trucks found (66% vs 85%):
+  (`results/b1h_tile1024_holdout40/{eval_train40,eval_holdout40,eval}/metrics.json`). Holdout and val mAP50
+  CIs overlap. The main gap is between seen and unseen images; on top of it, val is harder than holdout40
+  (*corrected 2026-10-04: previously "not a val-specific problem"*). Why val has fewer trucks found (66% vs 85%):
   - Re-weighting holdout40 to val's distribution of box size explains 3% of the gap, and image size 7%.
   - Val recall is lower in every size bin from 8 to 48 px (for example, 24–32 px: 0.73 vs 0.94).
   - In the densest bin (≥ 100 boxes per image) val is still 0.20 lower. Density cannot be compared at 60–100 boxes,
@@ -295,22 +320,30 @@ is 44% vs 20% chance. The TIDE oracle agrees: fixing Cls adds +0.147, Loc +0.022
   top such prediction has its class.
 - Categories: learned-early, learned-late, forgotten, never-learned (detected, never correct) and never-detected.
 - The images were split in half beforehand (`b02413c`): an inspect half for exploration and a test half kept unread.
-  Five claims from the inspect half were pre-registered (`95953f3`) and then tested on the test half.
+  Five claims (C1–C5; C2 in two parts) from the inspect half were pre-registered (`95953f3`) and then tested on the test half.
 
 **Test-half categories** (3369 boxes): learned-late 1356, never-detected 1270, forgotten 319, never-learned 280,
 learned-early 144 (`results/s52_confirm/test/summary.json`). About 38% of training boxes are never detected even
 though the model trains on them.
 
-**Confirmed on the test half** (all five pass; `results/s52_confirm/test/claims.csv`; image-bootstrap 95% CIs):
+**Confirmed on the test half.**
+- Judged only against the claims committed in `95953f3`, before the test half was read.
+- That commit has five claims, C1–C5. C2 has two parts, C2a and C2b, each with its own criterion, so there are six
+  rows. All six pass, meaning all five claims hold (`results/s52_confirm/test/claims.csv`; image-bootstrap 95% CIs).
 
-| finding | test half |
-|---|---|
-| Small boxes resist: never-detected share for boxes < 16 px minus for ≥ 32 px | +0.631 (0.559–0.699) |
-| Most never-detected boxes are "never confident", not invisible: share with an IoU ≥ 0.5 prediction at conf ≥ 0.001 | 0.778 (0.716–0.848) |
-| Cargo Truck boxes often never detected | 0.474 (0.427–0.532) |
-| Truck w/Box is learned early more than any other class (margin) | +0.118 (0.061–0.157) |
-| ...and forgotten more than any other class (margin) | +0.157 (0.090–0.209) |
-| Truck w/Liquid is "found but never classified right" more than any other class (margin) | +0.281 (0.164–0.375) |
+| claim | finding | criterion | test half |
+|---|---|---|---|
+| C1 | Small boxes resist: never-detected share for boxes < 16 px minus for ≥ 32 px | > 0 | +0.631 (0.559–0.699) |
+| C2a | Truck w/Box is learned early more than any other class (margin) | > 0 | +0.118 (0.061–0.157) |
+| C2b | ...and forgotten more than any other class (margin) | > 0 | +0.157 (0.090–0.209) |
+| C3 | Truck w/Liquid is "found but never classified right" more than any other class (margin) | > 0 | +0.281 (0.164–0.375) |
+| C4 | Most never-detected boxes are "never confident", not invisible: share with an IoU ≥ 0.5 prediction at conf ≥ 0.001 | > 0.5 | 0.778 (0.716–0.848) |
+| C5 | Cargo Truck boxes often never detected | > 0.3 | 0.474 (0.427–0.532) |
+
+**Descriptive only (computed after the test half was opened; not pre-registered):** the chance-box rate and the
+never-detected share at conf ≥ 0.05 / ≥ 0.10, from `analysis/s52_floor.py` (CPU kernel `auric-s52-floor`). TODO-FINAL:
+numbers from `results/s52_floor/test/summary.json` when the kernel finishes. Inspect-half values from the unsaved
+3 Oct session analysis were 0.002 (chance) and 0.396 (≥ 0.10).
 
 **What resists learning** (interpretation written after the result; no author prediction recorded):
 1. **Small trucks.** Under 16 px they are mostly never detected at the operating threshold, even in training images.
