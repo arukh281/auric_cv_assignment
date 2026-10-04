@@ -1,0 +1,6 @@
+cls,name,train,holdout
+0,Cargo Truck,3452,321
+1,Truck w/Box,2069,297
+2,Truck w/Flatbed,606,56
+3,Truck Tractor,590,35
+4,Truck w/Liquid,163,29

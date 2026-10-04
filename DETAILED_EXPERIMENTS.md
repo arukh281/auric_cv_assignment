@@ -1236,3 +1236,160 @@ Holdout40 checkpoint curve (`results/e4_b1h_flipud_mixup/checkpoint_curve_holdou
     E7 at 14:23 IST.
   - So the watcher launches E8 only after **both** E6 and E7 have finished, when nothing is reserved. It then requires
     at least 4.7 h available and more than 5 h left after E8. Otherwise it does not launch, and the author is asked.
+
+## Background false-positive audit (4 Oct 2026; CPU-only kernel `aradhya1211/auric-fp-crop`, code `734299d`)
+
+- **Observation:** B1h's largest error bin on val is background false positives (TIDE Bkg: 9380 predictions,
+  +0.077 if fixed; `figures/b1h_tile1024_holdout40/errors/tide_dAP.csv`). The visual notes mention unlabelled trucks.
+- **Hypothesis** (from the E3/E4 pre-registration, CPU item a): missing labels, or vehicles outside our five classes,
+  cap what any model can score.
+- **Changes:** none. This is an audit of saved predictions.
+  - Selection: from B1h's 12897 holdout40 predictions, the 11684 with IoU < 0.1 to every GT box.
+  - The 60 most confident of those (conf 0.527–0.804) are cropped with context into one sheet: red = prediction,
+    green = GT (`figures/b1h_tile1024_holdout40/fp_audit_sheet.png`).
+- **Results** (counted by eye by Claude Code from the sheet; per-crop verdicts in the `verdict` column of
+  `results/fp_audit/fp_audit.csv`):
+
+  | verdict | count |
+  |---|---|
+  | truck-like vehicle with no GT box | 46 |
+  | other vehicle (bus, van) | 3 (#38, #44, #53) |
+  | background (rail track, shadow, ground) | 4 (#1, #45, #49, #52) |
+  | unclear at this resolution | 7 (#8, #10, #16, #17, #33, #47, #57) |
+
+  - In several crops the prediction sits in a row of labelled trucks where one neighbour is unlabelled (#7, #30, #31,
+    #36, #41, #43).
+- **Conclusion:**
+  - Most of the model's confident "false positives" on holdout40 look like real, unlabelled trucks. Missing labels are
+    real and frequent among high-confidence predictions, so they cap measured precision. Background errors are a
+    minority at the top of the confidence ranking.
+  - Limits:
+    - One viewer, not blind to the hypothesis.
+    - Only 60 of 11684 unmatched predictions, all high-confidence.
+    - Low-resolution crops.
+    - Whether a truck-like vehicle belongs to one of the five classes cannot always be judged.
+  - The size of the effect on mAP50 is not estimated here.
+- **Next:** a re-labelling audit of a val sample, to estimate how much measured mAP50 the missing labels cost (a
+  candidate in REPORT §6.4).
+
+## Crop classifier on B1h's holdout40 detections (4 Oct 2026; CPU-only kernel `aradhya1211/auric-fp-crop`, code `734299d`)
+
+- **Observation:** classification, mainly Cargo vs Box, is the main loss (§3.2, §5.1).
+- **Hypothesis** (E3/E4 pre-registration, CPU item b): a dedicated classifier on crops with context names trucks
+  better than the detector head.
+- **Changes:**
+  - ImageNet ResNet18, trained on 6880 GT crops (2× context, 96 px) from the 403 train images, excluding holdout40.
+  - 12 epochs, class-balanced sampling, last epoch used.
+  - Then B1h's 12897 holdout40 predictions are re-labelled: argmax (score = conf × p_max) and allclass
+    (conf × p_c for each class).
+- **Results:**
+  - Holdout40 GT-crop accuracy 0.610 overall, mean per-class 0.370
+    (`results/crop_classifier/summary.json`, `holdout_gt_accuracy.csv`):
+
+    | class | n | accuracy |
+    |---|---|---|
+    | Cargo | 321 | 0.701 |
+    | Box | 297 | 0.690 |
+    | Flatbed | 56 | 0.196 |
+    | Tractor | 35 | 0.229 |
+    | Liquid | 29 | 0.034 |
+
+  - Re-labelled holdout40 mAP50 (`results/crop_classifier/eval_holdout40_{argmax,allclass}/per_class.csv`):
+    - argmax **0.0999** (0.031–0.126)
+    - allclass **0.1167** (0.040–0.147)
+    - B1h's own head scores **0.1507**
+- **Conclusion:**
+  - The classifier is worse than the detector's own head. It lowers holdout40 mAP50 by 0.034 (allclass) to 0.051
+    (argmax).
+  - Its holdout accuracy (0.610) is similar to B1h's GT-box oracle accuracy on val (0.601, a different set), so this
+    simple crop classifier does not find extra separability.
+  - It changed the class of 38% of the predictions (`detector_class_kept_by_argmax` 0.618).
+  - The decision rule for applying it as a second stage (> +0.017) is **not met**.
+  - Single seed and a single setting (96 px, 2× context).
+- **Next:** the pre-registered two-stage test on E4's boxes (running) uses this same model.
+
+## TTA on B1h: Results (4 Oct 2026; CPU-only kernel `aradhya1211/auric-tta-b1h`, code `095cf9b`)
+
+| variants | holdout40 mAP50 (95% CI) |
+|---|---|
+| orig (reproduces B1h's 0.1507) | 0.1507 (0.056–0.187) |
+| orig + hflip | 0.1447 (0.057–0.177) |
+| orig + vflip | 0.1481 (0.061–0.183) |
+| orig + up1.5 | 0.1391 (0.060–0.165) |
+| **all four (pre-registered test)** | **0.1381 (0.062–0.165)** |
+
+Source: `results/tta_b1h/tta_summary.csv`.
+- **Verdict:** **not supported.** The prediction was above 0.1507 + 0.017; TTA lowered holdout40 mAP50 by 0.013.
+- Every added variant lowers the score; the 1.5× upscale lowers it most. Val is not scored (the rule requires a
+  pass first).
+- Interpretation (after the result): adding variants adds low-confidence duplicates and wrong-class boxes that the
+  class-wise merge keeps, which hurts precision more than the extra recall helps.
+
+## B1h holdout40 checkpoint curve, descriptive (4 Oct 2026; CPU-only kernel `aradhya1211/auric-b1h-holdout-curve`, code `e5a115e`)
+
+| epoch | 10 | 20 | 30 | 40 | 50 (= `last.pt`) |
+|---|---|---|---|---|---|
+| holdout40 mAP50 | 0.097 | 0.107 | 0.124 | 0.154 | 0.151 |
+
+- Source: `results/b1h_tile1024_holdout40/checkpoint_curve_holdout/checkpoint_curve_holdout.csv`. Epoch 50
+  reproduces the reported 0.1507.
+- **Reading:** B1h rises through epoch 40 and is flat from 40 to 50: −0.003, well within the 0.017 seed noise. There
+  is no clear peak before epoch 50, so B1h's own recipe shows no sign of overfitting within 50 epochs. Overfitting
+  appears only when training goes longer (E1) or fits faster (E2, E3).
+- B1h's reported numbers are unchanged (`last.pt`).
+
+## §5.3 per class: 500 targeted instances (4 Oct 2026; CPU-only kernel `aradhya1211/auric-lc-per-class`, code `095cf9b`)
+
+- **Method:** per class, holdout40 AP is fitted against that class's training-instance count, AP = a·n^b on the
+  positive points.
+  - Seven points: f25, f50 (+ seed 1), f75 (+ seed 1), full (+ seed 1). Smart subsets are excluded.
+  - The projection adds 500 instances of that class only; Δ mAP50 = ΔAP / 5.
+- Source: `figures/learning_curve/lc_per_class.csv`, `lc_per_class_points.csv`.
+
+| class | train instances (full) | holdout boxes | points used | measured n range | projected ΔAP at +500 | Δ mAP50 | flag |
+|---|---|---|---|---|---|---|---|
+| Liquid | 163 | 29 | 6 of 7 | 36–163 | +0.081 | +0.016 | **unreliable extrapolation** (+500 is 4.1× the largest measured n) |
+| Box | 2069 | 297 | 7 | 475–2069 | +0.055 | +0.011 | 1.24× |
+| Flatbed | 606 | 56 | 7 | 159–606 | +0.037 | +0.007 | 1.83× |
+| Cargo | 3452 | 321 | 7 | 893–3452 | +0.015 | +0.003 | 1.14× |
+| Tractor | 590 | 35 | 5 of 7 | 87–590 | −0.000 | −0.000 | AP not rising with n (b < 0) |
+
+- **Answer to the brief's per-class question:**
+  - No single-class allocation of 500 instances projects a gain above the 0.017 noise.
+  - Liquid projects the most (+0.016), but that rests on a 4.1× extrapolation from 29 holdout boxes, so it is
+    unreliable.
+  - Among reliable fits, Box benefits most (+0.011). Tractor shows no benefit.
+- **Independent §5.4 evidence on Tractor** (no curve fit):
+  - At 302 images the smart subset held 95% of the pool's Tractor boxes vs 49% for random (559 vs 290), yet Tractor
+    holdout40 AP was 0.006 vs 0.001 / 0.035 for the random seeds. At 202 images: 438 vs 205 boxes, AP 0.001 vs
+    0.000 / 0.002 (`figures/subset_compare/subset_class_coverage.csv`, `results/<run>/eval_holdout40/per_class.csv`).
+  - Roughly doubling Tractor examples did not raise Tractor AP. This is confounded the same way as §5.4: the smart
+    subsets also carry more boxes overall.
+- Caveat: holdout40 has only 35 Tractor and 29 Liquid boxes, so their AP values are noisy.
+
+## E7: Results (4 Oct 2026; GPU kernel `aradhya1211/auric-e7-dota-frozen`, code `e5a115e`, ~1.20 GPU-h kernel time)
+
+- **Freezing** (`results/e7_b1h_dota_frozen/trainable_params.json`):
+  - Frozen layers 0–10 (the backbone, as pre-registered), plus layer 23's DFL convolution. Ultralytics always
+    freezes `.dfl`, which has no learnable role; it is not a change from E3.
+  - 3,987,727 of 9,429,727 parameters trainable; 5,442,000 frozen.
+  - DOTA transfer 493/499 tensors, as in E3.
+
+| | B1h | E3 | E7 |
+|---|---|---|---|
+| val mAP50 (95% CI) | 0.1065 (0.056–0.165) | 0.0881 | 0.0715 (0.047–0.105) |
+| holdout40 mAP50 (95% CI) | 0.1507 (0.056–0.187) | 0.0817 | **0.1282 (0.049–0.166)** |
+| train40 mAP50 | 0.378 | 0.729 | 0.599 |
+| train40 − holdout40 | 0.227 | 0.647 | **0.471** |
+| class-agnostic AP50, val / holdout40 / train40 | 0.255 / 0.362 / 0.649 | 0.227 / 0.251 / 0.877 | 0.236 / 0.308 / 0.793 |
+
+Holdout40 curve: 0.128 / 0.132 / 0.124 / 0.135 / 0.128 at epochs 10–50, flat
+(`results/e7_b1h_dota_frozen/checkpoint_curve_holdout/checkpoint_curve_holdout.csv`).
+
+- **Verdict:**
+  - vs E3: **supported.** Holdout40 is +0.046 above E3 (needed > 0.017), and the gap is 0.471 vs 0.647.
+  - vs B1h: as predicted, no win. Holdout40 is 0.023 below, about one seed spread.
+- **Conclusion:** freezing the DOTA backbone undoes much of E3's overfitting, which supports the hypothesis that E3
+  overwrote transferable features. E7 still fits training images more than B1h does (0.599 vs 0.378) and generalises
+  no better.
+- **Decision rule:** E7 does not beat B1h on holdout40 by more than 0.017, so it does not enter E5.

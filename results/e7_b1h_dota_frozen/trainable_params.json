@@ -1,0 +1,20 @@
+{
+  "params_total": 9429727,
+  "params_trainable": 3987727,
+  "params_frozen": 5442000,
+  "frozen_layer_indices": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    23
+  ],
+  "freeze_arg": 11
+}

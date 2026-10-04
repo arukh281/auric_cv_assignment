@@ -1,0 +1,23 @@
+{
+  "input": "/kaggle/working/runs/e7_b1h_dota_frozen/eval_train40/predictions.csv",
+  "split": "train",
+  "n_images": 40,
+  "conf_floor": 0.001,
+  "iou": 0.5,
+  "ap_method": "coco 101-point (detlib/scoring.py)",
+  "mAP50_per_class": 0.5990053649831779,
+  "per_class_AP50": {
+    "Cargo Truck": 0.6832007825456302,
+    "Truck w/Box": 0.8453629858492944,
+    "Truck w/Flatbed": 0.7867835939071895,
+    "Truck Tractor": 0.2176332579933138,
+    "Truck w/Liquid": 0.4620462046204621
+  },
+  "AP50_class_agnostic": 0.7934465330829973,
+  "eval_metrics_mAP50": 0.5990053649831779,
+  "recall_agnostic_conf0.25": 0.7876884422110553,
+  "n_matched_gt_conf0.25": 627,
+  "recall_agnostic_conf0.001": 0.9447236180904522,
+  "n_matched_gt_conf0.001": 752,
+  "n_gt": 796
+}

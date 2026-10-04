@@ -1,0 +1,13 @@
+{
+  "train_images": 403,
+  "train_crops": 6880,
+  "holdout_crops": 738,
+  "epochs": 12,
+  "context": 2.0,
+  "size": 96,
+  "holdout_overall_accuracy": 0.6097560975609756,
+  "holdout_mean_class_accuracy": 0.3701306056591265,
+  "detector_preds": 12897,
+  "detector_class_kept_by_argmax": 0.6181282468791192,
+  "seconds": 2568.525225877762
+}

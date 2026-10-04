@@ -1,0 +1,23 @@
+{
+  "input": "/kaggle/working/runs/e7_b1h_dota_frozen/eval_holdout40/predictions.csv",
+  "split": "holdout",
+  "n_images": 40,
+  "conf_floor": 0.001,
+  "iou": 0.5,
+  "ap_method": "coco 101-point (detlib/scoring.py)",
+  "mAP50_per_class": 0.12816885113121662,
+  "per_class_AP50": {
+    "Cargo Truck": 0.052699777051179064,
+    "Truck w/Box": 0.44943582935533466,
+    "Truck w/Flatbed": 0.09195997617389665,
+    "Truck Tractor": 0.016941481830232506,
+    "Truck w/Liquid": 0.02980719124544034
+  },
+  "AP50_class_agnostic": 0.3080782798898818,
+  "eval_metrics_mAP50": 0.12816885113121662,
+  "recall_agnostic_conf0.25": 0.4051490514905149,
+  "n_matched_gt_conf0.25": 299,
+  "recall_agnostic_conf0.001": 0.8252032520325203,
+  "n_matched_gt_conf0.001": 609,
+  "n_gt": 738
+}
