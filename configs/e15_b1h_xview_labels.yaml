@@ -1,0 +1,43 @@
+# E15: identical to configs/b1h.yaml except training labels: xView originals for every supplied box that pairs with xView
+# (tools/make_xview_relabel.py; train with TRAIN_DATA_ROOT), and patience 0.
+# B1h: identical to B1 (configs/b1.yaml) except the 40 train images in holdout_list are left out of tiling and
+# training (tools/make_holdout.py, seed 0); eval max_det is one explicit value for val, holdout and train evals.
+# B1: native-resolution tiles. Train on 1024 px train tiles at imgsz 1024 (no downscaling);
+# evaluate by slicing full-res val images with the same geometry and merging, scored on full-image labels.
+name: e15_b1h_xview_labels
+model: yolo11s.pt          # COCO-pretrained Ultralytics release weights (NOT xView-pretrained; see REPORT.md)
+holdout_list: splits/holdout40_seed0.txt   # relative to the repo root
+seed: 0
+deterministic: true
+epochs: 50                 # equal schedule for B0 and B1; B1 still does more iterations per epoch (tiles), see training_summary.json
+imgsz: 1024
+batch: 16                  # may not fit a 16 GB T4 at 1024; train.py falls back to 8 and records it
+workers: 8
+tiling:
+  tile: 1024
+  overlap: 256             # > max train box side (161 px, figures/eda/tables/boxes.csv), so every box fits whole in some tile
+  empty_keep: 0.2          # fraction of box-free tiles kept as negatives
+  min_vis: 0.5             # clipped box kept if >= 50% of its area is inside the tile
+  seed: 0
+checkpoint_every: 10        # train.py keeps weights/epoch010.pt, epoch020.pt, ... (completed epochs) on Drive
+train_args:                # anything not listed = Ultralytics defaults (augmentations, LR schedule, warmup, losses)
+  patience: 0              # Ultralytics early stopping off
+  val: true                # per-epoch curves only, on UN-SLICED full val images at 1024 (not the reported sliced metric); last.pt is reported
+  plots: true
+  amp: true                # fp16 mixed precision (T4)
+  save_period: -1          # Ultralytics counts this from epoch 0 (would keep epochs 1,11,21..); checkpoint_every is used instead
+  optimizer: SGD           # explicit: optimizer=auto picks AdamW under 10k iterations and SGD above, so B0 and B1 would differ
+  lr0: 0.01
+  momentum: 0.937
+  cache: disk              # decoded images as .npy next to the images on /content (local disk); RAM caching is non-deterministic
+eval:
+  mode: sliced
+  imgsz: 1024
+  tile: 1024
+  overlap: 256
+  merge: nms               # class-wise NMS across tiles
+  merge_metric: ios        # intersection over smaller box, so a tile-edge fragment inside a whole box is removed
+  merge_thr: 0.6
+  conf: 0.001
+  nms_iou: 0.7
+  max_det: 902             # 2 x 451, the most GT boxes in one train image (figures/eda/tables/boxes_per_image.csv); same for all splits

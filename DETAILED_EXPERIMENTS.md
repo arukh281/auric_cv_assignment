@@ -1777,3 +1777,26 @@ Sources: `figures/b1h_tile1024_holdout40/errors/tide_dAP.csv` (val), `errors_hol
 | B1h + E4 + E7 | 0.1723 | 0.1955 |
 
 - The final E13 run, with E10 and val scored once, follows when E10 finishes.
+
+## E15: train on the original xView labels (pre-registered 4 Oct 2026, before launch; `configs/e15_b1h_xview_labels.yaml`)
+
+- **Observation:** our training labels deviate from their documented public source. 341 of 6851 paired train boxes
+  (5.0%) carry a different class than xView, mostly xView Cargo/Box → our Flatbed, Tractor or Liquid, and 378 are
+  shifted (IoU < 0.95). Val keeps xView's classes (Data-integrity audit).
+- **Justification (author's, recorded before results):** this is a training-data quality fix. The labels are restored
+  to their documented source; nothing is tuned toward val.
+- **Changes vs B1h (only this):**
+  - For our 403 training images, every supplied box that pairs one-to-one with an xView box of the five types
+    (IoU ≥ 0.5) takes xView's original class **and** box. Unpaired supplied boxes keep their supplied label, and
+    xView boxes without a supplied partner are not added (`tools/make_xview_relabel.py`).
+  - Everything else is B1h's recipe: 50 epochs, seed 0, `patience: 0`, `last.pt`. Val and holdout40 are excluded
+    from training, as for B1h.
+- **Evaluation:**
+  - holdout40 **twice**: with its supplied labels, and with xView-original labels relabelled by the same rule.
+    **B1h and E15 are compared under both.**
+  - val **once** (supplied labels, which equal xView's classes).
+  - mAP50 without Liquid as well.
+- **Prediction (author's):**
+  - Under the xView-original holdout labels, E15 beats B1h by more than 0.017; under the supplied labels it may not.
+  - Flatbed, Tractor and Liquid AP rise.
+- **Cost:** about 2 GPU-h. Next free GPU slot; approved quota floor 3.5 h.
