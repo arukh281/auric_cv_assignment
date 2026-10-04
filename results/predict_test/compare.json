@@ -1,0 +1,38 @@
+{
+  "1181.png": {
+    "all": {
+      "n_a": 243,
+      "n_b": 243,
+      "paired": 243,
+      "paired_share_of_a": 1.0,
+      "max_abs_conf_diff": 2.7120113372802734e-06,
+      "max_abs_coord_diff_px": 0.00018310546875
+    },
+    "top100": {
+      "n_a": 100,
+      "n_b": 100,
+      "paired": 100,
+      "paired_share_of_a": 1.0,
+      "max_abs_conf_diff": 2.7120113372802734e-06,
+      "max_abs_coord_diff_px": 0.00018310546875
+    }
+  },
+  "1206.png": {
+    "all": {
+      "n_a": 902,
+      "n_b": 902,
+      "paired": 902,
+      "paired_share_of_a": 1.0,
+      "max_abs_conf_diff": 1.5199184417169498e-06,
+      "max_abs_coord_diff_px": 0.00012207031295474735
+    },
+    "top100": {
+      "n_a": 100,
+      "n_b": 100,
+      "paired": 100,
+      "paired_share_of_a": 1.0,
+      "max_abs_conf_diff": 1.5199184417169498e-06,
+      "max_abs_coord_diff_px": 0.0001220703125
+    }
+  }
+}

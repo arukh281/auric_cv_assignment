@@ -89,11 +89,11 @@ establish."
 |---|---|---|---|
 | Concise technical report | "Dataset observations, baseline, experiment records, quantitative and qualitative results, failure analysis, research investigations, conclusions and prioritized next step." | partial (§6 and §7 pending; gaps above) | `REPORT.md` |
 | Final model weights | "The exact checkpoint corresponding to your claimed validation result." | done for B1h (sha256 matches `metrics.json`); to be updated if E5 replaces it | GitHub release `weights-b1h-v1` |
-| Inference and evaluation code | "A reproducible path from provided validation images to predictions and reported metrics." | done; reproducibility check **pending** (`auric-predict-test`) | `predict.py`, `eval.py` |
+| Inference and evaluation code | "A reproducible path from provided validation images to predictions and reported metrics." | done; reproducibility check done: CPU run on 2 val images reproduces the saved predictions (`results/predict_test/compare.json`) | `predict.py`, `eval.py` |
 | Training code/configuration | "All configurations, scripts and commands required to reproduce the final training setup." | done | `train.py`, `configs/b1h.yaml`, `scripts/run_b1h.sh`, README |
 | Environment/dependencies | "Requirements file, environment specification or equivalent, including key package versions." | done | `requirements.txt`, `requirements-lock.txt` |
 | Run instructions | "Short README with commands and expected inputs/outputs." | done, but the README is long (older Colab/Kaggle sections follow the short ones) | `README.md` |
 
 "Submission standard: A reviewer should be able to reproduce your claimed validation predictions and metrics without
-reconstructing undocumented choices." Partial: the full path is documented. The only end-to-end check (2 val images,
-CPU) is **pending**.
+reconstructing undocumented choices." Partial: the full path is documented. An end-to-end check (2 val images, CPU) reproduced the saved
+predictions to within 3e-6 confidence (`results/predict_test/`). A full 22-image re-run has not been done.

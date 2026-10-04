@@ -33,8 +33,8 @@ YOLO11s (COCO-pretrained) on a 5-class overhead truck dataset. Target: mAP50 ≥
   - `out/metrics.json` and `out/per_class.csv` (only with `--labels`).
 
   Reproducibility check: CPU-only kernel `aradhya1211/auric-predict-test` ran it on the first 2 val images and
-  compared the result with the saved B1h predictions (`tools/compare_preds.py`). The outcome is recorded in
-  `EXPERIMENTS.md` ("Deliverables").
+  compared the result with the saved B1h predictions (`tools/compare_preds.py`). Result: every prediction
+  reproduced, max confidence difference 3e-6 (`results/predict_test/`, `EXPERIMENTS.md` "Deliverables").
 
 ## Reproduce everything
 

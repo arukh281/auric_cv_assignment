@@ -909,3 +909,19 @@ Source: `results/s52_confirm/test/claims.csv`.
   (`results/sanity/label_check_iou/label_check.json`).
 - Same tiles and box count as the original check, which flagged 85 (`results/sanity/label_check.json`).
 - The label criterion of the sanity PASS rule now holds with the checker itself, not only with the separate re-check.
+
+## Deliverables: predict.py reproducibility check (4 Oct 2026; CPU-only kernel `aradhya1211/auric-predict-test`, code `bb7c14b`)
+
+- **Command:** `predict.py --weights <B1h last.pt> --images val/images --labels val/labels --max-images 2 --device cpu`.
+  The images are the first two val images by name, 1181.png and 1206.png. The weights' SHA-256 `3fa24066…7ffb`
+  matches `results/b1h_tile1024_holdout40/eval/metrics.json`.
+- **Compared with B1h's saved val predictions** (GPU, 2 Oct) by `tools/compare_preds.py`, pairing same class and
+  IoU ≥ 0.9:
+  - **Merged predictions:** 243/243 (1181.png) and 902/902 (1206.png) paired.
+    - Max |conf| difference 2.7e-6.
+    - Max coordinate difference 0.00018 px.
+  - **Raw tile predictions:** 499/499 and 3660/3660 paired, with differences of the same size.
+  - Sources: `results/predict_test/compare.json`, `compare_raw.json`.
+- **2-image mAP50:** 0.0577 (`results/predict_test/metrics.json`). This is only a smoke value, not comparable with the
+  22-image score.
+- **Conclusion:** `predict.py` reproduces the saved predictions on CPU, up to floating-point noise.

@@ -1,0 +1,30 @@
+{
+  "weights": "/kaggle/input/notebooks/aradhya1211/auric-b1h/runs/b1h_tile1024_holdout40/train/weights/last.pt",
+  "weights_sha256": "3fa2406665706b9f44a155ca8b411b73e1c9eb4ffdc58ab03c4cb0e5bae37ffb",
+  "images": [
+    "1181.png",
+    "1206.png"
+  ],
+  "config": "/kaggle/working/repo/configs/b1h.yaml",
+  "eval_settings": {
+    "mode": "sliced",
+    "imgsz": 1024,
+    "tile": 1024,
+    "overlap": 256,
+    "merge": "nms",
+    "merge_metric": "ios",
+    "merge_thr": 0.6,
+    "conf": 0.001,
+    "nms_iou": 0.7,
+    "max_det": 902
+  },
+  "mAP50": 0.057700978238786046,
+  "mAP50_ultralytics_interp": 0.06514506715405025,
+  "per_class_AP50": {
+    "Cargo Truck": 0.19136766163770474,
+    "Truck w/Box": 0.005400540054005401,
+    "Truck w/Flatbed": 0.0,
+    "Truck Tractor": 0.034035711263434035,
+    "Truck w/Liquid": NaN
+  }
+}

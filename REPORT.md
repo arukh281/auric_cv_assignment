@@ -494,4 +494,6 @@ TODO-FINAL: choose after E3/E4 and the audits. The candidates and what would dec
 ## 7. Deliverables
 
 See `SUBMISSION_CHECKLIST.md` and the README sections "Final model and prediction" and "Reproduce everything".
-TODO-FINAL: final weights link (`weights-b1h-v1` unless E5 replaces B1h) and the predict.py reproducibility result.
+Final weights: GitHub release `weights-b1h-v1` (TODO-FINAL: replace if E5 or a second stage changes the final model).
+`predict.py` on CPU reproduced B1h's saved predictions for 2 val images (all paired; max confidence difference 3e-6;
+`results/predict_test/compare.json`).
