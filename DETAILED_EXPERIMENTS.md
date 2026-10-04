@@ -1606,3 +1606,16 @@ Holdout40 curve: 0.128 / 0.132 / 0.124 / 0.135 / 0.128 at epochs 10–50, flat
 - **Prediction (Claude Code; no author prediction recorded):** auto recovers most of the 0.5× and 2× copies' loss
   without hurting the originals. Multi hurts the originals through extra low-confidence boxes, as TTA did.
 - **Cost:** GPU, evaluation only (the 2× copies at 2× scale are 16× the pixels).
+
+## Budget decisions (author, 4 Oct 2026, ~16:30 IST)
+
+- `kaggle quota` showed 9.11 h remaining, with E6b and E8 running. E10 (~2.5 h) plus E12 (~1 h) would have left about
+  2.5 h.
+- **E8 is stopped for GPU budget.** It is not a result. Any holdout40 checkpoints it finished will be reported
+  descriptively only, with no verdict against its pre-registration. The stop is done by the author in the Kaggle web
+  UI, because the CLI (2.2.4) has no stop command; `delete` would destroy its output.
+- **E9 (yolo11m) is cancelled** (never launched); it does not fit the budget.
+- **E11 (photometric-robustness run) is cancelled** (never pre-registered).
+- **Final candidate:** E10's model with E12's scale-robust inference, each only if it passes its own pre-registered
+  test. Combining them is inference only, so it costs no extra training. Otherwise B1h, and/or plain inference.
+- The quota floor is about 4.5 h after E10 + E12 (approved).
