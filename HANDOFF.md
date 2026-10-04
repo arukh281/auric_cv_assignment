@@ -73,6 +73,20 @@ E4, `auric-fp-crop`, `auric-lc-per-class`, `auric-tta-b1h`. Quota before E3 fini
 from E3/E4. **E7** (DOTA + freeze 11, code `e5a115e`) launched in E4's slot. CPU kernels running: fp-crop,
 lc-per-class, tta-b1h, e1/e2/b1h holdout curves.
 
+**Later 4 Oct results (see DETAILED_EXPERIMENTS.md):**
+- **E7:** holdout40 0.128. Supported vs E3, no win vs B1h.
+- **TTA:** 0.138, not supported.
+- **Crop classifier:** re-labelling hurts (0.100 / 0.117).
+- **FP audit:** 46/60 of the top unmatched predictions look like unlabelled trucks.
+- **B1h holdout curve:** flat from epoch 40 to 50.
+- **Per class +500:** no class gains above noise.
+- **E6:** training done, crashed after training (fixed in `3226d48`); eval running on CPU (`auric-e6-eval`).
+  Only Liquid was repeated (r = 1.25), so it is a weak test.
+- **E8:** launched 14:47.
+- **Two-stage on E4:** running on CPU (`auric-twostage-e4`).
+- **Docs:** EXPERIMENTS.md was renamed to DETAILED_EXPERIMENTS.md, and a new 5-minute EXPERIMENTS.md was added with
+  figures in `figures/story/` (`analysis/story_figures.py`, CPU kernel `auric-story-figs`).
+
 **Author's decision rules for E3/E4** (noise 0.017 on holdout40; B1h holdout40 0.1507):
 - **If E3 and/or E4 beats 0.1507 + 0.017 on holdout40:**
   - Pre-register E5 in DETAILED_EXPERIMENTS.md first.

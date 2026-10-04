@@ -1393,3 +1393,27 @@ Holdout40 curve: 0.128 / 0.132 / 0.124 / 0.135 / 0.128 at epochs 10–50, flat
   overwrote transferable features. E7 still fits training images more than B1h does (0.599 vs 0.378) and generalises
   no better.
 - **Decision rule:** E7 does not beat B1h on holdout40 by more than 0.017, so it does not enter E5.
+
+### E6: run record (4 Oct 2026; GPU kernel `aradhya1211/auric-e6-rfs`, code `7ec3894`)
+
+- **Repeat factors** (`rfs.json`, from the kernel output; t = 0.1, over 3439 training tiles):
+
+  | class | Cargo | Box | Flatbed | Tractor | Liquid |
+  |---|---|---|---|---|---|
+  | f_c (share of tiles containing c) | 0.540 | 0.291 | 0.162 | 0.101 | 0.064 |
+  | r_c | 1.0 | 1.0 | 1.0 | 1.0 | 1.247 |
+
+  - List length 3496 (vs 3439 tiles), mean tile repeat 1.016.
+  - 219 iterations per epoch, 49 epochs, 10,731 iterations (B1h 10,750).
+  - Warmup 2.945 epochs = 645 steps, exactly B1h's.
+  - close_mosaic 10 epochs = 2190 steps vs B1h's 2150: a **residual of +40 steps**.
+- **Important for interpretation:** with t = 0.1 at tile level, every class except Liquid already appears in at least
+  10% of tiles, so only Liquid tiles are repeated, about 1.25×. Only 1.6% more tile views were added in total. E6 is
+  therefore a weak test of the hypothesis: Tractor is not up-weighted at all. This follows from the pre-registered
+  t and the tile-level f_c; it is reported, not changed.
+- **Crash:** training completed all 49 epochs (`train/results.csv`). `train.py` then crashed in
+  `detlib/curves.summarize_training`, which expected the train entry to be a directory, not a list file. So the
+  pre-registered evaluations did not run.
+  - Fixed in `3226d48`.
+  - The evaluations of the saved `last.pt` (val, holdout40, train40, class-agnostic, holdout40 checkpoint curve) run
+    on CPU-only kernel `auric-e6-eval`. Same commands as `scripts/run_e34.sh`, on CPU; no retraining.
