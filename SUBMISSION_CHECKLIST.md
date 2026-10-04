@@ -58,15 +58,15 @@ establish."
 |---|---|---|
 | 5.1 "Design and perform an experiment that answers this question." | done (GT-box oracle on val + TIDE oracle) | REPORT.md §5.1; `figures/*/gt_oracle/` |
 | 5.1 "Quantify how much error remains once localization uncertainty is removed or controlled." | done | REPORT.md §5.1 |
-| 5.1 "Explain what the experiment still cannot establish." | **missing**: no explicit limits paragraph in §5.1 | REPORT.md §5.1 |
+| 5.1 "Explain what the experiment still cannot establish." | done | REPORT.md §5.1 "What this experiment cannot establish" |
 | 5.2 "Find a principled way to identify training instances that the system repeatedly struggles to learn." | done | REPORT.md §5.2; `analysis/training_dynamics.py` |
 | 5.2 "Investigate whether these examples form one population or several distinct populations." | partial: categories by size/class; not framed explicitly as one-vs-several populations | REPORT.md §5.2 |
 | 5.2 "Provide evidence for the mechanisms you believe are responsible. 'Hard examples' by itself is not an explanation." | partial: confidence floor (C4), size (C1), class instability (C2); descriptive floor numbers **pending** (`auric-s52-floor`) | REPORT.md §5.2 |
 | 5.2 "Where possible, use the observed training behavior to make a prediction about examples you have not manually inspected, then test that prediction." | done: pre-registered C1–C5 (`95953f3`), all hold on the test half | `results/s52_confirm/test/claims.csv` |
 | 5.3 "Estimate whether 500 additional labels would materially improve the system." | done | REPORT.md §5.3 |
-| 5.3 "State the assumptions behind your estimate and the uncertainty in the conclusion." | partial: uncertainty (CI, flagged unreliable) yes; the assumptions are not listed explicitly | REPORT.md §5.3 |
+| 5.3 "State the assumptions behind your estimate and the uncertainty in the conclusion." | done (six assumptions listed; instances-vs-images correction: +500 instances ≈ +0.006, within noise) | REPORT.md §5.3 |
 | 5.3 "Identify which of the five classes are likely to benefit most and least, and support the ranking with evidence from your experiments." | done (Box most, Tractor least) | REPORT.md §5.3 |
-| 5.3 "Distinguish, as far as the available evidence permits, between limited sample count and other possible performance limitations." | partial: stated briefly ("classification needs its own remedy") | REPORT.md §5.3 |
+| 5.3 "Distinguish, as far as the available evidence permits, between limited sample count and other possible performance limitations." | done (assumption 6) | REPORT.md §5.3 |
 | 5.4 "Goal: Find the smallest training subset you can demonstrate recovers at least 90% of the full-data validation mAP50." | done (negative): no tested subset reaches 90% on val (0.0959) or on the pre-registered holdout40 rule (0.128); both are reported and the difference is disclosed; the val answer is weak (seed spread 0.043 > gap 0.011) | REPORT.md §5.4 |
 | 5.4 "Declare the subset-selection method before training the reduced-data model." | done (`b02413c`; the implemented rule differs from its wording, disclosed) | REPORT.md §5.4 |
 | 5.4 "Compare the selected subset against a random subset of the same size under a comparable training setup." | done (2 random seeds per size; torch-version caveat disclosed) | REPORT.md §5.4 |

@@ -394,6 +394,45 @@ Learning curve at equal iterations (~10,750), held-out = holdout40, seed 0 unles
 - **Answer:** more labels should help, but the optimistic projection is far below 0.75. Classification needs its own
   remedy.
 
+**Correction 2026-10-04: instances vs images.**
+- The brief asks about "500 additional labelled **instances**"; the extrapolation above adds 500 **images**
+  (403 → 903).
+- B1h trains on 7618 − 738 = 6880 boxes (`figures/eda/summary.json`;
+  `results/b1h_tile1024_holdout40/eval_holdout40/class_agnostic.json`, `n_gt`). That is 17.1 boxes per image, so 500
+  instances is about 7% more data, roughly 29 images (403 → 432).
+- With the same power-law fit (holdout mAP50 = a·n^b, a = 0.00424, b = 0.577; `power_law_fit.csv`), the prediction
+  is 0.1351 at 403 images and 0.1351 × (432/403)^0.577 ≈ 0.1406 at 432. That is a gain of about **+0.006**, below
+  the 0.017 seed spread.
+- **Answer to the question as asked:** 500 more instances from the same source would **not** materially improve the
+  system, and the effect would not be measurable against seed noise. The 903-image figure answers a different
+  question (500 more images, about 8,500 boxes).
+
+**Assumptions behind these estimates**
+1. **The power law holds beyond the measured range.** It was fitted on four points (101–403 images), with the 403
+   point averaged over two seeds. For 500 images it is extrapolated 2.24× beyond the data, and every fit is flagged
+   unreliable (`power_law_fit.csv`). For 500 instances it is only 7% beyond, which is much safer, but the gain is
+   then within noise.
+2. **New labels come from the same distribution:** the same scenes, sizes, class mix and labelling process as the
+   current training set, as the brief says. The recall-gap analysis (§3.4) shows val scenes differ from train. Labels
+   that resembled val, such as dense yards and ports, could help more than the curve predicts. Labels that repeat
+   existing scenes could help less.
+3. **Equal training iterations.** Every learning-curve point used about 10,750 iterations, so a larger set gets fewer
+   epochs per image. A real +500 run might be trained longer, although E1/E2 suggest more epochs hurt held-out
+   mAP50.
+4. **Per-class rankings rest on few held-out boxes.** Holdout40 has 321 Cargo, 297 Box, 56 Flatbed, 35 Tractor and 29
+   Liquid boxes (`results/b1h_tile1024_holdout40/eval_holdout40/per_class.csv`). The Tractor and Liquid curves are
+   near zero and noisy, and the Liquid power-law fit failed. "Box benefits most, Tractor least" is supported for Box;
+   for Tractor it means only that no effect is visible.
+5. **The class mix of new labels matches the current one** (50% Cargo, 31% Box). Targeted labels for rare or confused
+   classes were not modelled.
+6. **Sample count vs other limits.**
+   - The curve can only show limits that shrink with more data.
+   - The parts that do not shrink are invisible to it: classification ceiling (§5.1), val scene shift (§3.4) and
+     overfitting (E1/E2).
+   - Class-agnostic holdout AP rises 0.160 → 0.362 from 101 to 403 images, while Cargo AP stays below 0.10. This
+     suggests that detection is more sample-limited, and Cargo vs Box classification is limited by something other
+     than count.
+
 ### 5.4 Smallest subset retaining ≥ 90%
 
 Pre-registered in commit `b02413c` before any S54 run (EXPERIMENTS.md "S54"): smart = class coverage (rarest class

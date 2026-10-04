@@ -312,6 +312,11 @@ A comparison between two runs revealed that the random seed affects classificati
 
 ### Would 500 additional labels help?
 
+**Corrected 2026-10-04:** the brief asks about 500 labelled *instances*, not images. 500 instances is about 29 images at
+17.1 boxes per image (6880 boxes / 403 images). The same fit gives about +0.006 holdout mAP50 (403 → 432 images), below the
+0.017 seed spread. The 903-image extrapolation below answers "500 more images". See REPORT.md §5.3.
+
+
 The learning curve suggests that more labelled data would improve performance, particularly truck detection. However, extrapolating beyond the current 403 images is uncertain, and even an optimistic projection falls well short of the target mAP50 of 0.75.
 
 By my pre-registered rule: the projected held-out gain at +500 images (+0.080 mAP50) is larger than the seed-to-seed noise (0.017), so more labels should help. But the projection (0.215, interval 0.076–0.276) extrapolates 2.24× beyond the data and was flagged unreliable, so only the direction is trustworthy, not the size.
