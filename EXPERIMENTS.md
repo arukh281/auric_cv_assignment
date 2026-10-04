@@ -221,8 +221,8 @@ The image names looked familiar, so we compared every image with the public xVie
 are xView training images, and four of the val images are exact 2× or 0.5× rescaled copies, which explains their
 strange sizes. The labels are xView's own boxes, filtered to five classes (99.6% pair up), with a small share of
 changed classes. Most tellingly, 216 of B1h's 350 confident holdout40 "false positives" sit on xView boxes of truck
-types our dataset excludes, mostly xView's generic "Truck". The model wasn't hallucinating; it was finding trucks
-nobody asked it to find.
+types our dataset excludes, mostly xView's generic "Truck". Most of these "false alarms" are real trucks of types
+outside the five classes, so the metric counts them as errors.
 *[details →](DETAILED_EXPERIMENTS.md#e10-steps-13-xview-overlap-label-comparison-extra-data-fp-re-scoring-4-oct-2026-cpu-only-kernel-aradhya1211auric-xview-overlap-v2-code-59ef959)*
 
 ### 👀 An independent visual review
