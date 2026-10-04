@@ -1,0 +1,13 @@
+metric,split,n,spearman_recall
+brightness,val,22,0.07794408670035104
+brightness,holdout40,40,0.0831077831087655
+brightness,both,62,0.01753073768180716
+rms_contrast,val,22,0.2665913690040992
+rms_contrast,holdout40,40,-0.2464912392086065
+rms_contrast,both,62,-0.11351535974138108
+blur_laplacian_var,val,22,0.14685117784124108
+blur_laplacian_var,holdout40,40,-0.21094337428311807
+blur_laplacian_var,both,62,-0.05673212485949257
+noise_sigma,val,22,0.10110138782146984
+noise_sigma,holdout40,40,-0.15430117192931786
+noise_sigma,both,62,-0.035265915453198085

@@ -1938,3 +1938,120 @@ Holdout40 mAP50 by version and rule (`results/e12_scale/test_scores.csv`):
   (`analysis/review_checks.py`, kernel `auric-review-checks`) and (b) the E10 label-conflict check
   (`analysis/e10_label_conflicts.py`, kernel `auric-e10-conflicts`) have both finished and been recorded here. If the
   E12 suite parts still hold the CPU slots when E15 finishes, E13 waits. E13 is launched by hand, never by a watcher.
+
+## E15: Results (5 Oct 2026; GPU kernel `aradhya1211/auric-e15-xview-labels`, code `1bb49a2`, ~1.76 GPU-h kernel time)
+
+- **Relabelling** (`results/e15_b1h_xview_labels/relabel_summary.json`):
+  - train: 6880 boxes paired with xView, 343 classes changed, 0 left unpaired;
+  - holdout40: 738 paired, 38 changed.
+  - (The earlier audit's 6851 paired used unclipped xView boxes; this builder clips them to the image first.)
+
+| holdout40 mAP50 (95% CI) | B1h | E15 |
+|---|---|---|
+| supplied labels | 0.1507 (0.056–0.187) | 0.1372 (0.049–0.168) |
+| **xView-original labels ("holdout40-clean")** | **0.1765** (0.066–0.225) | 0.1526 (0.053–0.193) |
+
+| | B1h | E15 |
+|---|---|---|
+| val mAP50 | 0.1065 | 0.0908 |
+| train40 mAP50 | 0.378 | 0.372 |
+| holdout40 AP50, supplied (Cargo / Box / Flatbed / Tractor / Liquid) | 0.096 / 0.509 / 0.069 / 0.007 / 0.073 | 0.091 / 0.529 / 0.049 / 0.002 / 0.016 |
+| holdout40-clean AP50 | 0.094 / 0.569 / 0.086 / 0.003 / 0.131 | 0.097 / 0.571 / 0.074 / 0.000 / 0.020 |
+
+Holdout40 (supplied) curve: 0.111 / 0.106 / 0.129 / 0.143 / 0.137 at epochs 10–50. Sources:
+`results/e15_b1h_xview_labels/{eval,eval_holdout40,eval_train40,xviewlabels_holdout40_e15,xviewlabels_holdout40_b1h}/per_class.csv`.
+
+- **Verdict:**
+  - **Not supported.** Under xView-original holdout labels, E15 is 0.024 *below* B1h (predicted: more than 0.017
+    above). Under supplied labels it differs by −0.013, no detectable effect.
+  - Flatbed, Tractor and Liquid did **not** rise; Liquid fell under both label sets.
+  - Liquid alone explains most of the difference: 29 holdout boxes, 0.131 → 0.020 on clean labels.
+- **New fact:** B1h itself scores **0.1765 on holdout40-clean** vs 0.1507 on supplied labels (+0.026). Scored against
+  xView's original classes and boxes, the same predictions do better.
+- **Decision:** E15 does not beat B1h, so it is not final alone. It enters E13 as a candidate.
+
+## Gap breakdown on val (diagnostic only, never a claimed result; 5 Oct 2026; CPU-only kernel `auric-opgap`, code `c21e52e`)
+
+| row | mAP50 | class-agnostic AP50 |
+|---|---|---|
+| 1 plain | 0.1065 | 0.255 |
+| 2 excluded-type ignore | 0.1237 | 0.307 |
+| 3 native scale (4 rescaled images) | 0.1122 | 0.290 |
+| 4 = 2 + 3 | 0.1297 | 0.347 |
+| 5 dropped-box ignore | 0.1112 | 0.272 |
+| **6 = 2 + 3 + 5** | **0.1371** | **0.373** |
+
+- Source: `results/gap_breakdown/gap_breakdown.csv`, `.json`.
+- Row 2 removes 1176 predictions (1565 excluded-type xView boxes on val). Row 5 uses 176 dropped five-type xView boxes
+  (≥ 0.5 IoU with no supplied box); the audit counted 178 unpaired one-to-one.
+- xView labels are used here only to explain the gap, never for training or selection.
+
+## Operating points, B1h (5 Oct 2026; same kernel; `results/operating_points/`, `figures/operating_points/`)
+
+| threshold | val mAP50 | val P | val R | val F1 | holdout40 mAP50 | holdout40 P | holdout40 R | holdout40 F1 |
+|---|---|---|---|---|---|---|---|---|
+| 0.001 | 0.106 | 0.065 | 0.489 | 0.115 | 0.151 | 0.041 | 0.710 | 0.077 |
+| 0.05 | 0.091 | 0.199 | 0.314 | 0.244 | 0.139 | 0.167 | 0.519 | 0.253 |
+| 0.1 | 0.082 | 0.254 | 0.265 | **0.259** | 0.131 | 0.219 | 0.463 | 0.298 |
+| 0.25 | 0.062 | 0.323 | 0.155 | 0.210 | 0.107 | 0.346 | 0.332 | **0.339** |
+| 0.5 | 0.039 | 0.338 | 0.051 | 0.088 | 0.058 | 0.551 | 0.161 | 0.249 |
+| 0.8 | 0.004 | 0.400 | 0.001 | 0.003 | 0.003 | 0.500 | 0.004 | 0.008 |
+
+- All 12 thresholds are in the CSVs.
+- **F1-optimal threshold:** 0.10 on val (F1 0.259) and 0.25 on holdout40 (F1 0.339).
+- mAP50 can only fall as the threshold rises (0.106 → 0.004 on val).
+- **Precision is understated:** detections of excluded truck types and of the dropped val boxes count as false
+  positives.
+
+## Visual review (Claude chat), with supporting numbers (5 Oct 2026; CPU-only kernel `auric-val-review`, code `5204c51`; `results/val_review/`)
+
+Claude chat reviewed `figures/inspect_val/` without seeing our interpretation (one viewer, not blind to the project).
+Claude Code reproduced the numbers.
+
+1. **Labels are not shifted.** A global (dx, dy) search over ±60 px (step 3), counting GT matched by conf ≥ 0.05
+   predictions at IoU ≥ 0.5, finds the best at zero shift for **20 of 22** images. The other 2 gain at most 1 matched
+   box (`r1_label_shift.csv`). *(The review said all 22; the two exceptions are a 1-box tie-level difference.)*
+2. **Merging is not the bottleneck.** Holdout40 raw predictions re-merged (`r2_remerge.csv`), vs 0.1507 (reproduced
+   exactly):
+
+   | variant | change in mAP50 |
+   |---|---|
+   | NMS IoU 0.5 | +0.001 |
+   | NMS IoU 0.7 | −0.005 |
+   | drop interior-edge boxes | +0.001 |
+   | cross-tile-only NMS | −0.003 |
+
+3. **Truck w/Box concentration:** 224 of val's 493 Box labels are in 2470 + 2472 (`r3_val_class_counts.csv`, with
+   per-image class counts).
+4. **Observations by eye** (one viewer, not blind): about 16 of the 24 top val false positives show trucks; Cargo vs
+   Box looks inconsistent between train and val; several of the worst-recall images look degraded.
+   - The pixel audit confirms 2292 (noise), 2543 (blur + noise) and the rescaled 2384.
+   - 2470 and 2472 are dark in the original imagery, not altered.
+5. **Image sizes:** 2384 and 2460 are smaller than every train image, and 2308 and 2391 larger. Train's longest
+   sides range from 2576 to 5119 px.
+
+**Follow-ups:**
+- **(a) Image quality vs recall** (`a_standardised.csv`, `a_correlations.csv`, `figures/val_review/a_*.png`).
+  Re-weighting holdout40 recall to val's quartile distribution explains:
+
+  | measure | share of the 0.665 vs 0.852 recall gap |
+  |---|---|
+  | brightness | 31% |
+  | RMS contrast | 31% |
+  | blur | −10% |
+  | noise | 6% |
+
+  - Per-image Spearman correlations with recall are weak (|ρ| ≤ 0.27).
+  - Brightness and contrast explain about a third of the gap; blur and noise measured this way do not.
+  - With 22 val images this is weak evidence.
+- **(b) 2391.png** (`b_2391_missed.csv`, `figures/val_review/b_2391_tile.jpg`):
+  - 68 of its 108 GT boxes have no prediction at IoU ≥ 0.5 at any confidence: 46 Box, 18 Cargo, 3 Tractor, 1 Flatbed.
+  - The CSV gives oracle scores and nearby raw predictions per box.
+  - 2391 is one of the 2× upscaled images.
+- **(c) Geography** (GeoTIFF footprints, `c_geo_overlaps.csv`):
+  - 30 train or holdout40 images touch or overlap 15 val images, but every overlap is ≤ 3.2% of the image's area: they
+    are adjacent chips of the same scenes, not duplicated pixels.
+  - 2 pairs involve holdout40.
+  - 2459 (train) overlaps 2470 by 0.34% of its area.
+- **(d) E11** (photometric robustness) was cancelled for budget. The E12 robust-inference suite covers the inference
+  side.

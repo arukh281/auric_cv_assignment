@@ -1,0 +1,12 @@
+{
+  "train": {
+    "paired": 6880,
+    "class_changed": 343,
+    "unpaired_kept": 0
+  },
+  "holdout40": {
+    "paired": 738,
+    "class_changed": 38,
+    "unpaired_kept": 0
+  }
+}

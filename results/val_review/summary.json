@@ -1,0 +1,254 @@
+{
+  "r1": {
+    "images": 22,
+    "best_shift_zero": 20,
+    "max_gain": 1
+  },
+  "r2": [
+    {
+      "variant": "baseline nms ios 0.6",
+      "holdout40_mAP50": 0.1506784940044492,
+      "delta_vs_baseline": 0.0
+    },
+    {
+      "variant": "nms iou 0.5",
+      "holdout40_mAP50": 0.15170762025662515,
+      "delta_vs_baseline": 0.0010291262521759659
+    },
+    {
+      "variant": "nms iou 0.7",
+      "holdout40_mAP50": 0.14596899146138637,
+      "delta_vs_baseline": -0.004709502543062821
+    },
+    {
+      "variant": "drop interior-edge boxes, then baseline",
+      "holdout40_mAP50": 0.15140667070232114,
+      "delta_vs_baseline": 0.0007281766978719517
+    },
+    {
+      "variant": "cross-tile-only NMS ios 0.6",
+      "holdout40_mAP50": 0.1478661949432328,
+      "delta_vs_baseline": -0.0028122990612163834
+    }
+  ],
+  "r5": {
+    "train_max_side_min": 2576,
+    "train_max_side_max": 5119,
+    "val_smaller_than_all_train": [
+      "2384.png",
+      "2460.png"
+    ],
+    "val_larger_than_all_train": [
+      "2308.png",
+      "2391.png"
+    ],
+    "val_max_sides": {
+      "1181.png": 2893,
+      "1206.png": 2892,
+      "1211.png": 2893,
+      "1362.png": 3698,
+      "1399.png": 3294,
+      "1447.png": 2957,
+      "1456.png": 2957,
+      "1457.png": 3070,
+      "1530.png": 3237,
+      "1929.png": 4979,
+      "20.png": 3093,
+      "2139.png": 3134,
+      "2292.png": 3596,
+      "2293.png": 3597,
+      "2308.png": 7204,
+      "2384.png": 1369,
+      "2391.png": 7072,
+      "2460.png": 1598,
+      "2470.png": 3196,
+      "2472.png": 3196,
+      "2543.png": 2912,
+      "31.png": 3094
+    }
+  },
+  "r3_box_share_2470_2472": 224,
+  "r3_box_total": 493,
+  "a_corr": [
+    {
+      "metric": "brightness",
+      "split": "val",
+      "n": 22,
+      "spearman_recall": 0.07794408670035104
+    },
+    {
+      "metric": "brightness",
+      "split": "holdout40",
+      "n": 40,
+      "spearman_recall": 0.0831077831087655
+    },
+    {
+      "metric": "brightness",
+      "split": "both",
+      "n": 62,
+      "spearman_recall": 0.01753073768180716
+    },
+    {
+      "metric": "rms_contrast",
+      "split": "val",
+      "n": 22,
+      "spearman_recall": 0.2665913690040992
+    },
+    {
+      "metric": "rms_contrast",
+      "split": "holdout40",
+      "n": 40,
+      "spearman_recall": -0.2464912392086065
+    },
+    {
+      "metric": "rms_contrast",
+      "split": "both",
+      "n": 62,
+      "spearman_recall": -0.11351535974138108
+    },
+    {
+      "metric": "blur_laplacian_var",
+      "split": "val",
+      "n": 22,
+      "spearman_recall": 0.14685117784124108
+    },
+    {
+      "metric": "blur_laplacian_var",
+      "split": "holdout40",
+      "n": 40,
+      "spearman_recall": -0.21094337428311807
+    },
+    {
+      "metric": "blur_laplacian_var",
+      "split": "both",
+      "n": 62,
+      "spearman_recall": -0.05673212485949257
+    },
+    {
+      "metric": "noise_sigma",
+      "split": "val",
+      "n": 22,
+      "spearman_recall": 0.10110138782146984
+    },
+    {
+      "metric": "noise_sigma",
+      "split": "holdout40",
+      "n": 40,
+      "spearman_recall": -0.15430117192931786
+    },
+    {
+      "metric": "noise_sigma",
+      "split": "both",
+      "n": 62,
+      "spearman_recall": -0.035265915453198085
+    }
+  ],
+  "a_std": [
+    {
+      "metric": "brightness",
+      "val_recall": 0.6649484536082474,
+      "holdout_recall": 0.8523035230352304,
+      "holdout_reweighted_to_val": 0.7947809711666943,
+      "val_box_share_covered": 1.0,
+      "share_of_gap_explained": 0.3070242617104847
+    },
+    {
+      "metric": "rms_contrast",
+      "val_recall": 0.6649484536082474,
+      "holdout_recall": 0.8523035230352304,
+      "holdout_reweighted_to_val": 0.7942021174320046,
+      "val_box_share_covered": 1.0,
+      "share_of_gap_explained": 0.31011386978172656
+    },
+    {
+      "metric": "blur_laplacian_var",
+      "val_recall": 0.6649484536082474,
+      "holdout_recall": 0.8523035230352304,
+      "holdout_reweighted_to_val": 0.8712743937166422,
+      "val_box_share_covered": 1.0,
+      "share_of_gap_explained": -0.1012562443035747
+    },
+    {
+      "metric": "noise_sigma",
+      "val_recall": 0.6649484536082474,
+      "holdout_recall": 0.8523035230352304,
+      "holdout_reweighted_to_val": 0.8413119325847338,
+      "val_box_share_covered": 1.0,
+      "share_of_gap_explained": 0.05866716328580733
+    }
+  ],
+  "a_medians": {
+    "holdout40": {
+      "brightness": 51.057,
+      "rms_contrast": 30.323,
+      "blur_laplacian_var": 317.686,
+      "noise_sigma": 2.005
+    },
+    "train": {
+      "brightness": 46.972,
+      "rms_contrast": 28.078,
+      "blur_laplacian_var": 245.494,
+      "noise_sigma": 1.782
+    },
+    "val": {
+      "brightness": 53.088,
+      "rms_contrast": 34.166,
+      "blur_laplacian_var": 425.244,
+      "noise_sigma": 2.067
+    }
+  },
+  "b": {
+    "n_gt": 108,
+    "n_missed": 68,
+    "missed_by_class": {
+      "Box": 46,
+      "Cargo": 18,
+      "Tractor": 3,
+      "Flatbed": 1
+    },
+    "rendered_tile": "4608,3840"
+  },
+  "c": {
+    "footprints": 461,
+    "by_split": {
+      "train": 403,
+      "holdout40": 40,
+      "val": 18
+    },
+    "overlapping_pairs": 30,
+    "val_images_with_overlap": [
+      "1181.png",
+      "1206.png",
+      "1211.png",
+      "1399.png",
+      "1447.png",
+      "1457.png",
+      "1530.png",
+      "1929.png",
+      "20.png",
+      "2139.png",
+      "2292.png",
+      "2293.png",
+      "2470.png",
+      "2472.png",
+      "2543.png"
+    ],
+    "pairs_with_holdout40": 2,
+    "pair_2459_2470_2472": [
+      {
+        "train_image": "2459.png",
+        "train_split": "train",
+        "val_image": "2470.png",
+        "overlap_share_of_val": 0.003431023041254224,
+        "overlap_share_of_train": 0.003431023041254224
+      },
+      {
+        "train_image": "2459.png",
+        "train_split": "train",
+        "val_image": "2472.png",
+        "overlap_share_of_val": 2.0578494804793926e-06,
+        "overlap_share_of_train": 2.0578494804793926e-06
+      }
+    ]
+  }
+}
