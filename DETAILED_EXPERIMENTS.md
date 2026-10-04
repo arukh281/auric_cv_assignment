@@ -1579,3 +1579,30 @@ Holdout40 curve: 0.128 / 0.132 / 0.124 / 0.135 / 0.128 at epochs 10–50, flat
 - **Decision rule:** if E10 beats B1h on holdout40 by more than 0.017, it becomes the final model, and §3 and the
   qualitative examples are redone on it. **E10 is the last training run;** afterwards the final model is frozen.
 - **Launch:** in the next free GPU slot. E6b and E8 are running.
+
+## E12: scale-robust inference, no training (pre-registered 4 Oct 2026, before any run; `analysis/e12_scale.py`)
+
+- **Observation:** 4 val images are 2× / 0.5× rescaled copies of xView images (2308, 2391 at 2×; 2384, 2460 at
+  0.5×). That puts val's object sizes outside the training distribution: for example, trucks about 9 px in 2384
+  (visual review).
+- **Hypothesis:** inference that adapts to object scale recovers rescaled images.
+- **Changes:** none to the model (B1h `last.pt`). Two candidate rules, both using only the image itself (never xView
+  metadata or the known factors):
+  - **(a) multi:** union of sliced predictions at 0.5×, 1× and 2× (image resized bilinearly, boxes mapped back), then
+    the usual class-wise NMS merge (IoS 0.6, max_det 902).
+  - **(b) auto:** predict at 1×; take the median sqrt(area) of predictions with conf ≥ 0.25; choose s ∈ {0.5, 1, 2}
+    closest in log scale to 22 px (the median training truck size, `figures/eda/summary.json`); use the predictions
+    at that s.
+- **Controlled test, holdout40 only:**
+  - Three versions: the originals, plus bilinear 0.5× and 2× copies. Labels are normalised, so they are unchanged.
+  - B1h is scored on each version with plain (1×), multi and auto.
+- **Selection rule (fixed now):**
+  - A rule qualifies if (i) on the original holdout40 it loses at most 0.017 mAP50 vs plain, and (ii) its mean mAP50
+    over the 0.5× and 2× copies is above plain's mean over them.
+  - Among qualifying rules, the one with the higher rescaled-copy mean is chosen. It is written down here before val
+    is touched, and then val is scored **once** with it.
+  - The 4 rescaled val images and the 18 others are reported separately; the list is used for reporting only.
+  - If no rule qualifies, val is not re-scored and B1h's plain inference stays.
+- **Prediction (Claude Code; no author prediction recorded):** auto recovers most of the 0.5× and 2× copies' loss
+  without hurting the originals. Multi hurts the originals through extra low-confidence boxes, as TTA did.
+- **Cost:** GPU, evaluation only (the 2× copies at 2× scale are 16× the pixels).
