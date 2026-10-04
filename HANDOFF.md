@@ -45,6 +45,41 @@ generalisation, not the eval pipeline.
   - README "Final model" and "Reproduce everything" sections.
 - **`analysis/sanity_check.py`** now pairs labels by IoU (`--labels-only` for a CPU run).
 
+**Update 4 Oct, later:**
+- **§5.2 confirmed:** all five claims C1–C5 (`95953f3`; six rows, because C2 has parts a and b) hold on the test half
+  (`results/s52_confirm/`).
+- **Recall gap:** val vs holdout40 (0.665 vs 0.852) is not explained by size, image size or density. A scene-level
+  shift is the leading explanation (`results/recall_gap/`).
+- **Label checker:** the fixed checker flags 0 of 3439 tiles.
+- **`predict.py`:** reproduces the saved predictions exactly on CPU.
+- **REPORT.md:**
+  - The summary now grades every cause as ruled out / no evidence for / not tested.
+  - The §6 skeleton has TODO-FINAL slots.
+- **SUBMISSION_CHECKLIST.md** quotes the brief verbatim. Open gaps from it:
+  - §5.1 has no limits paragraph.
+  - §5.3 assumptions are not listed explicitly.
+  - §5.4 is missing two things: a characterisation of the selected examples and their class coverage.
+  - §5.4 used holdout40 for "90% of validation mAP50"; this must be disclosed.
+- **Pending kernels:** E3, E4, `auric-fp-crop`, and `auric-s52-floor` (descriptive only: chance rate and
+  conf ≥ 0.10; computed after the test half was opened, **not pre-registered**).
+- The three §5.2 thresholds in the author's 4 Oct message (≥ 70%, chance < 1%, 30–50% at ≥ 0.10) appear in no commit
+  made before the test half was opened, so they are **not** pre-registered.
+
+**Author's decision rules for E3/E4** (noise 0.017 on holdout40; B1h holdout40 0.1507):
+- **If E3 and/or E4 beats 0.1507 + 0.017 on holdout40:**
+  - Pre-register E5 in EXPERIMENTS.md first.
+  - Then launch two GPU kernels at once: the combination of whatever helped, at seed 0 and seed 1.
+  - Both run 50 epochs, `patience: 0`, `last.pt` only, with holdout40 scored at every 10-epoch checkpoint.
+  - A winner counts only if both seeds beat B1h.
+- **If neither beats it:** B1h stays the final model. No more GPU training; GPU only for evaluation.
+- **If the crop classifier lifts holdout40 mAP50 by more than 0.017:** apply it to the final model as a second
+  stage, then score it once on val.
+- **Stop and ask only if:**
+  - a GPU kernel would exceed 10 h,
+  - remaining GPU quota would drop below 5 h, or
+  - something would be deleted or overwritten irreversibly.
+  Otherwise continue, commit and push after each step.
+
 **Kernel gotcha:** after `kaggle_cli_package.sh`, the dataset can report `ready` before kernels mount the new
 version (s52-confirm v1 got `734299d`). New script kernels now start with `grep -q <commit> CODE_COMMIT || exit 3`.
 
