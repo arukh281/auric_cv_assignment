@@ -639,16 +639,26 @@ holdout values are in DETAILED_EXPERIMENTS.md "E1 / E2: Results". Picture: `figu
   `results/b1h_tile1024_holdout40/checkpoint_curve_holdout/`).
 - Each run is a single seed.
 
-**(2) Classification ceiling between look-alike types.**
-- Given the true box, B1h's own head names the type correctly 60.1% of the time on val (§5.1; always "Cargo" would
-  score 51.6%).
-- A dedicated ResNet18 crop classifier reaches 61.0% on holdout40 GT crops
-  (`results/crop_classifier/summary.json`). Re-labelling B1h's detections with it *lowers* holdout40 mAP50 to
-  0.100 / 0.117.
-- Both make the same Cargo ↔ Box confusion (`figures/story/crop_classifier_confusion.png`, §3.2). The two
-  accuracies are on different sets (val vs holdout40), so they are comparable only roughly.
-- Neither a better classifier of this kind nor TTA (0.138 vs 0.151) moved it. The types may be genuinely hard to
-  separate from above at about 22 px, or inconsistently labelled. These results cannot tell which.
+**(2) Classification between look-alike types: weak on val, partly val-specific (plausible).**
+*Corrected 2026-10-04: previously framed as a general ceiling.*
+
+| at the true boxes (GT-box oracle, B1h head, pool) | val (1552 boxes) | holdout40 (738 boxes) |
+|---|---|---|
+| accuracy | 0.601 | 0.690 |
+| always "Cargo" | 0.515 (800/1552) | 0.435 (321/738) |
+| margin over always "Cargo" | +0.086 | +0.255 |
+
+Sources: `figures/b1h_tile1024_holdout40/gt_oracle/comparison.csv`, `gt_oracle_holdout/comparison.csv`.
+- **Naming is decent on held-out images that resemble the training set and much weaker on val.**
+- That fits what was found about val:
+  - 4 rescaled images (2× / 0.5×).
+  - A scene-level recall gap (§3.4).
+  - Class changes relative to xView: 4.3% of pairs, pooled over train and val.
+- Graded **plausible** until the pixel comparison and the per-split class-change counts are in.
+- **A dedicated crop classifier is worse than the detector head on the same 738 holdout40 boxes** (0.610 vs 0.690;
+  `results/crop_classifier/summary.json`). Re-labelling detections with it lowers holdout40 mAP50 to 0.100 / 0.117.
+- TTA did not help either (0.138 vs 0.151; without Liquid 0.167 vs 0.170).
+- TODO-FINAL: TIDE breakdown on holdout40 vs val (whether classification also dominates the holdout errors).
 
 **(3) Labels: the metric undercounts.**
 - 46 of the 60 most confident unmatched holdout40 predictions look like real, unlabelled trucks (§3.3b).
@@ -677,7 +687,7 @@ confirmed on the unseen half).
 | Conclusion | Status | Evidence |
 |---|---|---|
 | The binding limit is generalisation; fitting faster hurts | **strongly supported** (four runs, single seed each) | E1, E2, E3 vs B1h; E7 vs E3 |
-| Classification, not localisation, is the main loss | **strongly supported** | §3.1 TIDE, §3.2 class-agnostic, §5.1 oracle |
+| Classification, not localisation, is the main loss on val | **strongly supported on val**; holdout40 margin much larger (§6.1 (2)) | §3.1 TIDE, §3.2 class-agnostic, §5.1 oracle |
 | A crop classifier or TTA does not fix classification | **supported** (single settings) | crop classifier 0.100 / 0.117; TTA 0.138 |
 | Small trucks are "never confident", not invisible | **strongly supported** (pre-registered, test half) | §5.2 C1, C4 |
 | Labels are incomplete, or exclude real truck types, and the score undercounts | **supported, size unquantified** | FP audit 46/60 |

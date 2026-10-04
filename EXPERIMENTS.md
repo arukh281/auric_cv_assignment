@@ -6,7 +6,9 @@
 ## TL;DR
 We set out to hit 0.75 mAP50 on val; our best model, B1h, reached 0.107 (the same recipe with another seed: 0.063).
 For a long time we looked inside the model. Every attempt to make it fit its training images better made it memorise
-them and do worse on new images, and it never learned to tell look-alike truck types apart. Then we stepped outside
+them and do worse on new images. It names truck types reasonably on our own held-out images (69% right vs 43.5%
+for always guessing "Cargo") but much worse on val (60% vs 52%) *(corrected 2026-10-04: previously "it never learned
+to tell look-alike truck types apart")*. Then we stepped outside
 the box and found that the data itself was part of the story: every image is from xView, four val images are
 rescaled copies, and most of the model's "false alarms" are real trucks of types the labels leave out. The last two
 experiments (E10 and E12) try to fix exactly that.
@@ -105,7 +107,9 @@ can't credit the cleverness.
 ### If every location were perfect (§5.1)
 How much of the problem is just naming the truck? We read the model's class scores right at each true box, so
 finding the truck was taken out of the equation. It named the type correctly 60% of the time, versus 52% for
-always answering "Cargo". Classification, not localisation, is the ceiling.
+always answering "Cargo". On our own 40 held-out images the same model gets 69% right against 43.5% for "Cargo",
+a much bigger margin. So naming is decent on images like the training set and collapses mainly on val, which fits
+what we later found about val (rescaled images, changed classes).
 *Planned in an earlier session · run by Aradhya · [details →](DETAILED_EXPERIMENTS.md#51-if-locations-were-perfect)*
 
 ![oracle](figures/b1h_tile1024_holdout40/gt_oracle/confusion.png)
@@ -154,8 +158,8 @@ predicted. Freezing helps, but it isn't a win.
 ### TTA and the crop classifier: second opinions at test time
 If the model is unsure, maybe asking it twice helps. Test-time augmentation looked at each tile four ways (original,
 two flips, an upscale), and every extra view lowered the score, mostly through Liquid (0.138 vs 0.151). A separate
-classifier trained on truck crops was 61% accurate, no better than the detector's own head, and re-labelling with
-it lowered holdout40 to 0.100–0.117. Neither second opinion knew more than the first.
+classifier trained on truck crops was 61% accurate on the 738 held-out truck boxes, worse than the detector's own
+head on the very same boxes (69%), and re-labelling with it lowered holdout40 to 0.100–0.117. Neither second opinion knew more than the first.
 *TTA: Aradhya asked "can't we augment?", designed by Claude chat. Crop classifier: first proposed in an earlier session; specified by Claude chat · run by Aradhya · [details →](DETAILED_EXPERIMENTS.md#tta-on-b1h-results-4-oct-2026-cpu-only-kernel-aradhya1211auric-tta-b1h-code-095cf9b) · [details →](DETAILED_EXPERIMENTS.md#crop-classifier-on-b1hs-holdout40-detections-4-oct-2026-cpu-only-kernel-aradhya1211auric-fp-crop-code-734299d)*
 
 
