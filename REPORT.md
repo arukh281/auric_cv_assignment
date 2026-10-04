@@ -432,6 +432,33 @@ sizes (+0.052 at 202, +0.028 at 302, vs seed spreads 0.011 / 0.013), but **not**
   - No author prediction was recorded before the runs.
   - The smart and seed-1 runs ran on a different Kaggle torch build (2.11.0) than the seed-0 random runs (2.10.0).
 
+**The 90% rule on validation mAP50, as the brief specifies** (added 2026-10-04, after all results).
+- **Why two versions exist:**
+  - The brief defines success as 90% of the full-data *validation* mAP50.
+  - The rule above was pre-registered on holdout40 so that no decision would be made on val, which is the only test
+    set.
+  - Both are reported. The holdout40 version is the pre-registered one.
+- **Threshold:** 0.9 × 0.1065 (B1h, seed 0) = **0.0959**. Val mAP50 with image-bootstrap 95% CIs
+  (`figures/subset_compare/subset_compare.csv`):
+
+  | Run | Size | Selection | seed | val mAP50 (95% CI) | % of 0.1065 | ≥ 0.0959? |
+  |---|---|---|---|---|---|---|
+  | b1h_f50 | 202 | random | 0 | 0.049 (0.022–0.108) | 46% | no |
+  | b1h_f50_seed1 | 202 | random | 1 | 0.057 (0.023–0.111) | 54% | no |
+  | b1h_smart50 | 202 | smart | 0 | 0.056 (0.030–0.102) | 53% | no |
+  | b1h_f75 | 302 | random | 0 | 0.085 (0.048–0.145) | 79% | no |
+  | b1h_f75_seed1 | 302 | random | 1 | 0.074 (0.046–0.135) | 69% | no |
+  | b1h_smart75 | 302 | smart | 0 | 0.083 (0.041–0.145) | 78% | no |
+  | b1h_tile1024_holdout40 | 403 | full | 0 | 0.106 (0.056–0.165) | 100% | reference |
+  | b1h_seed1 | 403 | full | 1 | 0.063 (0.042–0.096) | 60% | **no** |
+
+- **Result on val:** no subset reaches 0.0959, the same answer as on holdout40.
+- **This is weak evidence.**
+  - Val's seed spread at full data is 0.043 (0.1065 vs 0.0634), four times the 0.011 gap between 90% and 100%.
+  - The full-data seed-1 model itself fails the rule (60%).
+  - Every subset's CI contains 0.0959.
+  - On val, the rule mostly measures which seed was drawn.
+
 **Next.** Fractions above 75% (for example 85% and 95%, about 343 and 383 images) were not tested.
 - The answer lies there, since 75% falls short (best 0.123) and 100% passes (0.151 / 0.133).
 - Each size needs three runs (smart plus two random seeds).
