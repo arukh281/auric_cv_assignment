@@ -1150,3 +1150,9 @@ Holdout40 checkpoint curve (`results/e4_b1h_flipud_mixup/checkpoint_curve_holdou
 - **Cost and launch:** about 3.7 GPU-h. It launches in the next free GPU slot after E6 or E7 finishes, provided
   `kaggle quota` shows more than 5 h remaining after subtracting 3.7 h and the running kernels' remaining time;
   otherwise ask the author.
+- **Launch-rule addition (author, 4 Oct, before launch).** At launch, the quota available minus what running sessions
+  reserve must be at least E8's 3.7 h plus a 1 h margin.
+  - `kaggle quota` (CLI 2.2.4) does not report the reserved amount; the web UI showed 10 h 53 min reserved by E6 and
+    E7 at 14:23 IST.
+  - So the watcher launches E8 only after **both** E6 and E7 have finished, when nothing is reserved. It then requires
+    at least 4.7 h available and more than 5 h left after E8. Otherwise it does not launch, and the author is asked.
