@@ -179,6 +179,8 @@ def main():
     ap.add_argument("--batch", type=int, default=8)
     ap.add_argument("--device", default=None, help="default: cuda if available, else cpu")
     ap.add_argument("--max-images", type=int, help="testing only")
+    ap.add_argument("--holdout-list", help="score these TRAIN images (e.g. splits/holdout40_seed0.txt) instead of val; "
+                                           "outputs go to gt_oracle_holdout/")
     a = ap.parse_args()
 
     import torch
@@ -189,15 +191,22 @@ def main():
     weights = a.weights or str(Path(a.runs_root) / name / "train" / "weights" / "last.pt")
     device = a.device or ("cuda" if torch.cuda.is_available() else "cpu")
     net = YOLO(weights).model.float().eval().to(device)
-    root, out = Path(a.data_root), Path(a.out_root) / name / "gt_oracle"
+    root = Path(a.data_root)
+    out = Path(a.out_root) / name / ("gt_oracle_holdout" if a.holdout_list else "gt_oracle")
+    split = "train" if a.holdout_list else "val"
+    if a.holdout_list:
+        hold = [l.strip() for l in Path(a.holdout_list).read_text().splitlines() if l.strip()]
+        image_list = [root / "train" / "images" / n for n in hold]
+    else:
+        image_list = list_images(root / "val" / "images")
     out.mkdir(parents=True, exist_ok=True)
     names = load_classes(root)
 
     rows = []
-    for i, p in enumerate(list_images(root / "val" / "images")[: a.max_images]):
+    for i, p in enumerate(image_list[: a.max_images]):
         img = cv2.imread(str(p), cv2.IMREAD_COLOR)
         h, w = img.shape[:2]
-        gc, gb = read_yolo_labels(root / "val" / "labels" / f"{p.stem}.txt", w, h)
+        gc, gb = read_yolo_labels(root / split / "labels" / f"{p.stem}.txt", w, h)
         if not len(gc):
             continue
         sp, sb, best, n_at = image_scores(net, img, gb, ev["mode"], ev["imgsz"], ev["tile"], ev["overlap"], a.iou,

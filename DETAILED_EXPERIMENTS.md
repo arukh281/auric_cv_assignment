@@ -1452,3 +1452,22 @@ Holdout40 curve: 0.128 / 0.132 / 0.124 / 0.135 / 0.128 at epochs 10–50, flat
     +500 instances).
 - **Launch:** in E8's GPU slot when E8 finishes. It needs ≥ 2.9 h available (about 1.9 h plus a 1 h margin) and more
   than 5 h left after it; otherwise ask the author.
+
+## E9: a larger COCO model, yolo11m (pre-registered 4 Oct 2026, before launch; `configs/e9_b1h_yolo11m.yaml`)
+
+- **Observation:** E1–E3 show that fitting faster hurts held-out mAP50. Model capacity beyond YOLO11s was never
+  tested (REPORT summary: "not tested").
+- **Hypothesis (author's):** more capacity, with the same COCO pretraining, generalises better from 403 images.
+- **Changes vs B1h** (only these): weights `yolo11m.pt` (COCO) instead of `yolo11s.pt`; `patience: 0`. Everything
+  else is B1h's recipe: 50 epochs, 1024 tiles, batch 16 with `train.py`'s automatic fallback to 8 on out-of-memory,
+  `last.pt` only, holdout40 scored at every 10-epoch checkpoint (`scripts/run_e34.sh`). If batch 8 is used, the
+  batch actually used and the resulting iteration count (`training_summary.json`) are reported.
+- **Prediction (author's):** holdout40 mAP50 does **not** beat B1h by more than 0.017, because E3 suggests stronger
+  features memorise faster. mAP50 without Truck w/Liquid is also reported, as in the robustness check.
+- **Budget (author's, for this run only):**
+  - The quota floor is lowered from 5 h to 4 h.
+  - `scripts/epoch_guard.py` runs inside the kernel. After epoch 2 it projects the training time (hours at epoch 2
+    + 48 × epoch-2 duration) and kills the run if the projection exceeds **4.6 h**. That leaves about 0.4 h for
+    setup and the evaluations, so the run stays under 5 GPU-h. The evaluation allowance is based on E3/E4 (kernel
+    time minus training time ≈ 0.26–0.3 h). If the guard stops it, the author is told.
+- **Launch:** after E8 and E6b finish.

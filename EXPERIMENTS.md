@@ -235,6 +235,8 @@ B1h's height.
   at the pre-registered setting only Liquid gets repeated, so it's a weak test. 📖 Details → [E6: run record](DETAILED_EXPERIMENTS.md#e6-run-record-4-oct-2026-gpu-kernel-aradhya1211auric-e6-rfs-code-7ec3894)
 - **E6b, rare-class resampling with t = 0.3.** E6 (t = 0.1, +1.6% tile views) was too weak a test. At t = 0.3 Tractor
   tiles are shown 1.7×, Liquid 2.2× and Flatbed 1.4× (+17.9% views). Waiting for E8's slot.
+- **E9, a bigger model (yolo11m).** Does more capacity generalise better? Predicted: no. It has a 5 GPU-h guard and
+  launches after E8 and E6b.
 - **E8, E4's recipe for 100 epochs.** Training on GPU. 📖 Details → [E8: E4](DETAILED_EXPERIMENTS.md#e8-e4s-recipe-for-100-epochs-pre-registered-4-oct-2026-before-any-run-configse8_b1h_flipud_mixup_100epyaml)
 - **Two-stage on E4's boxes.** Running on CPU. 📖 Details → [Two-stage: crop](DETAILED_EXPERIMENTS.md#two-stage-crop-classifier-on-e4s-boxes-pre-registered-4-oct-2026-before-any-run)
 - **E1 / E2 holdout curves.** Running on CPU. They will be added to the holdout-curve picture.
