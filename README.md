@@ -2,6 +2,75 @@
 
 YOLO11s (COCO-pretrained) on a 5-class overhead truck dataset. Target: mAP50 ≥ 0.75 on the provided val set.
 
+**Result:** the target was not reached. Best val mAP50 is 0.1065 (95% CI 0.0563–0.1653), from B1h. Why: see
+`REPORT.md` (summary at the top) and `EXPERIMENTS.md` (one entry per run, index at the top).
+
+## Final model and prediction (deliverable)
+
+- **Weights:** GitHub release
+  [`weights-b1h-v1`](https://github.com/arukh281/auric_cv_assignment/releases/tag/weights-b1h-v1), file
+  `b1h_tile1024_holdout40_last.pt`. SHA-256 `3fa2406665706b9f44a155ca8b411b73e1c9eb4ffdc58ab03c4cb0e5bae37ffb`, the
+  same as `weights_sha256` in `results/b1h_tile1024_holdout40/eval/metrics.json`. Weights are not in git history.
+- **Environment:** `requirements.txt` is the installable set used by the setup scripts. `requirements-lock.txt`
+  holds the exact versions of the final model's training session: Ultralytics 8.4.171, torch 2.10.0+cu128,
+  torchvision 0.25.0, numpy 2.0.2, Python 3.12.13, plus the full `pip freeze`.
+  ```bash
+  python -m venv .venv && . .venv/bin/activate
+  pip install torch==2.10.0 torchvision==0.25.0 --index-url https://download.pytorch.org/whl/cu128   # or the CPU wheels
+  pip install -r requirements.txt
+  gh release download weights-b1h-v1 -p b1h_tile1024_holdout40_last.pt
+  ```
+- **Predict / evaluate**, with one entry point. It uses the same tiling, merge and scorer as every reported number:
+  ```bash
+  # predictions only (any folder of images)
+  python predict.py --weights b1h_tile1024_holdout40_last.pt --images path/to/images --out out/ [--device cpu]
+  # predictions + mAP50 (YOLO .txt labels with the same stems)
+  python predict.py --weights b1h_tile1024_holdout40_last.pt --images data/val/images --labels data/val/labels --out out/
+  ```
+  Outputs:
+  - `out/predictions.csv`: image, cls, conf, x1, y1, x2, y2 in full-image pixels.
+  - `out/predictions_raw.csv`: tile predictions before merging.
+  - `out/metrics.json` and `out/per_class.csv` (only with `--labels`).
+
+  Reproducibility check: CPU-only kernel `aradhya1211/auric-predict-test` ran it on the first 2 val images and
+  compared the result with the saved B1h predictions (`tools/compare_preds.py`). The outcome is recorded in
+  `EXPERIMENTS.md` ("Deliverables").
+
+## Reproduce everything
+
+Every compute step ran on Kaggle, launched from a laptop with the Kaggle CLI.
+- Code goes up as a dataset: `bash scripts/kaggle_cli_package.sh`, which packages committed HEAD.
+- Each step is a kernel: `bash scripts/kaggle_cli_kernel.sh full <config> --push` (GPU training), or
+  `bash scripts/kaggle_cli_script_kernel.sh <slug> '<command>' [--source <user>/<kernel>] [--cpu] --push` (any
+  command; `--source` mounts an earlier kernel's output, such as its weights, under `/kaggle/input`).
+- Each kernel runs `scripts/kaggle_setup.sh` first: data to `/kaggle/tmp/data`, all `tests/test_*.py`.
+- Paths inside a kernel come from `scripts/_env.sh`: `$DATA_ROOT`, `$RUNS`, `$FIGS`, `$PY`. The same commands run on any
+  machine with `DATA_ROOT` pointing at the dataset root (`classmap.txt train/ val/`).
+
+| Step | Command (inside the repo, after setup) | Outputs |
+|---|---|---|
+| Splits (committed) | `python tools/make_holdout.py --n 40 --seed 0`; `python tools/make_subsets.py --seed 0 --write-configs` | `splits/` |
+| EDA | `python analysis/eda.py` (**full dataset only**) | `figures/eda/` |
+| B0 / B1 (Colab) | `bash scripts/run_b0.sh`, `bash scripts/run_b1.sh` | `runs/b0_full640`, `runs/b1_tile1024` |
+| B1h (final model) | `bash scripts/run_b1h.sh` then `bash scripts/run_analysis.sh b1h_tile1024_holdout40` | train, val/holdout40 evals, checkpoint curve, errors, GT-box oracle |
+| train40 eval | `python eval.py --config configs/b1h.yaml --data-root "$DATA_ROOT" --runs-root "$RUNS" --split train --max-images 40 --sample-seed 0 --out "$RUNS/b1h_tile1024_holdout40/eval_train40"` | `eval_train40/` |
+| Learning curve (§5.3) | `bash scripts/run_lc.sh configs/b1h_{f25,f50,f75,seed1}.yaml` (one kernel each), then `python analysis/learning_curve.py` | `figures/learning_curve/` |
+| §5.4 smart subsets | GPU: `python tools/make_smart_subsets.py embed --data-root "$DATA_ROOT" --out <dir>`; CPU: `python tools/make_smart_subsets.py select --embeddings results/s54/embeddings.npz --write-configs`; `bash scripts/run_lc.sh configs/b1h_{smart50,smart75,f50_seed1,f75_seed1}.yaml`; `python analysis/subset_compare.py` | `figures/subset_compare/` |
+| §5.1 GT-box oracle | `python analysis/gt_box_oracle.py --config configs/b1h.yaml --runs-root "$RUNS" --data-root "$DATA_ROOT"` | `figures/<run>/gt_oracle/` |
+| §5.2 training dynamics | `python analysis/training_dynamics.py --weights-dir <B1h weights dir> --data-root "$DATA_ROOT" --out <dir>`; confirmation: `python analysis/s52_confirm.py --per-box <dir>/per_box_{inspect,test}.csv --preds <dir>/preds/predictions_ep050.csv.gz --out <dir2>` | `results/s52/`, `figures/s52/` |
+| Error bins (TIDE) | `python analysis/errors.py --preds <run>/eval/predictions.csv --name <run> --data-root "$DATA_ROOT"` | `figures/<run>/errors/` |
+| Class-agnostic AP | `python analysis/class_agnostic.py --preds <run>/<eval dir>/predictions.csv --data-root "$DATA_ROOT"` | `class_agnostic.json` |
+| Merge sensitivity | `python analysis/merge_sensitivity.py --raw <run>/eval/predictions_raw.csv --name <run>` | `figures/<run>/merge_sensitivity.csv` |
+| Per-image / domain shift | `python analysis/per_image.py`; `python analysis/domain_shift.py --data-root data_small` | `figures/<run>/per_image/`, `figures/domain_shift/` |
+| Sanity checks | `python analysis/sanity_check.py --data-root "$DATA_ROOT" --tiles <tiles dir> --out <dir>` (GPU; `--labels-only` for the CPU label check); `python analysis/label_mismatch.py ...` | `results/sanity/`, `figures/sanity/` |
+| E1 / E2 | `bash scripts/run_lc.sh configs/e1_b1h_150ep.yaml` (and `e2_...`) + `run_analysis.sh` | `results/e{1,2}_*` |
+| E3 / E4 | `bash scripts/run_e34.sh configs/e3_b1h_dota.yaml` (and `e4_b1h_flipud_mixup.yaml`) | val/holdout40/train40 on `last.pt`, holdout checkpoint curve |
+| FP audit / crop classifier | `python analysis/fp_audit.py --preds <B1h>/eval_holdout40/predictions.csv --data-root "$DATA_ROOT" --out <dir>`; `python analysis/crop_classifier.py --data-root "$DATA_ROOT" --holdout splits/holdout40_seed0.txt --preds <B1h>/eval_holdout40/predictions.csv --out <dir>` | contact sheet, classifier results |
+| Val vs holdout recall gap | `python analysis/recall_gap.py --val-preds <B1h>/eval/predictions.csv --holdout-preds <B1h>/eval_holdout40/predictions.csv --holdout splits/holdout40_seed0.txt --data-root "$DATA_ROOT" --out <dir>` | `standardised.csv`, `recall_by_factor.csv` |
+
+Each kernel used is named in its `EXPERIMENTS.md` entry, together with its code commit. Results (CSV/JSON/PNG, no
+weights) are copied into `results/<run>/` and `figures/<run>/`.
+
 ## Layout
 | Path | What |
 |---|---|
