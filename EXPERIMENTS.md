@@ -1,243 +1,264 @@
 # Experiments: the 5-minute version 🚚
 
-> The full log, with every number sourced, is [DETAILED_EXPERIMENTS.md](DETAILED_EXPERIMENTS.md). This page only
-> summarises it. No number here is new.
+> This is the story version. Every number here comes from [DETAILED_EXPERIMENTS.md](DETAILED_EXPERIMENTS.md), which has
+> the sources, the pre-registrations and all the caveats.
 
 ## TL;DR
-- 🎯 Target: **0.75** mAP50 on val. Best: **0.107** (B1h). **Not reached.**
-- 🧩 Main reason: the model doesn't generalise from ~400 images. It memorises the training images, and it can't tell
-  look-alike truck types apart (Cargo vs Box).
-- 🔁 Every trick that made it fit the training images better made it worse on unseen ones.
+We set out to hit 0.75 mAP50 on val; our best model, B1h, reached 0.107 (the same recipe with another seed: 0.063).
+For a long time we looked inside the model. Every attempt to make it fit its training images better made it memorise
+them and do worse on new images, and it never learned to tell look-alike truck types apart. Then we stepped outside
+the box and found that the data itself was part of the story: every image is from xView, four val images are
+rescaled copies, and most of the model's "false alarms" are real trucks of types the labels leave out. The last two
+experiments (E10 and E12) try to fix exactly that.
 
 ## The cast
-- 🧑 **Aradhya**: decides, runs, directs.
-- 💬 **Claude chat**: experiment planning.
-- 🤖 **Claude Code**: code, analysis, Kaggle kernels.
+- 🧑 **Aradhya** decides, runs and directs.
+- 💬 **Claude chat** plans experiments.
+- 🤖 **Claude Code** writes the code, runs the analyses and drives the Kaggle kernels.
 
 ## Journey map
 ```mermaid
 flowchart TD
-  B0[B0: whole image at 640] -->|trucks shrink to a few px| B1[B1: 1024 tiles]
-  B1 -->|classification is the biggest loss; is val just hard?| B1h[B1h: 40 train images held out]
-  B1h -->|gap: seen 0.38 vs unseen 0.15| LC[Learning curves 5.3]
-  B1h --> S54[Smart subsets 5.4]
-  B1h --> S52[Hard examples 5.2]
-  B1h -->|"can't even fit its own training images?"| SAN[Sanity checks]
-  SAN -->|pipeline OK, can overfit 16 tiles| E12[E1/E2: train longer / less scale aug]
-  E12 -->|train up, holdout down = overfitting| E34[E3 DOTA init / E4 flips + mixup]
-  E12 --> RG[Recall gap: val vs holdout]
-  E34 -->|E3 overfits more| E7[E7: frozen DOTA backbone]
-  E34 -->|E4 overfits less, still rising| E8[E8: E4 x 100 epochs]
-  E34 -->|E4 finds more trucks| TS[Two-stage: classifier on E4 boxes]
-  B1h -->|rare classes weak| E6[E6: rare-class resampling]
-  B1h -->|low-confidence small trucks| TTA[TTA flips + upscale]
+  subgraph inside[Looking inside the box]
+  B0[B0: whole image] -->|trucks shrink to a few px| B1[B1: 1024 tiles]
+  B1 -->|classification is the biggest loss| B1h[B1h: 40 images held out]
+  B1h -->|"can't fit its own images?"| SAN[Sanity checks]
+  SAN -->|pipeline fine| E12a[E1/E2: train longer]
+  E12a -->|overfitting| E34[E3/E4: pretraining / augmentation]
+  E34 --> E7[E7, TTA, crop classifier, E6]
+  end
+  subgraph outside[Stepping outside the box]
+  RG[Recall gap: val vs holdout] --> FP[False-positive audit]
+  FP --> XV[xView provenance]
+  end
+  subgraph fix[Fixing what we found]
+  E10[E10: label the look-alikes + extra xView data]
+  E12[E12: scale-robust inference]
+  end
+  E7 -->|nothing beats B1h| RG
+  XV -->|excluded truck types| E10
+  XV -->|rescaled val images| E12
 ```
 
-## Scoreboard: the overfitting story in one picture
+## Scoreboard
 ![train40 vs holdout40](figures/story/scoreboard.png)
 
-Further right means it fits its training images better; higher means it does better on unseen ones. Nothing beat
-B1h's height.
+The further right a run sits, the better it fits the images it trained on; the higher it sits, the better it does on
+images it has never seen. Moving right never moved anyone up past B1h.
 
 ---
 
-## The cards (in time order)
+## 1. Looking inside the box
 
-### 1. B0: just run YOLO on the whole image
-- ❓ Does a standard detector work out of the box?
-- 💡 Planned in an earlier session · ✅ Aradhya
-- 🔧 Whole ~3000 px image squeezed to 640 px.
-- 📊 val mAP50 **0.002**.
-- 🖼️ ![B0 curve](figures/b0_full640/checkpoint_curve.png)
-- 🧠 At 640 px a ~22 px truck becomes a few pixels. Almost nothing is detectable.
-- ➡️ Cut the images into native-resolution tiles.
-- 📖 Details → [B0: naive](DETAILED_EXPERIMENTS.md#b0-naive-full-image-baseline-configsb0yaml-run-b0_full640)
+### B0: just run YOLO on the whole picture
+We started the obvious way: squeeze each ~3000 px satellite image down to 640 px and let a standard detector have
+a go. It scored 0.002 mAP50 on val, which is a polite way of saying "nothing". At 640 px a 22 px truck shrinks to a
+few pixels, and there's simply nothing left to detect. So the first lesson was about resolution, not about the model.
+*Planned in an earlier session · run by Aradhya · [details →](DETAILED_EXPERIMENTS.md#b0-naive-full-image-baseline-configsb0yaml-run-b0_full640)*
 
-### 2. B1: native-resolution tiles
-- ❓ Does keeping full resolution fix it?
-- 💡 Planned in an earlier session; pre-registration written by Aradhya · ✅ Aradhya
-- 🔧 1024 px tiles, sliced evaluation.
-- 📊 val **0.0715**, against a predicted 0.40–0.60.
-- 🖼️ ![B1 error bins](figures/b1_tile1024/errors/tide_dAP.png)
-- 🧠 Classification errors are the biggest loss, as predicted. The score is far below the prediction.
-- ➡️ Is val just unusually hard? Hold out some training images and see.
-- 📖 Details → [B1: native](DETAILED_EXPERIMENTS.md#b1-native-resolution-tiled-baseline-configsb1yaml-run-b1_tile1024)
+![B0 curve](figures/b0_full640/checkpoint_curve.png)
 
-### 3. B1h: hold out 40 training images
-- ❓ Is the problem val, or generalising in general?
-- 💡 Planned in an earlier session · ✅ Aradhya
-- 🔧 B1 minus 40 train images (holdout40), which the model never sees.
-- 📊 Seen images **0.378** · unseen **0.151** · val **0.107**.
-- 🖼️ ![B1h error bins](figures/b1h_tile1024_holdout40/errors/tide_dAP.png)
-- 🧠 It's mostly a generalisation problem. B1h becomes our best model.
-- ➡️ Learning curves, subsets, hard examples, and a sanity check.
-- 📖 Details → [B1h: B1 with 40](DETAILED_EXPERIMENTS.md#b1h-b1-with-40-train-images-held-out-configsb1hyaml-run-b1h_tile1024_holdout40)
+### B1: cut the image into native-resolution tiles
+Since shrinking killed the trucks, we stopped shrinking. We cut every image into 1024 px tiles at full resolution
+and stitched the predictions back together. That took val from 0.002 to 0.0715, a big jump, but far below the
+0.40–0.60 Aradhya had pre-registered. The error analysis said the biggest loss was naming the wrong truck type, not
+missing trucks, which raised a new question: is val just unusually hard?
+*Planned in an earlier session; pre-registration by Aradhya · run by Aradhya · [details →](DETAILED_EXPERIMENTS.md#b1-native-resolution-tiled-baseline-configsb1yaml-run-b1_tile1024)*
 
-### 4. Learning curves (§5.3): would more labels help?
-- ❓ Would 500 more labels matter?
-- 💡 Planned in an earlier session; pre-registration written by Aradhya · ✅ Aradhya
-- 🔧 Train on 25 / 50 / 75 / 100% of the images, with equal training steps.
-- 📊 Still rising at 100%. **500 instances ≈ +0.006**, below noise. No single class gets a reliable gain above noise.
-- 🖼️ ![learning curve](figures/learning_curve/learning_curve.png)
-- 🧠 More data helps a little; it can't reach 0.75 alone.
-- ➡️ The brief asks about *instances*, not images (see Plot twists).
-- 📖 Details → [LC: learning curves](DETAILED_EXPERIMENTS.md#lc-learning-curves-53-runs-b1h_f25--b1h_f50--b1h_f75--b1h_seed1) · [per class](DETAILED_EXPERIMENTS.md#53-per-class-500-targeted-instances-4-oct-2026-cpu-only-kernel-aradhya1211auric-lc-per-class-code-095cf9b)
+![B1 error bins](figures/b1_tile1024/errors/tide_dAP.png)
 
-### 5. Smart subsets (§5.4): the smallest set that keeps 90%
-- ❓ Can a cleverly chosen half of the data do as well as all of it?
-- 💡 Planned in an earlier session (selection declared before training) · ✅ Aradhya
-- 🔧 Smart (class coverage + diversity) vs random, at 202 and 302 images.
-- 📊 **No subset reached 90%**, on holdout40 or on val.
-- 🖼️ ![subsets](figures/subset_compare/subset_compare.png)
-- 🧠 Smart subsets find more trucks, but they also simply contain more boxes. That's a confound.
-- ➡️ Documented; larger fractions were not tested.
-- 📖 Details → [S54: smart vs random](DETAILED_EXPERIMENTS.md#s54-smart-vs-random-subsets-54-runs-b1h_smart50--b1h_smart75--b1h_f50_seed1--b1h_f75_seed1)
+### B1h: hold out 40 training images as a second exam
+To find out whether val was special, we hid 40 training images from the model and used them as a second test set
+(holdout40). The model scored 0.378 on images it had trained on, 0.151 on the hidden ones and 0.107 on val. So the
+main problem was generalising to new images, not val in particular. B1h became our reference model, and it still is.
+*Planned in an earlier session · run by Aradhya · [details →](DETAILED_EXPERIMENTS.md#b1h-b1-with-40-train-images-held-out-configsb1hyaml-run-b1h_tile1024_holdout40)*
 
-### 6. §5.1: if every location were perfect
-- ❓ How much of the problem is just naming the truck?
-- 💡 Planned in an earlier session · ✅ Aradhya
-- 🔧 Read the model's class scores directly at each true box.
-- 📊 Right type **60%** of the time, vs 52% for always guessing "Cargo".
-- 🖼️ ![oracle confusion](figures/b1h_tile1024_holdout40/gt_oracle/confusion.png)
-- 🧠 Classification is the ceiling, not localisation.
-- 📖 Details → [§5.1 If locations](DETAILED_EXPERIMENTS.md#51-if-locations-were-perfect)
+![B1h error bins](figures/b1h_tile1024_holdout40/errors/tide_dAP.png)
 
-### 7. 🚩 Sanity checks: can it even learn its own training images?
-- ❓ Red flag: train40 was only 0.38. Is something broken?
-- 💡 Claude chat (red flag and plan: settings check, label renders, 16-tile overfit test) · ✅ Aradhya
-- 🔧 Checked the effective settings, rendered the labels, and overfit 16 tiles.
-- 📊 Overfit test reaches **1.000** AP50.
-- 🖼️ ![overfit tile](figures/story/overfit_tile.jpg)
-- 🧠 The pipeline and model can learn. The label check's alarm was a checker bug (see Plot twists).
-- ➡️ Override the NOT PASS (recommended by Claude chat, decided by Aradhya), then E1/E2.
-- 📖 Details → [SANITY: why does](DETAILED_EXPERIMENTS.md#sanity-why-does-b1h-reach-only-038-map50-on-its-own-training-images-kernel-aradhya1211auric-sanity-code-f2388f1)
+### 🚩 Sanity checks: can it even learn its own homework?
+Claude chat spotted a red flag: 0.38 on its own training images is low. So before going further we checked the
+settings, drew the labels on the tiles, and asked the model to memorise just 16 tiles. It reached 1.000 AP on them,
+so the pipeline and the model can learn. The label check raised an alarm that turned out to be a bug in the
+checker itself (more under Plot twists). We overrode the "NOT PASS" and moved on.
+*Suggested by Claude chat (override recommended by Claude chat, decided by Aradhya) · run by Aradhya · [details →](DETAILED_EXPERIMENTS.md#sanity-why-does-b1h-reach-only-038-map50-on-its-own-training-images-kernel-aradhya1211auric-sanity-code-f2388f1)*
 
-### 8. E1 / E2: train longer, or augment less?
-- ❓ Is B1h just undertrained? Does scale augmentation hurt small trucks?
-- 💡 Claude chat · ✅ Aradhya (two separate kernels, so it would finish overnight)
-- 🔧 E1: 150 epochs. E2: 150 epochs with less scale augmentation.
-- 📊 Seen images up to **0.77 / 0.91**; unseen down to **0.092 / 0.111**.
-- 🖼️ ![E2 val curve](figures/e2_b1h_150ep_scale02/checkpoint_curve.png)
-- 🧠 Not undertraining: overfitting.
-- ➡️ Try remedies for overfitting (E3, E4).
-- 📖 Details → [E1 / E2: Results](DETAILED_EXPERIMENTS.md#e1--e2-results-4-oct-2026)
+![overfit tile](figures/story/overfit_tile.jpg)
 
-### 9. ✅ CHECK 0: were any scores picked on val?
-- ❓ Did any reported number come from the best checkpoint on val?
-- 💡 Claude chat · ✅ Aradhya
-- 🔧 Audit of every `metrics.json`, plus an early-stopping check on all runs.
-- 📊 All scores use `last.pt`. Only **E1** stopped early, at epoch 145.
-- 🖼️ (an audit; no picture)
-- 🧠 One small val leak, through Ultralytics early stopping, now switched off.
-- 📖 Details → [CHECK 0](DETAILED_EXPERIMENTS.md#check-0-4-oct-2026-which-weights-produced-the-reported-scores)
+### Learning curves: would more labels help? (§5.3)
+We trained on 25, 50, 75 and 100% of the images with the same number of training steps. The curve was still rising
+at 100%, so more data helps, but slowly. Asked the way the brief asks it, 500 more labelled instances project to
+about +0.006, below the run-to-run noise, and no single class gains reliably above noise either. More labels from the
+same source won't carry us to 0.75.
+*First proposed in an earlier session; pre-registration by Aradhya; specified by Claude chat · run by Aradhya · [details →](DETAILED_EXPERIMENTS.md#lc-learning-curves-53-runs-b1h_f25--b1h_f50--b1h_f75--b1h_seed1)*
 
-### 10. §5.2: which training examples resist learning?
-- ❓ Which boxes never get learned, and why?
-- 💡 Test-half confirmation suggested by Claude chat; claims C1–C5 derived by Claude Code from the inspect half · ✅ Aradhya
-- 🔧 Track every training box across checkpoints; test five pre-registered claims on an unseen half.
-- 📊 **All 5 claims hold.** About 78% of "never detected" boxes do get a box, just at low confidence.
-- 🖼️ ![categories](figures/s52/inspect/categories.png)
-- 🧠 Small trucks; "never confident" rather than invisible; Box learned and then forgotten.
-- 📖 Details → [§5.2 test-half confirmation: Results](DETAILED_EXPERIMENTS.md#52-test-half-confirmation-results-4-oct-2026-cpu-only-kernel-aradhya1211auric-s52-confirm-v2-code-95953f3)
+![learning curve](figures/learning_curve/learning_curve.png)
 
-### 11. Why is val harder than holdout40?
-- ❓ Same model; why does it find fewer trucks on val?
-- 💡 Claude chat · 🤖 built by Claude Code · ✅ Aradhya
-- 🔧 Compare recall at matched box size, density and image size.
-- 📊 Gap **0.187**. Box size explains only **3%** of it.
-- 🖼️ ![recall by size](figures/story/recall_by_size.png)
-- 🧠 A scene-level shift. Domain shift is back as the leading explanation.
-- 📖 Details → [Val vs holdout40 recall gap](DETAILED_EXPERIMENTS.md#val-vs-holdout40-recall-gap-4-oct-2026-cpu-only-kernel-aradhya1211auric-recall-gap-code-cc152a5)
+### Smart subsets: is half the data enough? (§5.4)
+We picked half and three quarters of the images cleverly (cover every class, then maximise variety) and compared
+them with random picks of the same size. No subset reached 90% of full-data performance, on holdout40 or on val.
+The smart subsets did find more trucks, but it turned out they also simply contained more labelled boxes, so we
+can't credit the cleverness.
+*Planned in an earlier session (selection declared before training) · run by Aradhya · [details →](DETAILED_EXPERIMENTS.md#s54-smart-vs-random-subsets-54-runs-b1h_smart50--b1h_smart75--b1h_f50_seed1--b1h_f75_seed1)*
 
-### 12. E3 / E4: aerial pretraining, or more augmentation?
-- ❓ Can we reduce overfitting?
-- 💡 Claude chat · 🤖 built by Claude Code · ✅ Aradhya
-- 🔧 E3: start from DOTA aerial weights. E4: vertical flips + mixup.
-- 📊 Unseen: E3 **0.082**, E4 **0.130**, vs B1h 0.151.
-- 🖼️ ![holdout curves](figures/story/holdout_curves.png)
-- 🧠 E3 memorises even faster. E4 overfits less and finds more trucks, but names them worse.
-- ➡️ E7 (freeze E3's backbone), E8 (E4 for longer), two-stage on E4's boxes.
-- 📖 Details → [E3: Results](DETAILED_EXPERIMENTS.md#e3-results-4-oct-2026-gpu-kernel-aradhya1211auric-e3-dota-code-734299d-164-gpu-h-kernel-time) · [E4](DETAILED_EXPERIMENTS.md#e4-results-4-oct-2026-gpu-kernel-aradhya1211auric-e4-flipud-mixup-code-734299d-184-gpu-h-kernel-time)
+![subsets](figures/subset_compare/subset_compare.png)
 
-### 13. 🔍 Background false-positive audit
-- ❓ Are the "false positives" really false?
-- 💡 Claude chat · 🤖 built by Claude Code · ✅ Aradhya
-- 🔧 The 60 most confident predictions with no matching label, looked at by eye.
-- 📊 **46 of 60** look like real, unlabelled trucks.
-- 🖼️ ![FP audit](figures/story/fp_audit_sheet.jpg)
-- 🧠 Either our five classes are missing from the labels, or these are truck types the dataset leaves out (pickups,
-  utility trucks, trailers). The crops can't tell which. Either way, real vehicles count as errors, so the score
-  understates the model. (One viewer, not blind, low resolution.)
-- 📖 Details → [Background false-positive audit](DETAILED_EXPERIMENTS.md#background-false-positive-audit-4-oct-2026-cpu-only-kernel-aradhya1211auric-fp-crop-code-734299d)
+### If every location were perfect (§5.1)
+How much of the problem is just naming the truck? We read the model's class scores right at each true box, so
+finding the truck was taken out of the equation. It named the type correctly 60% of the time, versus 52% for
+always answering "Cargo". Classification, not localisation, is the ceiling.
+*Planned in an earlier session · run by Aradhya · [details →](DETAILED_EXPERIMENTS.md#51-if-locations-were-perfect)*
 
-### 14. Crop classifier: a second opinion on the truck type
-- ❓ Can a dedicated classifier name trucks better than the detector?
-- 💡 Claude chat · 🤖 built by Claude Code · ✅ Aradhya
-- 🔧 A ResNet18 on truck crops re-labels B1h's boxes.
-- 📊 61% accurate; re-labelled holdout drops to **0.100–0.117**.
-- 🖼️ (figure pending)
-- 🧠 No better than the detector's own head.
-- 📖 Details → [Crop classifier on B1h](DETAILED_EXPERIMENTS.md#crop-classifier-on-b1hs-holdout40-detections-4-oct-2026-cpu-only-kernel-aradhya1211auric-fp-crop-code-734299d)
+![oracle](figures/b1h_tile1024_holdout40/gt_oracle/confusion.png)
 
-### 15. TTA: flips + upscale at test time
-- ❓ Does averaging over flipped and upscaled copies help?
-- 💡 Aradhya asked "can't we augment?" · design by Claude chat · ✅ Aradhya
-- 🔧 Four views per tile, merged as usual.
-- 📊 Holdout **0.138**, vs 0.151 without TTA.
-- 🖼️ (figure pending)
-- 🧠 The extra views add noisy boxes. Not supported.
-- 📖 Details → [TTA on B1h: Results](DETAILED_EXPERIMENTS.md#tta-on-b1h-results-4-oct-2026-cpu-only-kernel-aradhya1211auric-tta-b1h-code-095cf9b)
+### Which training examples resist learning? (§5.2)
+We followed every training box across checkpoints and sorted them into "learned early", "learned late",
+"forgotten" and "never detected". Claude Code wrote down five claims from one half of the images, and all five held
+on the half nobody had looked at. The most telling one: about 78% of the "never detected" boxes do get a box from
+the model, just with low confidence. They are mostly small trucks the model isn't sure about, not invisible ones.
+*Test-half check suggested by Claude chat; claims derived by Claude Code · run by Aradhya · [details →](DETAILED_EXPERIMENTS.md#52-test-half-confirmation-results-4-oct-2026-cpu-only-kernel-aradhya1211auric-s52-confirm-v2-code-95953f3)*
 
-### 16. E7: aerial weights with a frozen backbone
-- ❓ Did E3 overwrite its aerial features?
-- 💡 Claude chat · ✅ Aradhya
-- 🔧 E3, but with the backbone frozen.
-- 📊 Unseen **0.128**, vs E3's 0.082 and B1h's 0.151.
-- 🖼️ ![holdout curves](figures/story/holdout_curves.png)
-- 🧠 Freezing undoes much of E3's damage, but it doesn't beat B1h (as predicted).
-- 📖 Details → [E7: Results](DETAILED_EXPERIMENTS.md#e7-results-4-oct-2026-gpu-kernel-aradhya1211auric-e7-dota-frozen-code-e5a115e-120-gpu-h-kernel-time)
+![categories](figures/s52/inspect/categories.png)
 
-### 17. B1h's own holdout curve
-- ❓ Does even the baseline overfit within 50 epochs?
-- 💡 Claude chat · ✅ Aradhya
-- 🔧 Score B1h's saved checkpoints on holdout40.
-- 📊 Rises to **0.154** at epoch 40, **0.151** at epoch 50.
-- 🖼️ ![holdout curves](figures/story/holdout_curves.png)
-- 🧠 Flat at the end, with no clear peak. B1h stops near the right time.
-- 📖 Details → [B1h holdout40 checkpoint curve](DETAILED_EXPERIMENTS.md#b1h-holdout40-checkpoint-curve-descriptive-4-oct-2026-cpu-only-kernel-aradhya1211auric-b1h-holdout-curve-code-e5a115e)
+### E1 / E2: maybe it just needed more time?
+B1h's training loss was still falling at epoch 50, so the obvious suspect was that it simply hadn't finished learning.
+We trained for three times as long (E1), and in a second run also toned down the zoom augmentation that can shrink
+small trucks even further (E2). Both models got dramatically better at their own training images (0.38 → 0.77 and
+0.91) but worse on images they had never seen (holdout40 fell from 0.151 to 0.092 and 0.111). That's the classic
+signature of overfitting: the model was memorising, not learning. So the question changed from "how do we train
+more?" to "how do we stop it memorising?"
+*Suggested by Claude chat · run by Aradhya · [details →](DETAILED_EXPERIMENTS.md#e1--e2-results-4-oct-2026)*
+
+![E2 val curve](figures/e2_b1h_150ep_scale02/checkpoint_curve.png)
+
+### ✅ CHECK 0: did we cheat without noticing?
+Before trusting any of this, we audited every reported number to make sure none came from a checkpoint picked on
+val. All of them use the last checkpoint, as planned. The one leak we found was Ultralytics' default early stopping,
+which quietly watched val and stopped E1 at epoch 145. It is switched off in every run since.
+*Suggested by Claude chat · run by Claude Code · [details →](DETAILED_EXPERIMENTS.md#check-0-4-oct-2026-which-weights-produced-the-reported-scores)*
+
+### E3 / E4: aerial pretraining or more augmentation?
+To fight the memorising we tried two remedies. E3 started from weights pretrained on aerial imagery (DOTA); E4 added
+vertical flips and image mixing. E3 memorised even faster and dropped to 0.082 on holdout40. E4 overfitted much
+less and found more trucks, but named them slightly worse, ending at 0.130 against B1h's 0.151. Part of that gap is
+one rare class: Truck w/Liquid has only 29 holdout boxes and dropped to zero.
+*First proposed in an earlier session; specified by Claude chat; built by Claude Code · run by Aradhya · [details →](DETAILED_EXPERIMENTS.md#e3-results-4-oct-2026-gpu-kernel-aradhya1211auric-e3-dota-code-734299d-164-gpu-h-kernel-time)*
+
+![holdout curves](figures/story/holdout_curves.png)
+
+### E7: aerial weights, but frozen
+Maybe E3 overwrote its useful aerial features while memorising? E7 kept them frozen and trained only the rest of the
+network. That recovered a lot of E3's loss (holdout40 0.128 vs 0.082), but it still didn't beat B1h, just as
+predicted. Freezing helps, but it isn't a win.
+*Suggested by Claude chat · run by Aradhya · [details →](DETAILED_EXPERIMENTS.md#e7-results-4-oct-2026-gpu-kernel-aradhya1211auric-e7-dota-frozen-code-e5a115e-120-gpu-h-kernel-time)*
+
+### TTA and the crop classifier: second opinions at test time
+If the model is unsure, maybe asking it twice helps. Test-time augmentation looked at each tile four ways (original,
+two flips, an upscale), and every extra view lowered the score, mostly through Liquid (0.138 vs 0.151). A separate
+classifier trained on truck crops was 61% accurate, no better than the detector's own head, and re-labelling with
+it lowered holdout40 to 0.100–0.117. Neither second opinion knew more than the first.
+*TTA: Aradhya asked "can't we augment?", designed by Claude chat. Crop classifier: first proposed in an earlier session; specified by Claude chat · run by Aradhya · [details →](DETAILED_EXPERIMENTS.md#tta-on-b1h-results-4-oct-2026-cpu-only-kernel-aradhya1211auric-tta-b1h-code-095cf9b) · [details →](DETAILED_EXPERIMENTS.md#crop-classifier-on-b1hs-holdout40-detections-4-oct-2026-cpu-only-kernel-aradhya1211auric-fp-crop-code-734299d)*
+
+![crop classifier confusion](figures/story/crop_classifier_confusion.png)
+
+### Does even B1h overfit?
+We scored B1h's own saved checkpoints on holdout40. It climbs to 0.154 at epoch 40 and sits at 0.151 at epoch 50:
+flat, no clear peak. So B1h stops about where it should; overfitting only shows up when training goes longer or
+faster.
+*Suggested by Claude chat · run by Claude Code · [details →](DETAILED_EXPERIMENTS.md#b1h-holdout40-checkpoint-curve-descriptive-4-oct-2026-cpu-only-kernel-aradhya1211auric-b1h-holdout-curve-code-e5a115e)*
+
+### E6 and E6b: show the rare trucks more often
+Rare classes are weak, so we repeated the tiles that contain them. The first try (E6) used a threshold so low that
+only Liquid tiles were repeated, adding just 1.6% more tile views: too weak to test anything. E6b raises the
+threshold so Tractor, Flatbed and Liquid tiles are all shown more often (+17.9% views). Its result is still pending.
+*Aradhya asked "can't we resample?", designed by Claude chat · run by Aradhya · [details →](DETAILED_EXPERIMENTS.md#e6b-repeat-factor-sampling-with-t--03-pre-registered-4-oct-2026-before-launch-configse6b_b1h_rfs_t03yaml)*
+
+### E8: E4 for longer (stopped)
+E4 was still slowly improving at epoch 50, so E8 trained the same recipe for 100 epochs. We stopped it at epoch 68
+to free GPU budget for E10 and E12. It counts as stopped, not as a result.
+*Suggested by Claude chat · stopped by Aradhya · [details →](DETAILED_EXPERIMENTS.md#budget-decisions-author-4-oct-2026-1630-ist)*
+
+---
+
+## 2. Stepping outside the box
+
+### Why is val harder than our own hidden images?
+The same model finds 0.665 of val trucks but 0.852 of holdout40 trucks. We compared them at matched truck size,
+crowding and image size, and none of those explained the gap; box size explained just 3% of it. The difference is in
+the scenes themselves, which pushed us to look at the data instead of the model.
+*Suggested by Claude chat · built by Claude Code · [details →](DETAILED_EXPERIMENTS.md#val-vs-holdout40-recall-gap-4-oct-2026-cpu-only-kernel-aradhya1211auric-recall-gap-code-cc152a5)*
+
+![recall by size](figures/story/recall_by_size.png)
+
+### 🔍 Are the false alarms really false?
+We looked at the 60 most confident predictions that matched no label. 46 of them looked like real, unlabelled
+trucks. Either our five classes were missing from the labels, or these were truck types the dataset leaves out, and
+the crops alone couldn't tell which. Either way, the score was punishing the model for finding real vehicles.
+*Suggested by Claude chat · built by Claude Code · [details →](DETAILED_EXPERIMENTS.md#background-false-positive-audit-4-oct-2026-cpu-only-kernel-aradhya1211auric-fp-crop-code-734299d)*
+
+![FP audit](figures/story/fp_audit_sheet.jpg)
+
+### 🕵️ The xView reveal
+The image names looked familiar, so we compared every image with the public xView dataset. All 465 of our images
+are xView training images, and four of the val images are exact 2× or 0.5× rescaled copies, which explains their
+strange sizes. The labels are xView's own boxes, filtered to five classes (99.6% pair up), with a small share of
+changed classes. Most tellingly, 216 of B1h's 350 confident holdout40 "false positives" sit on xView boxes of truck
+types our dataset excludes, mostly xView's generic "Truck". The model wasn't hallucinating; it was finding trucks
+nobody asked it to find.
+*Suggested by Claude chat · built by Claude Code · checked by Aradhya · [details →](DETAILED_EXPERIMENTS.md#e10-steps-13-xview-overlap-label-comparison-extra-data-fp-re-scoring-4-oct-2026-cpu-only-kernel-aradhya1211auric-xview-overlap-v2-code-59ef959)*
+
+### 👀 An independent visual review
+Claude chat went through the val inspection sheets without seeing our interpretation first. It saw labels that are
+not shifted, Truck w/Box labels concentrated in two dark port images, Cargo vs Box looking inconsistent between
+train and val, and several visibly degraded val images (dark, hazy, blurry, low-resolution). Claude Code is
+reproducing the numbers behind each observation. Image quality, the trucks missed in one image and geographic
+overlap with training images are being measured now.
+*Review by Claude chat · numbers by Claude Code · TODO-FINAL: link once the reproduction is in DETAILED_EXPERIMENTS.md*
+
+![inspection sheet](figures/inspect_val/06_val_fp_top.jpg)
+
+---
+
+## 3. Fixing what we found
+
+### E10: teach the model the look-alikes ⏳
+If most false alarms are excluded truck types, tell the model about them. E10 trains on our images plus 382 extra
+xView images, with the excluded truck types as extra classes that never count at test time, and with val and the
+holdout images strictly excluded. The extra images hold few of our five classes, so this is mainly a test of "label
+the look-alikes". The learning curve predicts a gain right at the noise bar (about +0.019). Running now.
+*Suggested by Claude chat · run by Aradhya · [details →](DETAILED_EXPERIMENTS.md#e10-extra-xview-data-val-and-holdout40-excluded-pre-registered-4-oct-2026-before-launch-configse10_b1h_xview_extrayaml) · TODO-FINAL: result*
+
+### E12: inference that adapts to scale ⏳
+Four val images are rescaled 2× or 0.5×, so their trucks are far bigger or smaller than anything in training. E12
+keeps B1h's weights and changes only inference. It either runs at three scales, or picks a scale per image from the
+size of what it detects. The rule is chosen on rescaled copies of holdout40 and then applied to val exactly once.
+Waiting for a GPU slot.
+*Suggested by Claude chat · run by Aradhya · [details →](DETAILED_EXPERIMENTS.md#e12-scale-robust-inference-no-training-pre-registered-4-oct-2026-before-any-run-analysise12_scalepy) · TODO-FINAL: result*
+
+### The final model
+The final candidate is E10's model with E12's inference, each only if it passes its own pre-registered test.
+Otherwise it stays B1h with plain inference. TODO-FINAL.
 
 ---
 
 ## Plot twists & roadblocks 🎢
-- ⏱️ **Colab free tier was too short** for the runs (Aradhya's screenshot). Everything moved to Kaggle, driven from the
-  command line; CPU-only kernels for anything without a GPU (Claude chat's idea).
-- 🧟 **Kaggle mounted stale code once.** A kernel ran the previous version, so the script was missing. Claude Code added a
-  guard: every kernel checks its code commit first.
-- 🐛 **The label checker cried wolf.** 85 tiles were flagged as mismatched; it was a pairing bug in the checker, found by
-  Claude Code. After the fix: 0.
-- ⏹️ **E1 stopped itself at epoch 145.** Ultralytics' default early stopping, watching val, found by Claude Code.
-  Every later run turns it off.
-- 🔢 **"500 instances" ≠ "500 images".** Our curve answered the wrong question; Claude Code caught it while building the
-  checklist. Answer as asked: about +0.006, below noise.
-- 📏 **§5.4 must be judged on val**, per the brief (also caught by Claude Code). Both versions are reported; neither
-  finds a 90% subset.
-- 🧮 **Kaggle GPU quota hold.** Running sessions reserve quota, and the command-line tool can't see that, so E8 waited
-  until E6 and E7 both finished.
-- 🎯 **"Can we reach 0.7?"** Aradhya asked. Claude chat checked published xView results on similar small, look-alike
-  classes; they are far below 0.75 (Claude chat's check, not verified in this repo).
-- 🧭 **"Picking an epoch on holdout40 isn't test-set selection."** A correction by Claude chat: holdout40 is our
-  validation split. We still keep `last.pt`, as pre-registered.
+- ⏱️ **Colab's free tier was too short** for our runs (Aradhya's screenshot), so everything moved to Kaggle, driven
+  from the command line, with CPU-only kernels for anything that didn't need a GPU (Claude chat's idea).
+- 🧟 **Stale code, twice.** Kaggle once mounted an older version of our code. Then the first guard (Claude Code's)
+  was too strict and rejected *newer* code, which cost E8 and E6 a launch each. The guard now checks only that the
+  needed files exist.
+- 🐛 **The label checker cried wolf.** It flagged 85 tiles because of a pairing bug, found by Claude Code. After
+  the fix: zero.
+- ⏹️ **E1 stopped itself at epoch 145**, thanks to Ultralytics' default early stopping quietly watching val. Claude
+  Code found it, and it's been off ever since.
+- 🔢 **"500 instances" isn't "500 images".** Our learning curve first answered the wrong question; Claude Code
+  caught it while building the submission checklist. The answer to the right question is about +0.006, below noise.
+- 📏 **§5.4 has to be judged on val**, per the brief (also caught by Claude Code). We report both versions, and
+  neither finds a 90% subset.
+- 🧮 **The GPU quota hold.** Running sessions reserve quota that the command line can't see, and the budget forced
+  us to stop E8 and cancel E9 and E11.
+- 🎯 **"Can we reach 0.7?"** Aradhya asked. Claude chat checked the published xView results: the best is 0.3065
+  mAP over 19 small, similar xView classes (arXiv 2104.11854, Table IV).
+- 🧭 **"Picking an epoch on holdout40 isn't test-set selection."** Claude chat's correction: holdout40 is our
+  validation split. We still kept the last checkpoint, as pre-registered.
 - 🏃 **"Keep going nonstop."** Aradhya's call, which is why there are so many small experiments.
 - 🤝 **AI-assistance disclosure.** Flagged by Claude chat, approved by Aradhya.
-
-## Still running ⏳
-- **E6, rare-class resampling.** Training finished, then crashed in a summary step; evaluation is running on CPU. Heads-up:
-  at the pre-registered setting only Liquid gets repeated, so it's a weak test. 📖 Details → [E6: run record](DETAILED_EXPERIMENTS.md#e6-run-record-4-oct-2026-gpu-kernel-aradhya1211auric-e6-rfs-code-7ec3894)
-- **E6b, rare-class resampling with t = 0.3.** E6 (t = 0.1, +1.6% tile views) was too weak a test. At t = 0.3 Tractor
-  tiles are shown 1.7×, Liquid 2.2× and Flatbed 1.4× (+17.9% views). Waiting for E8's slot.
-- **E9, a bigger model (yolo11m).** Does more capacity generalise better? Predicted: no. It has a 5 GPU-h guard and
-  launches after E8 and E6b.
-- **E8, E4's recipe for 100 epochs.** Training on GPU. 📖 Details → [E8: E4](DETAILED_EXPERIMENTS.md#e8-e4s-recipe-for-100-epochs-pre-registered-4-oct-2026-before-any-run-configse8_b1h_flipud_mixup_100epyaml)
-- **Two-stage on E4's boxes.** Running on CPU. 📖 Details → [Two-stage: crop](DETAILED_EXPERIMENTS.md#two-stage-crop-classifier-on-e4s-boxes-pre-registered-4-oct-2026-before-any-run)
-- **E1 / E2 holdout curves.** Running on CPU. They will be added to the holdout-curve picture.
-- **TTA / FP audit:** done (cards 13 and 15).
