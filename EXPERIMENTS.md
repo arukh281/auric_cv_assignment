@@ -3,6 +3,40 @@
 Each entry: Observation, Hypothesis, Changes vs. previous run, Results, Conclusion, Next step.
 Every number cites the file it came from. Hypothesis and Conclusion are written by the author.
 
+## Index of runs (added 2026-10-04 audit)
+
+mAP50 = COCO 101-point AP50 averaged over the 5 classes, on `last.pt`. val = 22-image official val; holdout40 = 40
+train images never trained on by B1h-family runs (`splits/holdout40_seed0.txt`); train40 = 40 sampled seen train
+images. Sources: `results/<run>/eval/metrics.json`, `results/<run>/eval_holdout40/metrics.json`,
+`results/<run>/eval_train40/metrics.json` (`mAP50`). "—" = not evaluated; UNKNOWN = should exist but cannot be sourced
+from a repo file. GPU-h: Kaggle kernel hours where recorded (MORNING.md table for the 3 Oct runs; the GPU-hours tables
+in this file for SANITY/E1/E2), else UNKNOWN with the training time from `results/<run>/train/results.csv` (`time`
+column) in brackets, which is a lower bound.
+
+| run | purpose | status | val mAP50 | holdout40 mAP50 | train40 mAP50 | GPU-h | entry |
+|---|---|---|---|---|---|---|---|
+| B0 `b0_full640` | naive whole image at 640 | done | 0.0020 | — | — | UNKNOWN (Colab; train 0.64 h) | [B0](#b0-naive-full-image-baseline-configsb0yaml-run-b0_full640) |
+| B1 `b1_tile1024` | native-resolution 1024 tiles | done | 0.0715 | — (trained on these images) | 0.4027 | UNKNOWN (Colab; train 2.34 h) | [B1](#b1-native-resolution-tiled-baseline-configsb1yaml-run-b1_tile1024) |
+| B1h `b1h_tile1024_holdout40` | B1 with holdout40 removed; generalisation test; current best | done | 0.1065 | 0.1507 | 0.3778 | UNKNOWN (train 1.52 h) | [B1h](#b1h-b1-with-40-train-images-held-out-configsb1hyaml-run-b1h_tile1024_holdout40) |
+| `b1h_seed1` | B1h, training seed 1 (seed noise) | done | 0.0634 | 0.1333 | — | UNKNOWN (train 1.45 h) | [LC](#lc-learning-curves-53-runs-b1h_f25--b1h_f50--b1h_f75--b1h_seed1) |
+| `b1h_f25` | learning curve, 101 images | done | 0.0169 | 0.0606 | — | UNKNOWN (train 1.49 h) | [LC](#lc-learning-curves-53-runs-b1h_f25--b1h_f50--b1h_f75--b1h_seed1) |
+| `b1h_f50` | learning curve, 202 images | done | 0.0492 | 0.0948 | — | UNKNOWN (train 1.41 h) | [LC](#lc-learning-curves-53-runs-b1h_f25--b1h_f50--b1h_f75--b1h_seed1) |
+| `b1h_f75` | learning curve, 302 images | done | 0.0846 | 0.1045 | — | UNKNOWN (train 1.35 h) | [LC](#lc-learning-curves-53-runs-b1h_f25--b1h_f50--b1h_f75--b1h_seed1) |
+| `b1h_f50_seed1` | random 202, seed 1 (§5.4 noise) | done | 0.0573 | 0.0816 | — | ≤ 1.6 (MORNING.md) | [S54](#s54-smart-vs-random-subsets-54-runs-b1h_smart50--b1h_smart75--b1h_f50_seed1--b1h_f75_seed1) |
+| `b1h_f75_seed1` | random 302, seed 1 (§5.4 noise) | done | 0.0736 | 0.1230 | — | ≤ 1.75 (MORNING.md) | [S54](#s54-smart-vs-random-subsets-54-runs-b1h_smart50--b1h_smart75--b1h_f50_seed1--b1h_f75_seed1) |
+| `b1h_smart50` | smart-selected 202 images (§5.4) | done; no author conclusion | 0.0562 | 0.1052 | — | ≤ 1.7 (MORNING.md) | [S54](#s54-smart-vs-random-subsets-54-runs-b1h_smart50--b1h_smart75--b1h_f50_seed1--b1h_f75_seed1) |
+| `b1h_smart75` | smart-selected 302 images (§5.4) | done; no author conclusion | 0.0832 | 0.1040 | — | ≤ 1.9 (MORNING.md) | [S54](#s54-smart-vs-random-subsets-54-runs-b1h_smart50--b1h_smart75--b1h_f50_seed1--b1h_f75_seed1) |
+| E1 `e1_b1h_150ep` | undertraining test: 150 epochs | done (stopped at 145 by val-driven early stopping) | 0.0680 | 0.0923 | 0.7737 | ~4.7 (estimate) | [E1/E2](#e1--e2-is-b1h-undertrained-and-does-scale-05-hurt-small-trucks-configse1_b1h_150epyaml-configse2_b1h_150ep_scale02yaml), [results](#e1--e2-results-4-oct-2026) |
+| E2 `e2_b1h_150ep_scale02` | scale 0.2 vs 0.5, 150 epochs | done | 0.0620 | 0.1112 | 0.9056 | ~4.4 (estimate) | [E1/E2](#e1--e2-is-b1h-undertrained-and-does-scale-05-hurt-small-trucks-configse1_b1h_150epyaml-configse2_b1h_150ep_scale02yaml), [results](#e1--e2-results-4-oct-2026) |
+| SANITY (`auric-sanity`) | settings, tile-label check, 16-tile overfit test | done; NOT PASS, overridden; PASS after re-check | — (overfit AP50 1.000 on its 16 training tiles, `results/sanity/overfit/eval_ep300/metrics.json`) | — | — | ≤ 0.30 | [SANITY](#sanity-why-does-b1h-reach-only-038-map50-on-its-own-training-images-kernel-aradhya1211auric-sanity-code-f2388f1), [override](#sanity--e1e2-override-of-not-pass-authors-decision-3-oct-2026-1122-pm-ist) |
+| label-mismatch (`auric-label-mismatch`) | IoU re-check of the 85 flagged tiles | done: checker artefact | — | — | — | 0 (CPU) | [re-check](#sanity-label-mismatch-re-check-4-oct-2026-cpu-only-kernel-aradhya1211auric-label-mismatch-code-1f3c5bf) |
+| CHECK 0 | which weights produced the scores | done | — | — | — | 0 (no compute) | [CHECK 0](#check-0-4-oct-2026-which-weights-produced-the-reported-scores) |
+| E3 `e3_b1h_dota` | DOTA-pretrained init | launched 4 Oct, no results | — | — | — | UNKNOWN (expected ~2) | [E3/E4](#e3--e4-two-remedies-for-overfitting-at-b1hs-length-pre-registered-4-oct-2026-before-any-result) |
+| E4 `e4_b1h_flipud_mixup` | flipud 0.5 + mixup 0.1 | launched 4 Oct, no results | — | — | — | UNKNOWN (expected ~2) | [E3/E4](#e3--e4-two-remedies-for-overfitting-at-b1hs-length-pre-registered-4-oct-2026-before-any-result) |
+| CPU kernels fp-crop / e1-figs | FP audit + crop classifier; E1 figures/errors | launched, no results | — | — | — | 0 (CPU) | [E3/E4](#e3--e4-two-remedies-for-overfitting-at-b1hs-length-pre-registered-4-oct-2026-before-any-result) |
+
+Seed noise for comparisons: B1h vs b1h_seed1 differ by 0.043 val / 0.017 holdout40 mAP50 (rows above).
+
 ---
 
 ## Pre-run timing probe (1 epoch each, Colab T4 free tier; old config: optimizer=auto, 100 epochs)
@@ -34,7 +68,10 @@ Source: `runs/_timing/` on Drive (`timing_estimate.csv`, `train/results.csv`, `t
   This is derived from the numbers above, not measured.
 
 **Hypothesis**
-TODO (me)
+*Not recorded before the run; reconstructed afterwards (2026-10-04 audit; the field said "TODO (me)" from `f8d9117`
+until after B0's results were committed in `99fbf95`):* a whole image letterboxed to 640 px shrinks a median truck
+to ~4–5 px, so a naive full-image YOLO11s should detect very few trucks and serve as a floor for the tiled B1.
+No numeric prediction was made.
 
 **Changes vs. previous run**
 First run. Starts from COCO-pretrained YOLO11s (`yolo11s.pt`).
@@ -51,12 +88,19 @@ First run. Starts from COCO-pretrained YOLO11s (`yolo11s.pt`).
 - Eval: `eval.py`, full image at 640, conf 0.001, NMS IoU 0.7, max_det 334.
 
 **Results**
-Pending Colab. Fill from:
-- `runs/b0_full640/eval/per_class.csv` and `metrics.json` (headline = COCO 101-pt AP50; the scorer comparison against
-  pycocotools and Ultralytics val is in `scorer_comparison.csv`)
-- `training_summary.json` (total iterations, batch used)
-- `figures/b0_full640/checkpoint_curve.csv/.png` (real-metric mAP50 per kept checkpoint)
-- `figures/b0_full640/` (TP/FP/FN grids, confusion matrix)
+(Filled 2026-10-04 audit from the result files; the field previously said "Pending Colab".)
+- Val mAP50 **0.0020** (95% CI 0.0009–0.0045) (`results/b0_full640/eval/per_class.csv`, `metrics.json`).
+  Per class AP50: Cargo 0.0022, Box 0.0077, Flatbed 0.0000, Tractor 0.0000, Liquid 0.0000 (same file). No predictions
+  at all for Flatbed, Tractor or Liquid (`n_pred` 0).
+- Scorer cross-check: ours 0.001986 = pycocotools 0.001986; Ultralytics val 0.0024
+  (`results/b0_full640/eval/scorer_comparison.csv`, `ultralytics_crosscheck.json`).
+- Training: 50/50 epochs, batch 16 used, 28 it/epoch, 1400 iterations (`results/b0_full640/training_summary.json`);
+  0.64 h of training (`results/b0_full640/train/results.csv`, `time` column).
+- Checkpoint curve (val mAP50, epochs 10/20/30/40/50): 0.0001 / 0.0008 / 0.0006 / 0.0010 / 0.0020
+  (`figures/b0_full640/checkpoint_curve.csv`).
+- holdout40 and train40: not evaluated (—).
+- GT-box oracle: 396 of 1552 GT boxes have an anchor at IoU ≥ 0.5 ("unflagged"); pooled accuracy 0.481, mean
+  per-class 0.215 (`figures/b0_full640/gt_oracle/comparison.csv`).
 
 **Conclusion**
 **Result:** mAP50 = 0.002, indicating almost no useful detection.
@@ -64,7 +108,8 @@ Pending Colab. Fill from:
 At 640 px, only 26% of trucks aligned sufficiently with a prediction slot, compared with 93% using 1024 px tiles. This confirms that tiling was necessary, although it did not solve every problem.
 
 **Next step**
-Pending results.
+(Filled 2026-10-04 audit; was "Pending results.") B1, the native-resolution tiled baseline below. B1 was in fact run
+before B0 (see Changes).
 
 ---
 
@@ -108,12 +153,22 @@ Pending results.
   - Scored against the original full-image labels with the same code as B0.
 
 **Results**
-Pending Colab. Fill from:
-- `runs/b1_tile1024/eval/per_class.csv`, `metrics.json` and `scorer_comparison.csv`
-- `training_summary.json` (iterations, batch used) and `tiling_params.json` (tile counts)
-- `figures/b1_tile1024/checkpoint_curve.csv/.png` (sliced mAP50 per kept checkpoint)
-- `figures/b1_tile1024/merge_sensitivity.csv` (mAP50 under IoS 0.5/0.6/0.7, IoU 0.5 and no merge, re-scored from
-  the saved raw tile predictions without re-inference)
+(Filled 2026-10-04 audit from the result files; the field previously said "Pending Colab".)
+- Val mAP50 **0.0715** (95% CI 0.0419–0.1242) (`results/b1_tile1024/eval/per_class.csv`, `metrics.json`).
+  Per class AP50: Cargo 0.0889, Box 0.1299, Flatbed 0.0530, Tractor 0.0064, Liquid 0.0792 (same file).
+- Scorer cross-check: ours = pycocotools (0.07148, abs diff 0.0) (`results/b1_tile1024/eval/scorer_comparison.csv`).
+- Training: 50/50 epochs, batch 16 used, 3785 tiles, 237 it/epoch, 11850 iterations
+  (`results/b1_tile1024/training_summary.json`); 2.34 h of training (`results/b1_tile1024/train/results.csv`).
+- Checkpoint curve (val mAP50, epochs 10/20/30/40/50): 0.036 / 0.058 / 0.055 / 0.056 / 0.071
+  (`figures/b1_tile1024/checkpoint_curve.csv`).
+- Merge sensitivity (max_det 334): IoS 0.5 0.0707, IoS 0.6 0.0715 (default), IoS 0.7 0.0722, IoU 0.5 0.0718, no merge
+  0.0484 (`figures/b1_tile1024/merge_sensitivity.csv`). IoS 0.6 at max_det 3000: 0.0776
+  (`figures/b1_tile1024_maxdet3000/merge_sensitivity.csv`).
+- train40 (seen images): mAP50 **0.4027** (0.3175–0.4985) (`results/b1_tile1024/eval_train40/per_class.csv`).
+  holdout40: not evaluated (—; B1 trained on those images).
+- Class-agnostic val AP50 0.2374, recall at conf 0.001 0.5838 (906/1552) (`results/b1_tile1024/eval/class_agnostic.json`).
+- Error bins (dAP50 if fixed): cls +0.190, bkg +0.053, missed +0.041, loc +0.014
+  (`figures/b1_tile1024/errors/tide_dAP.csv`).
 
 Per-epoch val curves for B1 come from Ultralytics' val on un-sliced full images at 1024. They show training
 dynamics only and are not comparable with the sliced metric.
@@ -138,11 +193,31 @@ Rejection condition (b) was largely met: trucks of 8–48 px (92% of val trucks)
 **Open question:** Is the validation score unusually low, or does the model perform similarly on any unseen image? B1h tests this using 40 held-out training images.
 
 **Next step**
-Pending results.
+(Filled 2026-10-04 audit; was "Pending results.") B1h: B1 retrained with 40 train images held out, to test whether
+the low val score reflects poor generalisation to any unseen image (Open question above).
 
 ---
 
 ## B1h: B1 with 40 train images held out (`configs/b1h.yaml`, run `b1h_tile1024_holdout40`)
+
+### Observation
+(Added 2026-10-04 audit from the B1 entry.) B1 scored 0.0715 val mAP50 but 0.4027 on 40 seen train images
+(`results/b1_tile1024/eval/metrics.json`, `results/b1_tile1024/eval_train40/metrics.json`). It was open whether the
+low score is specific to val or applies to any unseen image (B1 "Open question").
+
+### Hypothesis
+*Not recorded before the run; reconstructed afterwards:* if the model scores about as badly on held-out train images
+as on val, the problem is generalisation from ~400 images, not something peculiar to val. No prediction was written
+(see "Pre-registration" below).
+
+### Changes vs. previous run (B1)
+(Added 2026-10-04 audit from `configs/b1h.yaml` and the result files.)
+- 40 train images held out (`splits/holdout40_seed0.txt`, seed 0, stratified by rarest class; 1938.png excluded):
+  403 images → 3439 tiles, 215 it/epoch, 10750 iterations (`results/b1h_tile1024_holdout40/training_summary.json`).
+- Eval max_det 902 instead of 334 (`results/b1h_tile1024_holdout40/eval/metrics.json`, `max_det`).
+- Platform: Kaggle 2 × T4, torch 2.10.0+cu128, instead of Colab T4 torch 2.11.0+cu130
+  (`results/<run>/env/train_hardware.json`). Code `4a17eb1`.
+- Evaluated on val, holdout40 and train40, all on `last.pt`.
 
 ### Results
 
@@ -190,6 +265,18 @@ Classification remains the biggest bottleneck, consistent with B1. More training
 
 ## LC: learning curves (§5.3), runs b1h_f25 / b1h_f50 / b1h_f75 + b1h_seed1
 
+**Observation** (field label added 2026-10-04 audit)
+B1h: train40 0.378 vs holdout40 0.151 vs val 0.107 mAP50 (`results/b1h_tile1024_holdout40/{eval_train40,eval_holdout40,eval}/metrics.json`).
+
+**Hypothesis** (field label added 2026-10-04 audit): the pre-registration below, committed in `4716578` (2 Oct 19:06)
+before the LC results commit `089e471`.
+
+**Changes vs. B1h** (field label added 2026-10-04 audit; from `configs/b1h_f*.yaml`, `results/<run>/training_summary.json`)
+- Nested class-stratified subsets of the 403 non-holdout images (`splits/train_f{25,50,75}_seed0.txt`): 101 / 202 /
+  302 images, trained 199 / 101 / 67 epochs so total iterations stay ~10,750 (10746 / 10706 / 10720); warmup and
+  close_mosaic scaled to match.
+- b1h_seed1: B1h with training seed 1 (10750 iterations), to measure seed noise.
+
 **Pre-registration (written by the author before any learning-curve result was seen)**
 - Written at: 2 Oct 2026, 7:06 PM IST, before any learning-curve run
 - Question: would 500 more labelled images meaningfully raise mAP50?
@@ -235,9 +322,22 @@ By my pre-registered rule: the projected held-out gain at +500 images (+0.080 mA
 
 No random subset tested retained 90% of full-data performance. Even 75% of the images achieved 0.105, about 74% of the full-data held-out mAP50 (0.142, the mean of both seeds). For detection alone (class-agnostic) it retained 81%. The remaining question is whether a carefully selected subset can retain more performance than a random sample of the same size.
 
+### Next
+(Field added 2026-10-04 audit, from the text above and the Plan table.) §5.4 smart-vs-random subsets (S54 below);
+classification needs its own remedy (see §5.1).
+
 ---
 
 ## §5.1 If locations were perfect
+
+**Observation** (field added 2026-10-04 audit): B1's error bins put wrong-class errors first (cls +0.190 dAP50,
+`figures/b1_tile1024/errors/tide_dAP.csv`).
+
+**Hypothesis** — *Not recorded before the run; reconstructed afterwards:* classification, not localisation, limits
+mAP50. (The entry was first committed with its conclusion in `3e4b9c8`; no earlier hypothesis exists.)
+
+**Changes**: no training. Analysis only (`analysis/gt_box_oracle.py`, pooled-anchor mode) on the existing B0, B1 and
+B1h weights.
 
 Method: for every true truck box in val, I took the model's own class scores at that
 location and checked whether its top class was right. This removes detection from the
@@ -257,6 +357,12 @@ Main confusion: Cargo Truck vs Truck w/Box.
 Sources: `figures/{b1_tile1024,b1h_tile1024_holdout40}/gt_oracle/comparison.csv` and `confusion_pool.csv` (pooled-anchor
 mode, all GT), `figures/b1h_tile1024_holdout40/errors/tide_dAP.csv`. For B1 the same fixes give +0.190 / +0.014 / +0.041
 (`figures/b1_tile1024/errors/tide_dAP.csv`).
+Check (2026-10-04 audit): B1 pooled accuracy 0.553 / mean per-class 0.387; B1h 0.601 / 0.436
+(`figures/{b1_tile1024,b1h_tile1024_holdout40}/gt_oracle/comparison.csv`, mode pool, subset all). B1h dAP50 cls
++0.147, loc +0.022, missed +0.044 (`figures/b1h_tile1024_holdout40/errors/tide_dAP.csv`). All match.
+
+**Next** (field added 2026-10-04 audit, from B1h "Next steps"): a separate classifier on cropped trucks for Cargo vs
+Box (now planned as the E3/E4 side kernel (b)).
 
 ---
 
@@ -279,6 +385,31 @@ mode, all GT), `figures/b1h_tile1024_holdout40/errors/tide_dAP.csv`. For B1 the 
 - Prediction: none provided. The overnight instructions contained the unfilled placeholder
   "<<< WRITE YOUR GUESS HERE, e.g. "smart75 beats random75 on class-agnostic AP50 but stays below 0.128 mAP50" >>>",
   so no prediction was written before the runs.
+
+**Six-field summary** (added 2026-10-04 audit)
+- **Observation:** no random 50% or 75% subset kept 90% of full-data held-out mAP50 (LC "Smallest useful training subset").
+- **Hypothesis:** the author's prediction for §5.4 was **never provided** (see "Prediction" above). Any hypothesis
+  stated for S54 is *not recorded before the run; reconstructed afterwards:* a coverage + diversity selected subset
+  keeps more held-out performance than a random subset of the same size.
+- **Changes:** as in the pre-registration above (committed `b02413c`, 3 Oct 02:14, before the first S54 result
+  commit `40067b8`). Runs: b1h_smart50 202 images / 104 epochs / 10712 it; b1h_smart75 302 / 66 / 10758;
+  b1h_f50_seed1 202 / 101 / 10706; b1h_f75_seed1 302 / 67 / 10720 (`results/<run>/training_summary.json`).
+  Note: these four ran on Kaggle torch 2.11.0 / Python 3.13.15, the seed-0 random runs on torch 2.10.0 / Python
+  3.12.13 (HANDOFF §8 item 4; `results/<run>/env/train_hardware.json`).
+- **Results** (held-out, `figures/subset_compare/decision_rule.csv`):
+
+| size | metric | smart | random s0 | random s1 | seed spread | smart − best random | exceeds both by > spread |
+|---|---|---|---|---|---|---|---|
+| 202 | class-agnostic AP50 (primary) | 0.2841 | 0.2324 | 0.2213 | 0.0111 | +0.0517 | True |
+| 202 | mAP50 (secondary) | 0.1052 | 0.0948 | 0.0816 | 0.0132 | +0.0103 | False |
+| 302 | class-agnostic AP50 (primary) | 0.3343 | 0.2934 | 0.3062 | 0.0128 | +0.0281 | True |
+| 302 | mAP50 (secondary) | 0.1040 | 0.1045 | 0.1230 | 0.0185 | −0.0189 | False |
+
+  Val mAP50: smart50 0.0562, smart75 0.0832, f50_seed1 0.0573, f75_seed1 0.0736 (`figures/subset_compare/subset_compare.csv`).
+  No 50% or 75% run reached the 0.128 "recovers 90%" threshold; the highest was f75_seed1 at 0.1230 (same file).
+- **Conclusion:** not yet written by the author. Facts only: by the pre-registered primary rule smart beats random at
+  both sizes on held-out class-agnostic AP50; it does not on held-out mAP50; no tested subset recovers 90%.
+- **Next:** not recorded. UNKNOWN.
 
 ---
 
@@ -328,9 +459,13 @@ mode, all GT), `figures/b1h_tile1024_holdout40/errors/tide_dAP.csv`. For B1 the 
 - Its train losses at epoch 50 are box 1.588 / cls 1.596 / dfl 1.003, and they are still falling. Slope over epochs
   42–50 (after the close_mosaic jump at 41): box −0.0099, cls −0.030, dfl −0.0018 per epoch
   (`results/b1h_tile1024_holdout40/train/args.yaml` run; curves in `figures/sanity/b1h_loss_curves.png`).
+  Audit 2026-10-04: the epoch-50 losses 1.58793 / 1.59568 / 1.00336 are in
+  `results/b1h_tile1024_holdout40/train/results.csv` (args.yaml holds settings, not losses).
 
 **Hypothesis**
-The low in-sample score could come from (a) wrong training settings, (b) broken tile labels, or (c) a model or
+*Not recorded before the run; reconstructed afterwards:* this hypothesis and the "pre-agreed" PASS rule (zero label
+mismatches and overfit AP50 ≥ 0.9) were first committed together with the results in `e72d3b8`; no earlier commit
+records them (checked `f2388f1`, `d8b5d47`, `c436c3a`). The low in-sample score could come from (a) wrong training settings, (b) broken tile labels, or (c) a model or
 pipeline that cannot fit this data at all.
 
 **Changes**
@@ -381,6 +516,16 @@ No new detector training on the full data. Three checks:
 - **E1/E2 were not launched.**
 - Facts only, no interpretation yet: the model and pipeline can fit tiles of this data perfectly when augmentation is
   off. The 85 mismatched tiles are unexplained.
+- **Corrected 2026-10-04 (label check):** the 85 flags are a checker artefact, not label errors.
+  `analysis/sanity_check.check_labels` paired boxes by a coordinate `np.lexsort` (`analysis/sanity_check.py` line 75),
+  which mis-pairs near-equal coordinates in dense tiles. The CPU re-check with one-to-one IoU pairing
+  (`analysis/label_mismatch.py`, kernel `aradhya1211/auric-label-mismatch`) found all 3,278 boxes in the 85 tiles
+  identical ("same": 3278; `results/sanity/label_mismatch/summary.json`). See "SANITY: label-mismatch re-check" below.
+  The checker code is **not yet fixed** (`check_labels` still uses lexsort pairing).
+- **Corrected 2026-10-04 ("E1/E2 were not launched"):** true when written (`e72d3b8`, 23:17 IST), but the author then
+  overrode the NOT PASS before the re-check and launched E1/E2 (see "SANITY → E1/E2: override of NOT PASS", committed
+  `1f3c5bf`, 23:22 IST). The re-check (committed later in `727d7c7`) showed both PASS criteria hold: 0 real label
+  mismatches, overfit AP50 1.000.
 
 **Next**
 - Diagnose the 85 mismatches: re-run the label check with per-box differences saved (CPU-only Kaggle kernel), to tell
@@ -409,7 +554,7 @@ the flagged tiles with per-box differences (`analysis/label_mismatch.py`).
 ### E1 / E2: launch record
 
 - E1 `aradhya1211/auric-e1-b1h-150ep` and E2 `aradhya1211/auric-e2-b1h-150ep-scale02` were pushed as **two separate
-  GPU kernels** at 23:20 IST on 2 Oct, code `e72d3b8`.
+  GPU kernels** at 23:20 IST on 3 Oct, code `e72d3b8`. **Corrected 2026-10-04: was "2 Oct", source says 3 Oct** (E1/E2 pre-registration dated 3 Oct 23:09 IST, commit `d8b5d47` 2026-10-03 23:09 +0530; code `e72d3b8` committed 2026-10-03 23:17 +0530).
   - Each trains on one T4 (device 0) with the committed configs and B1h's workers.
   - Each then runs `scripts/run_lc.sh` (eval on val + holdout40, class-agnostic) and `scripts/run_analysis.sh`.
 - Both showed RUNNING at 23:21 IST. Kaggle accepted both, so the paired kernel and its 2-epoch rule were not used.
@@ -437,8 +582,20 @@ train40, on the same 40 images (verified: identical `sampled_images`).
 - **E1 stopped at epoch 145 of 150.** Ultralytics' EarlyStopping (default `patience=100`, never overridden in any of
   our configs) watches Ultralytics' own un-sliced val fitness. Its best was at epoch 45, so it stopped 100 epochs later.
   - 31,175 iterations, 4.43 h of training (`results/e1_b1h_150ep/train/results.csv`, `run.log`).
-  - `last.pt` = epoch 145, which had 4 of the 10 planned no-mosaic epochs.
-- E2 completed 150 epochs (32,250 iterations, 4.13 h).
+    Audit 2026-10-04: `run.log` is not in the repo; 145 epochs × 215 it = 31,175 and 4.43 h (`time` 15947 s at epoch
+    145) are from `results.csv`.
+  - `last.pt` = epoch 145, which had 5 of the 10 planned no-mosaic epochs.
+    **Corrected 2026-10-04: was "4 of the 10", source says 5** (epochs 141–145): `close_mosaic: 10` with
+    `epochs: 150` (`results/e1_b1h_150ep/train/args.yaml`) turns mosaic off from epoch 141, where dfl_loss jumps
+    0.885 → 0.903 (`results/e1_b1h_150ep/train/results.csv`), matching B1h's jump at epoch 41.
+- **Corrected 2026-10-04 (early stop was val-driven):** E1's stopping point was chosen by val. Ultralytics' default
+  `patience: 100` (`results/e1_b1h_150ep/train/args.yaml` line 7) watched per-epoch fitness on the official val set
+  (0.1·mAP50 + 0.9·mAP50-95 from Ultralytics' un-sliced val). Its best was epoch 45 (fitness 0.00514, from
+  `results/e1_b1h_150ep/train/results.csv`), so training stopped at 145. E1's `last.pt` therefore depends on val; see
+  CHECK 0. E2's best fitness was at epoch 61 (same computation on `results/e2_b1h_150ep_scale02/train/results.csv`),
+  so 150 came first and E2 was not affected.
+- E2 completed 150 epochs (32,250 iterations, 4.13 h) (`results/e2_b1h_150ep_scale02/training_summary.json`,
+  `train/results.csv`).
 
 | | B1h (50 ep) | E1 (150 ep, stopped at 145) | E2 (150 ep, scale 0.2) |
 |---|---|---|---|
@@ -451,6 +608,9 @@ train40, on the same 40 images (verified: identical `sampled_images`).
 
 Sources: `results/<run>/eval/per_class.csv`, `eval_holdout40/per_class.csv`, `eval_train40/{metrics,class_agnostic}.json`,
 `train/results.csv` (B1h: `results/b1h_tile1024_holdout40/...`).
+**Corrected 2026-10-04: B1h class-agnostic train40 was "–", source says 0.649**
+(`results/b1h_tile1024_holdout40/eval_train40/class_agnostic.json`, `AP50_class_agnostic` 0.6490). All other cells
+checked against the files above and match.
 
 **Checkpoint curves** (val mAP50, sliced, our scorer; `results/<run>/checkpoint_curve/checkpoint_curve.csv`).
 Holdout per checkpoint was never computed (the checkpoint curve scores val only).
@@ -471,6 +631,10 @@ Val mAP50 is not rising at the end. It peaks (E1 0.100 at epoch 90; E2 0.107 at 
 | < 16 px | 263 | 0.057 | 0.061 | 0.061 |
 | 16–32 px | 818 | 0.119 | 0.127 | 0.103 |
 | ≥ 32 px | 471 | 0.274 | 0.255 | 0.208 |
+
+Audit 2026-10-04: the B1h and E2 columns match `figures/{b1h_tile1024_holdout40,e2_b1h_150ep_scale02}/errors/op_gt.csv`
+(rows `conf0.25`, `matched`, binned by `size`). The E1 column is not saved in any repo file (E1 has no `errors/`), so
+it cannot be re-sourced: E1 values UNVERIFIED.
 
 AP50 by size was not computed. E1's `errors/` and `figures/` folders are missing from its Kaggle output (cause unknown).
 
@@ -498,6 +662,12 @@ AP50 by size was not computed. E1's `errors/` and `figures/` folders are missing
 
 ### SANITY: label-mismatch re-check (4 Oct 2026; CPU-only kernel `aradhya1211/auric-label-mismatch`, code `1f3c5bf`)
 
+- **Observation:** the sanity label check flagged 85 of 3439 tiles (`results/sanity/label_check.json`), undiagnosed.
+- **Hypothesis:** stated in the SANITY "Not yet diagnosed" note (`e72d3b8`, before this re-check): the flags are either
+  real label differences or an artefact of the checker's box pairing. No prediction of which.
+- **Changes:** no training. Same tiles re-compared with one-to-one IoU pairing and per-box differences saved
+  (`analysis/label_mismatch.py`), CPU only.
+- **Results:**
 - **All 85 flagged tiles** (from 32 source images) were re-paired one-to-one by IoU:
   - **3,278 of 3,278 boxes "same"**: identical class, every coordinate within 0.5 px.
   - 0 shifted, 0 re-classed, 0 missing, 0 extra (`results/sanity/label_mismatch/summary.json`, `box_diffs.csv`).
@@ -509,19 +679,28 @@ AP50 by size was not computed. E1's `errors/` and `figures/` folders are missing
   boxes by sorting coordinates. In dense tiles, near-equal coordinates (float round-trip of the YOLO text) reorder and
   mis-pair; IoU pairing finds every label identical.
 - With this, both criteria of the sanity PASS rule hold: 0 real label mismatches, and overfit AP50 1.000.
+- **Next** (field added 2026-10-04 audit, from HANDOFF.md "Open items"): fix `analysis/sanity_check.check_labels` to
+  pair by IoU as `analysis/label_mismatch.py` does. Not done yet (the lexsort pairing is still in
+  `analysis/sanity_check.py`).
 
 ### Kaggle GPU hours (update 4 Oct 2026, 10:xx IST)
 
 | kernel | GPU h |
 |---|---|
-| auric-sanity v1 | ≤ 0.30 (22:53–23:11 IST, 2 Oct) |
-| auric-e1-b1h-150ep v1 | ~4.7 (run.log 17:55–22:36 UTC, 3 Oct, incl. evals; plus setup) |
+| auric-sanity v1 | ≤ 0.30 (22:53–23:11 IST, 3 Oct; **Corrected 2026-10-04: was "2 Oct", source says 3 Oct**: its code `f2388f1` is dated 2026-10-03 22:54 +0530) |
+| auric-e1-b1h-150ep v1 | ~4.7 (run.log, not in the repo; 17:55–22:36 UTC, 3 Oct, incl. evals; plus setup) |
 | auric-e2-b1h-150ep-scale02 v1 | ~4.4 (run.log 18:08–22:31 UTC, 3 Oct) |
 | auric-label-mismatch v1, auric-e1e2-train40 v1 | 0 (CPU-only) |
 
 `kaggle quota`: **9.56 h used, 20.44 h remaining** of 30 h (refresh 2026-10-10).
 
 ## CHECK 0 (4 Oct 2026): which weights produced the reported scores?
+
+*Six-field labels (added 2026-10-04 audit; content below unchanged):* **Observation** — E1 stopped at 145, not 150.
+**Hypothesis** — *not recorded before the check; reconstructed afterwards:* some reported score may rest on weights
+or stopping points chosen by val. **Changes** — none (audit of `metrics.json` `weights`, `scripts/_run.sh`,
+`data.yaml`). **Results** — the bullets below up to "From now on". **Conclusion** — all scores use `last.pt`; one
+val leak (E1's early stop). **Next** — the "From now on" bullets.
 
 - Every reported score used `last.pt`. Each `metrics.json` records its `weights`; all of these end in
   `train/weights/last.pt`:
@@ -547,6 +726,11 @@ AP50 by size was not computed. E1's `errors/` and `figures/` folders are missing
   - per-checkpoint curves are scored on holdout40, not val (`analysis/checkpoint_curve.py --split holdout`)
 
 ## E3 / E4: two remedies for overfitting at B1h's length (pre-registered 4 Oct 2026, before any result)
+
+*Six-field labels (added 2026-10-04 audit; content below unchanged):* **Observation** — the "Context" line.
+**Hypothesis** — "Working hypothesis" and the per-run author's hypotheses and predictions (committed in `734299d`
+before any E3/E4 result). **Changes** — the settings list and per-run bullets. **Results** — none yet (launched 4 Oct;
+no result files in `results/` at the time of this audit). **Conclusion** — none yet. **Next** — not recorded.
 
 Context: E1/E2 rejected undertraining. From B1h to E1/E2, train40 rose 0.378 → 0.774 / 0.906 while holdout40 fell
 0.151 → 0.092 / 0.111.
