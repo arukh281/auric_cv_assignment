@@ -442,8 +442,56 @@ sizes (+0.052 at 202, +0.028 at 302, vs seed spreads 0.011 / 0.013), but **not**
 
 ## 6. Final analysis and next experiment
 
-*Pending* (awaits E3/E4 and §5.2).
+*Skeleton (2026-10-04). Items marked TODO-FINAL wait for E3/E4, the background-FP audit and the crop classifier.*
+
+### 6.1 Dominant limitations of the final detector
+1. **Classification between truck types, mainly Cargo vs Box.** Evidence: class-agnostic 0.255 vs class-aware 0.107
+   (val); the GT-box oracle gets 60% right vs 52% for always "Cargo"; the Cls oracle fix adds +0.147 (§3.2, §5.1).
+2. **Generalisation from 403 images.** Evidence: train40 0.378 vs holdout40 0.151; E1/E2 raise train40 to
+   0.77 / 0.91 while holdout40 falls (§4).
+3. **Low confidence on small trucks.** Evidence: §5.2 C1 and C4 confirmed on the test half; 78% of never-detected boxes
+   have a prediction below 0.25.
+4. **Val scenes are harder than train scenes.** Evidence: recall 0.665 vs 0.852 on holdout40, not explained by size,
+   resolution or density (§3.4).
+5. TODO-FINAL: missing labels / out-of-scope vehicles as a ceiling (background-FP audit).
+
+### 6.2 Strength of each conclusion
+| Conclusion | Status | Evidence |
+|---|---|---|
+| Classification, not localisation, is the main loss | strongly supported | §3.1, §3.2, §5.1 (three independent analyses) |
+| The detector overfits; longer training does not help | strongly supported (one seed each) | E1, E2 vs B1h |
+| Small trucks are mostly "never confident", not invisible | strongly supported | §5.2 C1, C4, pre-registered and confirmed |
+| More labels help but cannot reach 0.75 | plausible, unresolved in size | §5.3; power-law fit flagged unreliable |
+| Val is harder because of a scene-level shift | plausible; mechanism unknown | §3.4 recall gap |
+| Smart subset selection helps detection, not classification | supported by the pre-registered rule, single seed for smart | §5.4 |
+| Aerial pretraining reduces overfitting (E3) | TODO-FINAL | |
+| Overhead augmentation reduces overfitting (E4) | TODO-FINAL | |
+| Missing labels cap the score | TODO-FINAL (FP audit) | |
+| A second-stage crop classifier fixes Cargo vs Box | TODO-FINAL | |
+| **Weakened or rejected:** B1 would reach 0.40–0.60 (pre-registered) | rejected (0.0715) | EXPERIMENTS.md B1 |
+| **Weakened or rejected:** B1h is undertrained (E1) | rejected | E1 |
+| **Weakened or rejected:** scale 0.5 hurts small trucks (E2) | inconclusive, leaning not supported | E2 |
+
+### 6.3 What changed most between the initial and final system
+- B0 → B1: native-resolution tiling plus sliced evaluation, 0.0020 → 0.0715 val mAP50. Explanation: at 640 px a
+  22-px truck becomes about 4 px. Supported by B0's oracle: only 396/1552 GT have a matching anchor, vs 1449/1552 for
+  B1 (§5.1).
+- B1 → B1h: 0.0715 → 0.1065, but this is within seed noise (B1h seed 1: 0.0634).
+- TODO-FINAL: E3/E4/E5 or crop-classifier change, if any passes its rule.
+
+### 6.4 Single highest-priority next step (one working day)
+TODO-FINAL: choose after E3/E4 and the audits. The candidates and what would decide between them:
+
+| Candidate | Targets limitation | Information value | Performance value | Decided by |
+|---|---|---|---|---|
+| (a) Two-stage: detector proposals + crop classifier trained on more context and higher resolution | 1 | tests whether Cargo vs Box is separable at all from pixels | high if the classifier works | crop-classifier result (`auric-fp-crop`) |
+| (b) Re-label audit of a val sample (and train), including missing trucks | 4, 5 | tells whether the 0.75 target is reachable with these labels | none directly | FP-audit share of unlabelled trucks |
+| (c) Aerial-pretrained or larger backbone, with the best augmentation | 2 | tests capacity/generalisation | moderate | E3/E4 outcome |
+| (d) More labels targeted at Cargo/Box confusion and val-like scenes (ports, yards) | 1, 2, 4 | direct test of §5.3 | moderate (projection 0.215) | §5.3 + recall gap |
+| (e) Lower operating threshold / calibration study for small trucks | 3 | low | small for mAP (mAP already integrates over thresholds) | §5.2 C4 |
+
 
 ## 7. Deliverables
 
-*Pending.*
+See `SUBMISSION_CHECKLIST.md` and the README sections "Final model and prediction" and "Reproduce everything".
+TODO-FINAL: final weights link (`weights-b1h-v1` unless E5 replaces B1h) and the predict.py reproducibility result.
