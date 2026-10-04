@@ -1652,3 +1652,25 @@ Holdout40 curve: 0.128 / 0.132 / 0.124 / 0.135 / 0.128 at epochs 10–50, flat
 - **The detector head is better than the dedicated crop classifier**, by 0.080 on the same boxes.
 - The main confusion is still Cargo ↔ Box: 42 Cargo called Box and 41 Box called Cargo (`confusion_pool.csv`).
 - This replaces the earlier rough comparison of 60% (val oracle) vs 61% (holdout crop classifier) on different sets.
+
+## E13: ensemble of existing models (pre-registered 4 Oct 2026, before any run; `analysis/e13_ensemble.py`, CPU only)
+
+- **Observation:** no single change beats B1h. E4 and E7 make different trade-offs: E4 overfits less and finds more
+  trucks, E7 keeps aerial features. Top xView solutions used ensembles, e.g. the first-place RFL solution (Reduced
+  Focal Loss, arXiv 1903.01347).
+- **Hypothesis (author's):** models with different errors fuse into a better detector.
+- **Method:**
+  - Each model's saved merged predictions, after its usual tile merge (class-wise NMS on IoS 0.6, max_det 902), are
+    fused per image with `ensemble_boxes.weighted_boxes_fusion`.
+  - Settings: **equal model weights, IoU threshold 0.55**, skip_box_thr 0.001 (= eval conf), default `conf_type`
+    "avg". Then the top 902 boxes. These choices are fixed now and are not tuned on val.
+  - Scored as usual, with mAP50 without Liquid as well.
+- **Combos, holdout40 only:** B1h alone; {B1h, E4}; {B1h, E7}; {B1h, E4, E7}; and, once E10 finishes, every combo
+  that adds E10.
+- **Selection:** the ensemble with the highest holdout40 mAP50. Val is scored **once**, for that single ensemble,
+  in the final run that includes E10.
+  - A preview run without E10 and without val may run first. It is descriptive only and selects nothing.
+- **Prediction (author's):** the best ensemble beats B1h on holdout40 by more than 0.017.
+- **If it passes:**
+  - The final submission is that ensemble, plus E12's inference rule if E12 passes.
+  - `predict.py` must reproduce it, and the README lists every weights file it needs.
