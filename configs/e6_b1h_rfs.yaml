@@ -10,6 +10,10 @@ seed: 0
 deterministic: true
 epochs: 50                 # replaced at run time from target_iterations (train.py write_rfs_list)
 target_iterations: 10750   # B1h total iterations (results/b1h_tile1024_holdout40/training_summary.json)
+match_schedule_to:         # amendment before launch: warmup / close_mosaic set at run time to B1h's step counts
+  iterations_per_epoch: 215
+  warmup_epochs: 3
+  close_mosaic: 10
 repeat_factor:             # E6: LVIS repeat-factor sampling over training tiles (detlib/rfs.py)
   t: 0.1
   seed: 0

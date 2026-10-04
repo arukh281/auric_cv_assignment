@@ -966,6 +966,16 @@ Source: `results/s52_confirm/test/claims.csv`.
   - E6 alone cannot make a new final model unless it beats B1h on holdout40 by more than 0.017.
   - Per the standing rule for any winner, it would then also need a seed-1 repeat that beats B1h.
 - **Launch:** when a GPU slot is free (E3 and E4 currently hold both).
+- **Amendment (4 Oct 2026, before launch, at the author's request):**
+  - Warmup and close_mosaic are counted in epochs, so with a longer epoch they would differ from B1h in steps and
+    become a second change.
+  - `train.py` now sets both at run time from the repeated list's iterations per epoch (config key
+    `match_schedule_to`):
+    - warmup_epochs = 3 × 215 / it_ep (a float), giving the same 645 warmup steps as B1h. Ultralytics' floor of 100
+      warmup iterations does not bind.
+    - close_mosaic = round(10 × 215 / it_ep), aiming for B1h's 2150 no-mosaic steps.
+  - The residual difference in no-mosaic steps (close_mosaic × it_ep − 2150) is written to `<run>/rfs.json` and will be
+    reported here with the results. It is at most half an epoch of steps.
 
 ## TTA on B1h (pre-registered 4 Oct 2026, before any run; `analysis/tta_eval.py`, CPU-only kernel)
 

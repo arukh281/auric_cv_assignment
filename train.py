@@ -152,6 +152,17 @@ def write_rfs_list(cfg, tiles, run_dir, nc):
         it_ep = math.ceil(len(lst) / cfg["batch"])
         cfg["epochs"] = max(1, round(cfg["target_iterations"] / it_ep))
         info.update(iterations_per_epoch=it_ep, epochs=cfg["epochs"], total_iterations=cfg["epochs"] * it_ep)
+    ms = cfg.get("match_schedule_to")  # keep warmup / close_mosaic at the reference run's number of steps
+    if ms:
+        it_ep = math.ceil(len(lst) / cfg["batch"])
+        ref = ms["iterations_per_epoch"]
+        ta = cfg.setdefault("train_args", {})
+        ta["warmup_epochs"] = ms["warmup_epochs"] * ref / it_ep
+        ta["close_mosaic"] = int(round(ms["close_mosaic"] * ref / it_ep))
+        info.update(warmup_epochs=ta["warmup_epochs"], warmup_steps=ta["warmup_epochs"] * it_ep,
+                    warmup_steps_reference=ms["warmup_epochs"] * ref, close_mosaic=ta["close_mosaic"],
+                    close_mosaic_steps=ta["close_mosaic"] * it_ep, close_mosaic_steps_reference=ms["close_mosaic"] * ref,
+                    close_mosaic_step_difference=ta["close_mosaic"] * it_ep - ms["close_mosaic"] * ref)
     (run_dir / "rfs.json").write_text(json.dumps(info, indent=2))
     (run_dir / "config.yaml").write_text(yaml.safe_dump(cfg, sort_keys=False))
     print("[train] repeat-factor sampling:", json.dumps(info), flush=True)
