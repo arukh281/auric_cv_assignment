@@ -1,0 +1,30 @@
+{
+  "n_gt": {
+    "val": 1552,
+    "holdout": 738
+  },
+  "matched_conf0001": {
+    "holdout": 629,
+    "val": 1032
+  },
+  "check_against_class_agnostic_json": {
+    "val": "1032/1552",
+    "holdout": "629/738"
+  },
+  "images": {
+    "holdout": 40,
+    "val": 22
+  },
+  "median_size": {
+    "holdout": 23.89559706450286,
+    "val": 25.495097631178062
+  },
+  "median_density_per_box": {
+    "holdout": 58.0,
+    "val": 97.0
+  },
+  "median_megapixels_per_box": {
+    "holdout": 10.406304,
+    "val": 9.376928
+  }
+}

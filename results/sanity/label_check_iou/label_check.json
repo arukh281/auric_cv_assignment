@@ -1,0 +1,26 @@
+{
+  "tiling_params": {
+    "tiles_total": 7192,
+    "tiles_written": 3439,
+    "tiles_with_boxes": 2504,
+    "empty_tiles_kept": 935,
+    "empty_tiles_dropped": 3753,
+    "box_instances_in_written_tiles": 12455,
+    "box_tile_kept_whole": 11967,
+    "box_tile_kept_clipped": 488,
+    "box_tile_dropped_partial": 451
+  },
+  "label_check": {
+    "tiles_checked": 3439,
+    "boxes_checked": 12455,
+    "tiles_mismatched": 0,
+    "mismatched_examples": [],
+    "tiles_out_of_range": 0,
+    "out_of_range_examples": []
+  },
+  "render": {
+    "largest_source": "2012.png",
+    "smallest_source": "1788.png",
+    "rendered": 12
+  }
+}

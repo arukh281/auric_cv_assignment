@@ -829,3 +829,83 @@ CPU-only kernels run alongside (no GPU quota):
 | C5 Cargo Truck boxes are often never detected: never-detected share among Cargo Truck boxes | 846/1789 = 0.473 | > 0.3 |
 
 - **What a failure means:** the inspect-half pattern does not generalise and is not reported as a finding.
+
+### §5.2 test-half confirmation: Results (4 Oct 2026; CPU-only kernel `aradhya1211/auric-s52-confirm` v2, code `95953f3`)
+
+- **Control:** on the inspect half the script reproduced every inspect value the claims came from (C1 0.576, C2a 0.168,
+  C2b 0.113, C3 0.273, C4 0.793, C5 0.473; `results/s52_confirm/inspect/claims.csv`). C4's confidence-floor number is
+  now saved to a file for the first time.
+- **Test half:** 201 images, 3369 GT boxes. Categories: learned-late 1356, never-detected 1270, forgotten 319,
+  never-learned 280, learned-early 144 (`results/s52_confirm/test/summary.json`).
+
+| claim | test estimate (95% CI, image bootstrap) | criterion | result |
+|---|---|---|---|
+| C1 never-detected share, < 16 px minus ≥ 32 px | 0.631 (0.559–0.699) | > 0 | **pass** |
+| C2a Box learned-early share minus highest other class | 0.118 (0.061–0.157) | > 0 | **pass** |
+| C2b Box forgotten share minus highest other class | 0.157 (0.090–0.209) | > 0 | **pass** |
+| C3 Liquid never-learned share minus highest other class | 0.281 (0.164–0.375) | > 0 | **pass** |
+| C4 never-detected boxes with an IoU ≥ 0.5 prediction at conf ≥ 0.001 | 0.778 (0.716–0.848) | > 0.5 | **pass** |
+| C5 Cargo never-detected share | 0.474 (0.427–0.532) | > 0.3 | **pass** |
+
+Source: `results/s52_confirm/test/claims.csv`.
+- **Conclusion:** all five pre-registered inspect-half patterns hold on the unseen test half, by the pre-registered
+  rule.
+- **Interpretation** (written after the result; no author prediction was recorded):
+  - Never-detected boxes are mostly small.
+  - About 78% of them do get a box from the model, but below the 0.25 operating threshold. So "never detected" is
+    largely "never confident", not "invisible".
+  - Truck w/Box is both the class learned earliest and the one most often forgotten later.
+  - Truck w/Liquid is the class most often found but never classified correctly.
+
+### Val vs holdout40 recall gap (4 Oct 2026; CPU-only kernel `aradhya1211/auric-recall-gap`, code `cc152a5`)
+
+- **Observation:**
+  - B1h finds 1032/1552 = 0.665 of val trucks but 629/738 = 0.852 of holdout40 trucks (any class, IoU ≥ 0.5,
+    conf ≥ 0.001). `analysis/recall_gap.py` reproduces both totals exactly (`results/recall_gap/summary.json`).
+  - The difference is 0.187, with an image-bootstrap CI of 0.043–0.307 (`results/recall_gap/standardised.csv`).
+- **Hypotheses** (written with the analysis, before its result): the gap comes from
+  1. different box sizes (scale or resolution shift),
+  2. denser scenes in val (median 97 boxes in a box's image vs 58), or
+  3. images of a different size, or
+  4. none of these (plain scene difference).
+- **Changes:** none (analysis of saved predictions). Holdout recall is re-weighted to val's distribution of each
+  factor.
+- **Results** (conf 0.001):
+
+| factor | holdout recall re-weighted to val's mix | share of the gap it explains | val bins covered by holdout data |
+|---|---|---|---|
+| none | 0.852 | – | – |
+| box size | 0.847 | 3% | 99.9% |
+| boxes per image | 0.869 | −9% | 60% (holdout has no image with 60–100 boxes) |
+| image megapixels | 0.839 | 7% | 89% |
+
+  Recall at matched box size, holdout vs val (`results/recall_gap/recall_by_factor.csv`):
+
+  | box size | holdout | val |
+  |---|---|---|
+  | 8–16 px | 0.639 | 0.548 |
+  | 16–24 px | 0.890 | 0.648 |
+  | 24–32 px | 0.936 | 0.732 |
+  | 32–48 px | 0.895 | 0.725 |
+
+  At ≥ 100 boxes per image: holdout 0.910 (2 images) vs val 0.709 (5 images).
+- **Conclusion:**
+  - **Size and image size explain almost none of the gap** (3% and 7%). Val recall is lower in every size bin from
+    8 to 48 px.
+  - **Density does not explain it where it can be tested:** in the densest bin val is still 0.20 lower. The
+    60–100 bin cannot be compared because holdout has no images in it.
+  - What remains is a difference between the scenes themselves, at the same size, density and resolution. This
+    analysis cannot say what that difference is. Candidates from `analysis/notes/visual_inspection.md` (uncertain):
+    haze, blur, ports and dense truck yards.
+  - Caveat: val has only 22 images, so within-bin comparisons rest on few images.
+  - The earlier domain classifier (§3.3) did not separate train from val (AUCs include 0.5). That makes a strong
+    global appearance shift less likely, but it was run on a 42-image local subset only.
+- **Next:** none planned. This is diagnosis for §3.
+
+### SANITY: label check re-run with the fixed checker (4 Oct 2026; CPU-only kernel `aradhya1211/auric-sanity-labels`, code `cc152a5`)
+
+- `analysis/sanity_check.py` now pairs boxes one-to-one by IoU (commit `cc152a5`).
+- Re-run with `--labels-only`: **0 of 3439 tiles mismatched**, 12455 box labels checked, 0 out-of-range values
+  (`results/sanity/label_check_iou/label_check.json`).
+- Same tiles and box count as the original check, which flagged 85 (`results/sanity/label_check.json`).
+- The label criterion of the sanity PASS rule now holds with the checker itself, not only with the separate re-check.

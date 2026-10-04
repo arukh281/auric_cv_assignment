@@ -1,0 +1,16 @@
+{
+  "per_box": "/kaggle/input/notebooks/aradhya1211/auric-s52/s52/per_box_test.csv",
+  "n_boxes": 3369,
+  "n_images": 201,
+  "halves": [
+    "test"
+  ],
+  "category_counts": {
+    "learned-late": 1356,
+    "never-detected": 1270,
+    "forgotten": 319,
+    "never-learned": 280,
+    "learned-early": 144
+  },
+  "n_boot": 2000
+}

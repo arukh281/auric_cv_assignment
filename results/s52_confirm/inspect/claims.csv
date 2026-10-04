@@ -1,0 +1,7 @@
+claim,criterion,estimate,ci_lo,ci_hi,passes
+C1 never-detected share <16px minus >=32px,> 0.0,0.5765369913907048,0.489764777277703,0.6490042067531375,True
+C2a Box learned-early share minus max other class,> 0.0,0.1681035543740462,0.07998038225460327,0.2577205422875579,True
+C2b Box forgotten share minus max other class,> 0.0,0.11300143266475644,0.06962508947932852,0.15120000699872463,True
+C3 Liquid never-learned share minus max other class,> 0.0,0.27294481981981983,0.10713820630694691,0.41506260634733944,True
+C4 never-detected with any-class IoU>=0.5 pred at conf>=0.001,> 0.5,0.7934782608695652,0.7530613975186697,0.8326448344748858,True
+C5 Cargo never-detected share,> 0.3,0.4728898826159866,0.4146308304472773,0.53247679035795,True

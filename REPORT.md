@@ -217,11 +217,19 @@ Cargo → Box 192 of 800; Box → Cargo 171 of 493; Tractor → Cargo 47 of 117;
 
 - **Seen vs unseen (B1h):** train40 0.378, holdout40 0.151, val 0.107
   (`results/b1h_tile1024_holdout40/{eval_train40,eval_holdout40,eval}/metrics.json`). Holdout and val CIs overlap,
-  so the gap is generalisation in general, not a val-specific problem. Why val has fewer trucks found (66% vs 85%) is
-  UNKNOWN.
+  so the gap is generalisation in general, not a val-specific problem. Why val has fewer trucks found (66% vs 85%):
+  - Re-weighting holdout40 to val's distribution of box size explains 3% of the gap, and image size 7%.
+  - Val recall is lower in every size bin from 8 to 48 px (for example, 24–32 px: 0.73 vs 0.94).
+  - In the densest bin (≥ 100 boxes per image) val is still 0.20 lower. Density cannot be compared at 60–100 boxes,
+    where holdout has no images.
+  - The gap is therefore a difference between the scenes themselves, not size, density or resolution, and these
+    analyses cannot name it. Val has only 22 images.
+  - Sources: `results/recall_gap/standardised.csv`, `recall_by_factor.csv`; EXPERIMENTS.md "Val vs holdout40 recall
+    gap".
 - **Overfit test** (16 tiles, all 5 classes, augmentation off): AP50 0.355 / 0.987 / 1.000 at epochs 50 / 100 / 300;
   final cls_loss 0.097 (`results/sanity/overfit/`). The model and pipeline can fit these labels.
-- **Label check:** the first check flagged 85 of 3439 tiles (`results/sanity/label_check.json`). The IoU-paired
+- **Label check:** the first check flagged 85 of 3439 tiles (`results/sanity/label_check.json`). With the checker
+  fixed to pair boxes by IoU, the re-run flags 0 of 3439 (`results/sanity/label_check_iou/label_check.json`). The IoU-paired
   re-check found all 3,278 boxes in those tiles identical (`results/sanity/label_mismatch/summary.json`): an artefact
   of coordinate-sort pairing in dense tiles, not a label error. The author overrode the original NOT PASS before
   the re-check; with it, both PASS criteria hold (EXPERIMENTS.md, SANITY).
@@ -281,8 +289,36 @@ is 44% vs 20% chance. The TIDE oracle agrees: fixing Cls adds +0.147, Loc +0.022
 
 ### 5.2 Resisting examples
 
-*Pending.* Inspect-half results exist (`figures/s52/inspect/`); test-half confirmation is pre-registered
-(EXPERIMENTS.md "§5.2 test-half confirmation") and not yet run.
+**Method** (`analysis/training_dynamics.py`):
+- Every GT box of the 403 B1h training images is tracked across B1h's checkpoints (epochs 10–50).
+- A box counts as detected when some prediction overlaps it at IoU ≥ 0.5 with conf ≥ 0.25, and as correct when the
+  top such prediction has its class.
+- Categories: learned-early, learned-late, forgotten, never-learned (detected, never correct) and never-detected.
+- The images were split in half beforehand (`b02413c`): an inspect half for exploration and a test half kept unread.
+  Five claims from the inspect half were pre-registered (`95953f3`) and then tested on the test half.
+
+**Test-half categories** (3369 boxes): learned-late 1356, never-detected 1270, forgotten 319, never-learned 280,
+learned-early 144 (`results/s52_confirm/test/summary.json`). About 38% of training boxes are never detected even
+though the model trains on them.
+
+**Confirmed on the test half** (all five pass; `results/s52_confirm/test/claims.csv`; image-bootstrap 95% CIs):
+
+| finding | test half |
+|---|---|
+| Small boxes resist: never-detected share for boxes < 16 px minus for ≥ 32 px | +0.631 (0.559–0.699) |
+| Most never-detected boxes are "never confident", not invisible: share with an IoU ≥ 0.5 prediction at conf ≥ 0.001 | 0.778 (0.716–0.848) |
+| Cargo Truck boxes often never detected | 0.474 (0.427–0.532) |
+| Truck w/Box is learned early more than any other class (margin) | +0.118 (0.061–0.157) |
+| ...and forgotten more than any other class (margin) | +0.157 (0.090–0.209) |
+| Truck w/Liquid is "found but never classified right" more than any other class (margin) | +0.281 (0.164–0.375) |
+
+**What resists learning** (interpretation written after the result; no author prediction recorded):
+1. **Small trucks.** Under 16 px they are mostly never detected at the operating threshold, even in training images.
+2. **Low confidence rather than invisibility.** Most of those boxes get a prediction, but below 0.25. This fits
+   §3/§5.1: the model localises far better than it classifies.
+3. **Unstable class boundaries.** Box is learned first and then forgotten most often, consistent with the Cargo ↔ Box
+   confusion in §3.2.
+4. **Rare classes.** Liquid (192 train boxes) is found but rarely named correctly.
 
 ### 5.3 Value of 500 more labels
 
