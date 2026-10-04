@@ -1,4 +1,4 @@
-# Technical report (in progress)
+# Technical report: overhead truck detection (draft)
 
 ## Pretrained weights and val leakage
 
@@ -61,8 +61,29 @@ Rates and confusion matrices are reported at two threshold sets, tagged in every
 
 ---
 
-**Status (2026-10-04).** Target: ≥ 0.75 mAP50 on the 22-image val set. **Not reached.** Best val mAP50 is 0.1065
-(95% CI 0.0563–0.1653), run `b1h_tile1024_holdout40` (`results/b1h_tile1024_holdout40/eval/per_class.csv`).
+## Summary (2026-10-04)
+
+**The target was missed by a wide margin.** Target: ≥ 0.75 mAP50 on the 22-image val set. Best result: **0.1065**
+(95% CI 0.0563–0.1653), run `b1h_tile1024_holdout40` (`results/b1h_tile1024_holdout40/eval/per_class.csv`), about
+one seventh of the target. Its repeat with seed 1 scored 0.0634 (`results/b1h_seed1/eval/per_class.csv`).
+
+Why, in order of evidence strength:
+1. **The model does not generalise from 403 images.** The same B1h weights score 0.378 on 40 of their own training
+   images, 0.151 on 40 held-out train images and 0.107 on val
+   (`results/b1h_tile1024_holdout40/{eval_train40,eval_holdout40,eval}/metrics.json`). Training 3× longer (E1, E2)
+   raised train40 to 0.774 / 0.906 but *lowered* holdout40 to 0.092 / 0.111 (`results/e{1,2}_*/eval*/metrics.json`).
+2. **Classification is the ceiling, not localisation.** Ignoring class, B1h's val AP50 is 0.255 vs 0.107 class-aware
+   (`results/b1h_tile1024_holdout40/eval/class_agnostic.json`). Placing a box perfectly on every GT, B1h names the
+   right type 60% of the time vs 52% for always answering "Cargo Truck" (§5.1). Oracle-fixing classification errors
+   adds +0.147 mAP50, localisation errors +0.022 (`figures/b1h_tile1024_holdout40/errors/tide_dAP.csv`).
+3. **More data helps, but not enough.** The learning curve is still rising, but the (unreliable) power-law
+   extrapolation to 903 images gives 0.215 holdout mAP50 (CI 0.076–0.276) (§5.3).
+4. **Ruled out as main causes:** label errors in the tiling pipeline (all 3278 boxes in the 85 flagged tiles match their source labels; §3.4), model capacity
+   (16-tile overfit test reaches AP50 1.000; §3.4), image quality and train/val domain shift (CIs overlap / include
+   AUC 0.5; §3.3), tile-merge settings (§3.3).
+
+Experiments still running when this was written: E3 (aerial pretraining), E4 (flipud + mixup), a crop classifier on
+GT crops, and the §5.2 test-half confirmation.
 
 ## 2. Dataset and baselines
 
@@ -255,8 +276,8 @@ Baselines: always "Cargo" = 0.516 (800/1552, `figures/eda/tables/class_counts.cs
 
 With perfect locations B1h names the type correctly 60% of the time, barely above always answering Cargo; per class it
 is 44% vs 20% chance. The TIDE oracle agrees: fixing Cls adds +0.147, Loc +0.022, Missed +0.044
-(`figures/b1h_tile1024_holdout40/errors/tide_dAP.csv`). **Even with perfect boxes, mAP50 would stay far from 0.75;
-classification is the ceiling.** The mAP50 under perfect localisation alone (B1h + Loc fix) is 0.129 (same file).
+(`figures/b1h_tile1024_holdout40/errors/tide_dAP.csv`). **Classification is the ceiling.** Fixing only localisation errors gives
+0.129 mAP50; fixing only classification errors gives 0.254; both are far from 0.75 (same file).
 
 ### 5.2 Resisting examples
 
