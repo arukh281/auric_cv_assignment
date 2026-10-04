@@ -1807,7 +1807,8 @@ Sources: `figures/b1h_tile1024_holdout40/errors/tide_dAP.csv` (val), `errors_hol
   `e10_train_list.txt`, 605 entries).
   - *Note:* the pre-registration said 382 extra images. Only the 202 that contain a box of the 5 classes or the 8
     excluded truck types were used, as the builder's rule specifies; the other 180 carry none of the 13 classes.
-  - The added instance counts are as pre-registered: 1715 of our classes, 3749 excluded-type boxes after clipping.
+  - The added instance counts are as pre-registered: 1715 of our classes, plus 3747 excluded-type boxes after clipping
+    (pre-registration: 3753 before clipping).
   - **0 of the 62 excluded IDs (val + holdout40) are in the training list** (checked against `splits/e10_exclude.txt`).
 - **Schedule:** 6601 tiles, 26 epochs, 10,738 iterations (B1h 10,750); close_mosaic residual −85 steps (`rfs.json`).
 
