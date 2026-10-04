@@ -1,0 +1,19 @@
+{
+  "model": "yolo11s.yaml",
+  "init_from": "yolo11s-obb.pt",
+  "path": "/kaggle/working/repo/yolo11s-obb.pt",
+  "sha256": "43fa63102922e0701501241b307420d24fc55e080816888b18bf8c6f96b1a45a",
+  "tensors_transferred": 493,
+  "tensors_total": 499,
+  "tensors_in_source": 541,
+  "modules_transferred": 166,
+  "modules_total": 169,
+  "not_transferred": [
+    "model.23.cv3.0.2.bias",
+    "model.23.cv3.0.2.weight",
+    "model.23.cv3.1.2.bias",
+    "model.23.cv3.1.2.weight",
+    "model.23.cv3.2.2.bias",
+    "model.23.cv3.2.2.weight"
+  ]
+}

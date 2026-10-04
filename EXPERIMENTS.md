@@ -1013,3 +1013,41 @@ Source: `results/s52_confirm/test/claims.csv`.
 
 - Source: `results/s52_floor/{inspect,test}/floor.csv`. No chance boxes were dropped.
 - The inspect values reproduce the unsaved 3 Oct session analysis (0.793 / 0.538 / 0.396 / 0.002).
+
+### E3: Results (4 Oct 2026; GPU kernel `aradhya1211/auric-e3-dota`, code `734299d`, ~1.64 GPU-h kernel time)
+
+- **Weight transfer:** 493 of 499 tensors (166 of 169 modules) were copied from `yolo11s-obb.pt`
+  (sha256 `43fa6310…a45a`).
+  - Not transferred: the three final class-score convolutions `model.23.cv3.{0,1,2}.2` (DOTA has 15 classes, we
+    have 5).
+  - Source: `results/e3_b1h_dota/init_weights.json`; Ultralytics log "Transferred 493/499 items".
+
+| | B1h | E3 |
+|---|---|---|
+| val mAP50 (95% CI) | 0.1065 (0.056–0.165) | 0.0881 (0.050–0.152) |
+| holdout40 mAP50 (95% CI) | 0.1507 (0.056–0.187) | **0.0817 (0.030–0.104)** |
+| train40 mAP50 | 0.378 | 0.729 |
+| train40 − holdout40 | 0.227 | **0.647** |
+| class-agnostic AP50, val / holdout40 / train40 | 0.255 / 0.362 / 0.649 | 0.227 / 0.251 / 0.877 |
+| holdout40 AP50: Cargo / Box / Flatbed / Tractor / Liquid | 0.096 / 0.509 / 0.069 / 0.007 / 0.073 | 0.057 / 0.326 / 0.025 / 0.001 / 0.000 |
+
+Sources: `results/e3_b1h_dota/{eval,eval_holdout40,eval_train40}/{per_class.csv,class_agnostic.json}`. Every eval
+used `last.pt` (field `weights` in `metrics.json`).
+
+Holdout40 checkpoint curve (`results/e3_b1h_dota/checkpoint_curve_holdout/checkpoint_curve_holdout.csv`):
+
+| epoch | 10 | 20 | 30 | 40 | 50 |
+|---|---|---|---|---|---|
+| holdout40 mAP50 | 0.132 | 0.131 | 0.114 | 0.088 | 0.082 |
+
+- **Verdict against the pre-registered prediction:** **not supported, reversed.**
+  - The prediction was holdout40 above 0.1507 + 0.017 and a smaller train40 − holdout40 gap. Holdout40 fell by 0.069
+    and the gap nearly tripled.
+  - The DOTA initialisation makes the model fit the training images faster and further, and generalise worse.
+- **Interpretation** (written after the result):
+  - The most plausible reading is that the backbone transfers aerial features that speed up memorisation of these
+    403 images, not generalisation.
+  - The holdout40 curve peaks at epoch 10, so more aggressive regularisation or a much shorter schedule might help.
+    That is untested, and choosing the epoch from this holdout curve would be selection on holdout40.
+  - Single seed.
+- **Decision rule:** E3 does not beat B1h on holdout40, so it does not enter E5.
