@@ -87,6 +87,9 @@ lc-per-class, tta-b1h, e1/e2/b1h holdout curves.
 - **Docs:** EXPERIMENTS.md was renamed to DETAILED_EXPERIMENTS.md, and a new 5-minute EXPERIMENTS.md was added with
   figures in `figures/story/` (`analysis/story_figures.py`, CPU kernel `auric-story-figs`).
 
+**E13 gate:** E13 final starts only after the geographic-overlap check (`auric-review-checks`) and the E10
+label-conflict check (`auric-e10-conflicts`) are finished and recorded, and only by hand.
+
 **Author's decision rules for E3/E4** (noise 0.017 on holdout40; B1h holdout40 0.1507):
 - **If E3 and/or E4 beats 0.1507 + 0.017 on holdout40:**
   - Pre-register E5 in DETAILED_EXPERIMENTS.md first.

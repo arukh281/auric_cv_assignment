@@ -1934,3 +1934,7 @@ Holdout40 mAP50 by version and rule (`results/e12_scale/test_scores.csv`):
    - Rule (written now): among the saved checkpoints (`epoch010`–`epoch040`, `last.pt`) of the model(s) in the
      chosen final system, take the one with the highest holdout40-clean mAP50.
    - No new training. Val is scored once, with the final system.
+- **E13 start gate (author, 4 Oct 2026):** E13 final does not start until (a) the geographic-overlap check
+  (`analysis/review_checks.py`, kernel `auric-review-checks`) and (b) the E10 label-conflict check
+  (`analysis/e10_label_conflicts.py`, kernel `auric-e10-conflicts`) have both finished and been recorded here. If the
+  E12 suite parts still hold the CPU slots when E15 finishes, E13 waits. E13 is launched by hand, never by a watcher.
