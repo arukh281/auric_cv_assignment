@@ -1,4 +1,6 @@
-# Non-torch dependencies. Target: Colab, Python 3.13, preinstalled CUDA torch, T4 GPU.
+# Non-torch dependencies. Exact versions of the final model's environment, including torch 2.10.0+cu128,
+# torchvision 0.25.0, numpy 2.0.2 and opencv 4.13.0.92: requirements-lock.txt.
+# Target: Colab, Python 3.13, preinstalled CUDA torch, T4 GPU.
 #
 # torch / torchvision / numpy / opencv are NOT listed: Colab ships them as a matched CUDA build. The notebook
 # installs this file with a pip constraints file pinned to Colab's own torch/torchvision/numpy, so pip can
