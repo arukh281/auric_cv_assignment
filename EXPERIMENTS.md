@@ -13,6 +13,35 @@ the box and found that the data itself was part of the story: every image is fro
 rescaled copies, and most of the model's "false alarms" are real trucks of types the labels leave out. The last two
 experiments (E10 and E12) try to fix exactly that.
 
+## The four questions
+
+**(1) Is the training the problem? Mostly no.**
+- Training longer (E1, E2) or starting from aerial weights (E3) made the model fit its training images better and do
+  worse on new ones: holdout40 0.092 / 0.111 / 0.082 vs B1h's 0.151.
+- More augmentation (E4) and a frozen aerial backbone (E7) overfitted less but still did not beat B1h (0.130 / 0.128).
+- B1h's own holdout40 curve is flat from epoch 40 to 50, and no ensemble of these is final yet (E13 pending).
+
+**(2) Are the rare classes the problem? They are weak, but not because they are rare.**
+- Showing rare-class tiles more often (E6b) did not raise Tractor or Flatbed AP (0.007 → 0.002, 0.069 → 0.061).
+- Neither did doubling Tractor boxes in the §5.4 subsets.
+- 500 targeted instances project below noise (§5.3).
+- Part of the rare-class training labels are relabelled Cargo/Box trucks (5.0% class changes vs xView).
+
+**(3) Can smarter inference help? Partly.**
+- Second opinions did not help: TTA 0.138 vs 0.151; the crop classifier 0.100–0.117, and 0.610 vs the head's 0.690 on
+  the same boxes.
+- Scale-adaptive inference recovers synthetically rescaled holdout40 copies: 0.135 vs 0.092 mean, without hurting
+  clean images (0.157). The robust-inference amendment and the single val score are pending.
+
+**(4) Is the data the problem? Largely yes.**
+- All images come from xView.
+- 8 of 22 val images are altered (4 rescaled, 4 photometric).
+- About 5% of training boxes carry a different class than xView.
+- Val drops 10.3% of xView's boxes.
+- 216 of 350 confident holdout40 false positives are excluded truck types.
+- Labelling those types (E10) halved val background errors (9380 → 4056) but did not raise mAP50.
+- E15 (xView-original training labels) is pending.
+
 ## The cast
 - 🧑 **Aradhya** decides, runs and directs.
 - 💬 **Claude chat** plans experiments.
