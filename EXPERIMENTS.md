@@ -671,8 +671,9 @@ Val mAP50 is not rising at the end. It peaks (E1 0.100 at epoch 90; E2 0.107 at 
 Audit 2026-10-04: the B1h and E2 columns match `figures/{b1h_tile1024_holdout40,e2_b1h_150ep_scale02}/errors/op_gt.csv`
 (rows `conf0.25`, `matched`, binned by `size`). The E1 column is not saved in any repo file (E1 has no `errors/`), so
 it cannot be re-sourced: E1 values UNVERIFIED.
+**Corrected 2026-10-04 (later):** E1's `errors/` and figures were regenerated from its saved val predictions on CPU-only kernel `aradhya1211/auric-e1-figs` (code `734299d`; `pred_review.py`, `merge_sensitivity.py`, `errors.py`). The E1 column is now verified: `figures/e1_b1h_150ep/errors/op_gt.csv` (conf0.25 rows) gives 0.061 / 0.127 / 0.255 for n = 263 / 818 / 471, the same as the table.
 
-AP50 by size was not computed. E1's `errors/` and `figures/` folders are missing from its Kaggle output (cause unknown).
+AP50 by size was not computed. E1's `errors/` and `figures/` folders were missing from its Kaggle output (cause unknown); regenerated later (see above).
 
 ### E1 / E2: Conclusion (verdicts against the pre-registered predictions; noise = seed spread 0.043 val / 0.017 holdout)
 

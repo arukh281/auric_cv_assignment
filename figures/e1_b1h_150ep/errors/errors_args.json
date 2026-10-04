@@ -1,0 +1,61 @@
+{
+  "preds": "/kaggle/input/notebooks/aradhya1211/auric-e1-b1h-150ep/runs/e1_b1h_150ep/eval/predictions.csv",
+  "name": "e1_b1h_150ep",
+  "data_root": "/kaggle/tmp/data",
+  "out_root": "/kaggle/working/runs/figures",
+  "min_conf": 0.001,
+  "conf_op": 0.25,
+  "merge": null,
+  "merge_thr": null,
+  "merge_metric": null,
+  "n_crops": 6,
+  "seed": 0,
+  "input": "predictions.csv as given",
+  "threshold_sets": {
+    "conf0.25": {
+      "Cargo Truck": 0.25,
+      "Truck w/Box": 0.25,
+      "Truck w/Flatbed": 0.25,
+      "Truck Tractor": 0.25,
+      "Truck w/Liquid": 0.25
+    },
+    "f1opt": {
+      "Cargo Truck": 0.0581243671476841,
+      "Truck w/Box": 0.3080259561538696,
+      "Truck w/Flatbed": 0.057717215269804,
+      "Truck Tractor": 0.0014878148213028,
+      "Truck w/Liquid": 0.2078157067298889
+    }
+  },
+  "fg": 0.5,
+  "bg": 0.1,
+  "size_edges": [
+    "0",
+    "8",
+    "16",
+    "24",
+    "32",
+    "48",
+    "96",
+    "inf"
+  ],
+  "objects_edges": [
+    -Infinity,
+    30.75,
+    76.5,
+    97.0,
+    Infinity
+  ],
+  "brightness_edges": [
+    -Infinity,
+    45.333645820617676,
+    59.22617530822754,
+    81.8047924041748,
+    Infinity
+  ],
+  "base_check": {
+    "eval_mAP50": 0.06797520598834438,
+    "errors_base_mAP50": 0.06797520598834438,
+    "abs_diff": 0.0
+  }
+}
