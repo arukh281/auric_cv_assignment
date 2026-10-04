@@ -334,13 +334,20 @@ def main():
     ap.add_argument("--merge-metric", choices=["iou", "ios"])
     ap.add_argument("--n-crops", type=int, default=6, help="examples per class per error type")
     ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--holdout-list", help="score these TRAIN images (e.g. splits/holdout40_seed0.txt) instead of val; "
+                                           "outputs go to errors_holdout/")
     a = ap.parse_args()
 
-    root, out = Path(a.data_root), Path(a.out_root) / a.name / "errors"
+    root = Path(a.data_root)
+    out = Path(a.out_root) / a.name / ("errors_holdout" if a.holdout_list else "errors")
+    split = "train" if a.holdout_list else "val"
     out.mkdir(parents=True, exist_ok=True)
     names = load_classes(root)
     nc = len(names)
-    images = list_images(root / "val" / "images")
+    if a.holdout_list:
+        images = [root / "train" / "images" / l.strip() for l in Path(a.holdout_list).read_text().splitlines() if l.strip()]
+    else:
+        images = list_images(root / "val" / "images")
     sizes = image_sizes(images)
     preds, how = load_preds(a)
     if how != "predictions.csv as given":
@@ -350,7 +357,7 @@ def main():
     preds = preds[preds.conf >= a.min_conf]
 
     # 1. TIDE at all confidences >= min_conf
-    per = annotate(collect(preds, images, root / "val" / "labels", sizes))
+    per = annotate(collect(preds, images, root / split / "labels", sizes))
     tide = tide_table(per, names)
     tide.to_csv(out / "tide_dAP.csv", index=False)
     plot_tide(tide, out / "tide_dAP.png")
@@ -372,7 +379,7 @@ def main():
     labels = list(names.values()) + ["background"]
     for tag, thr in sets:
         keep = preds.conf >= preds.cls.map(thr)
-        pers[tag] = per_op = annotate(collect(preds[keep], images, root / "val" / "labels", sizes))
+        pers[tag] = per_op = annotate(collect(preds[keep], images, root / split / "labels", sizes))
         counts += counts_by_class(per_op, names, tag)
         P, G = box_tables(per_op, names)
         P.insert(0, "threshold_set", tag); G.insert(0, "threshold_set", tag)
