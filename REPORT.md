@@ -1,5 +1,12 @@
 # Technical report: overhead truck detection (draft)
 
+**AI assistance.** This project was built with AI assistance: Claude Code for code, analysis and drafting, and a
+chat assistant for experiment planning. Hypotheses, predictions and decision rules marked "author's" in
+EXPERIMENTS.md were chosen and approved by the author before each run; other interpretations were drafted by
+Claude Code and reviewed by the author. The brief allows this: "External resources and AI-assisted code are
+permitted, but you remain responsible for understanding, documenting and defending the submitted system and
+conclusions."
+
 ## Pretrained weights and val leakage
 
 All models start from **COCO-pretrained** Ultralytics YOLO11s (`yolo11s.pt`, Ultralytics release asset). The

@@ -1,7 +1,9 @@
 # Experiment log
 
 Each entry: Observation, Hypothesis, Changes vs. previous run, Results, Conclusion, Next step.
-Every number cites the file it came from. Hypothesis and Conclusion are written by the author.
+Every number cites the file it came from. This log was written with AI assistance (Claude Code for code, analysis and drafting; a chat assistant for experiment planning), as the brief permits. Hypotheses, predictions and decision rules marked "author's" were chosen and approved by the author before the run, some drafted with AI assistance. Other hypotheses, interpretations and conclusions were drafted by Claude Code and reviewed by the author. Pre-registration status is stated per entry, from git history.
+
+*Corrected 2026-10-04: this line previously said "Hypothesis and Conclusion are written by the author", which was inaccurate.*
 
 ## Index of runs (added 2026-10-04 audit)
 
