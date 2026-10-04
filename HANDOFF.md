@@ -10,10 +10,43 @@ generalisation, not the eval pipeline.
 
 ---
 
-## 0. CURRENT STATE (updated 2026-10-04 ~10:45 IST; supersedes older statements below where they differ)
+## 0. CURRENT STATE (updated 2026-10-04 afternoon IST; supersedes older statements below where they differ)
 
-**Best model is still `b1h_tile1024_holdout40`.** Val mAP50 0.1065, holdout 0.1507. Weights in Kaggle kernel
-`aradhya1211/auric-b1h` v1 output, `runs/b1h_tile1024_holdout40/train/weights/last.pt`.
+**Best model is still `b1h_tile1024_holdout40`.** Val mAP50 0.1065, holdout 0.1507.
+- **Weights:** GitHub release `weights-b1h-v1` (file `b1h_tile1024_holdout40_last.pt`, SHA-256 `3fa24066…7ffb`,
+  matching `results/b1h_tile1024_holdout40/eval/metrics.json`). Also in the output of Kaggle kernel
+  `aradhya1211/auric-b1h` v1.
+
+**Done on 4 Oct (commits after `727d7c7`):**
+- **Check 0:** every reported score used `last.pt`. The training `data.yaml` uses the official val set, but only
+  for Ultralytics' own curves. One leak: early stopping (patience 100) watched that val score and cut E1 at epoch 145.
+  From E3/E4 on, configs set `patience: 0` and checkpoints are scored on holdout40 (`EXPERIMENTS.md` "CHECK 0").
+- **E3** (DOTA `yolo11s-obb.pt` init) and **E4** (flipud 0.5 + mixup 0.1): pre-registered, launched as GPU kernels
+  `auric-e3-dota` and `auric-e4-flipud-mixup` (code `734299d`, `scripts/run_e34.sh`). Results pending.
+- **CPU kernels:**
+  - `auric-fp-crop` (FP audit + crop classifier): pending.
+  - `auric-e1-figs`: done; E1 `figures/` + `errors/` committed, E1 size-recall column verified.
+  - `auric-s52-confirm`: v1 failed on stale code before reading anything; v2 pending.
+  - `auric-recall-gap`: pending.
+  - `auric-sanity-labels`: label check with the IoU-paired checker; pending.
+  - `auric-predict-test`: `predict.py` on 2 val images vs the saved predictions; pending.
+- **§5.2 test-half confirmation** pre-registered (claims C1–C5) before the test half was read (`95953f3`).
+- **EXPERIMENTS.md audit** (`ba8da62`): index table, six fields per entry, numbers checked against sources,
+  visible corrections. The E1 no-mosaic epoch count changed 4 → 5, and the E1/E2 launch and sanity dates changed
+  2 Oct → 3 Oct.
+- **REPORT.md:**
+  - §2–§4, §5.1, §5.3 and §5.4 drafted (`07213e4`), then reviewed line by line against the sources; no
+    misstatements found.
+  - Summary of the 0.75 miss added; §5.4 conclusion and Next written.
+  - Still to write: §5.2, §6, §7.
+- **Deliverables:**
+  - `predict.py` (single predict/evaluate entry point).
+  - `requirements-lock.txt` (exact B1h environment).
+  - README "Final model" and "Reproduce everything" sections.
+- **`analysis/sanity_check.py`** now pairs labels by IoU (`--labels-only` for a CPU run).
+
+**Kernel gotcha:** after `kaggle_cli_package.sh`, the dataset can report `ready` before kernels mount the new
+version (s52-confirm v1 got `734299d`). New script kernels now start with `grep -q <commit> CODE_COMMIT || exit 3`.
 
 **Done since the original handoff (all in EXPERIMENTS.md, committed):**
 
@@ -24,7 +57,7 @@ generalisation, not the eval pipeline.
    - No 50% or 75% subset reaches 0.128. No conclusion written yet.
 2. **§5.2 training dynamics** (inspect half only): `figures/s52/inspect/`, `results/s52/`.
    - Never-detected confidence-floor numbers are in §5 below. They are still not saved to a file.
-3. **SANITY** (kernel `auric-sanity`, 2 Oct):
+3. **SANITY** (kernel `auric-sanity`, 3 Oct; corrected 2026-10-04 from "2 Oct", per the code commit `f2388f1` date):
    - B1h `args.yaml` copied to `results/b1h_tile1024_holdout40/train/args.yaml`: imgsz 1024, mosaic 1.0, scale 0.5,
      close_mosaic 10, rect false.
    - B1h losses still falling at epoch 50 (`figures/sanity/b1h_loss_curves.png`).
@@ -49,7 +82,7 @@ generalisation, not the eval pipeline.
      **inconclusive, leaning not supported**.
    - Sources: `results/e1_b1h_150ep/`, `results/e2_b1h_150ep_scale02/` (incl. `eval_train40/` from the CPU kernel
      `auric-e1e2-train40`), `figures/e2_b1h_150ep_scale02/`.
-   - E1's `figures/` and `errors/` are missing from its Kaggle output (cause unknown).
+   - E1's `figures/` and `errors/` were missing from its Kaggle output (cause unknown); regenerated on 4 Oct by CPU kernel `auric-e1-figs`.
 
 **GPU budget:** `kaggle quota` shows 9.56 h used, **20.44 h remaining**, refresh 2026-10-10 (~05:30 local).
 - Rule from the author: never launch a GPU kernel projected over 10 h without asking.
@@ -57,16 +90,14 @@ generalisation, not the eval pipeline.
 - **No compute on the Mac** (author's explicit rule), and no Colab for training.
 
 **Open items**
-- **New bug:** Ultralytics `patience` defaults to 100 and is not set in any config. It stopped E1 early, and it
-  depends on Ultralytics' val, which conflicts with "no decisions on val". Set `patience: 0` in future configs.
+- ~~`patience` bug~~ fixed for E3/E4 (`patience: 0`); older configs are unchanged by design.
 - Next experiment not chosen. The evidence points at generalisation and overfitting, not training length. Candidates
   in EXPERIMENTS.md: stronger augmentation or regularisation, a crop classifier for Cargo vs Box (planned as a
   CPU-only kernel), more data.
 - Write-ups still missing: §5.2 interpretation (and confirmation on the test half), §5.3 per-class "which classes
   benefit", §5.4 conclusion, §6 final analysis, the full REPORT.md.
-- `STATUS.md` is stale. `REPORT.md` says `val: false`, but the configs use `val: true`.
-- `analysis/sanity_check.py`'s `check_labels` should pair by IoU (as `analysis/label_mismatch.py` does) to avoid the
-  false flags.
+- `STATUS.md` is stale. (`REPORT.md`'s `val: false` line was corrected on 4 Oct.)
+- ~~`sanity_check.check_labels` coordinate-sort pairing~~ fixed (IoU pairing); re-run result pending.
 
 ---
 
@@ -253,7 +284,7 @@ Common to every run (from `configs/*.yaml`):
 - **Optimiser:** SGD, lr0 0.01, momentum 0.937. AMP on, `cache: disk`, `deterministic: true`, batch 16.
 - **Augmentation:** Ultralytics 8.4.171 defaults; no class weighting or resampling in any config. The defaults seen in the B1h
   smoke-kernel log during this session include hsv_h 0.015, hsv_s 0.7, hsv_v 0.4, fliplr 0.5, mosaic 1.0, scale 0.5,
-  translate 0.1, erasing 0.4, mixup 0. That log is not in the repo; `train/args.yaml` was not copied into `results/`.
+  translate 0.1, erasing 0.4, mixup 0. That log is not in the repo. (Corrected 2026-10-04: `train/args.yaml` has since been copied to `results/b1h_tile1024_holdout40/train/args.yaml`.)
 - **Evaluation:** `last.pt` is evaluated (no checkpoint is chosen on val), conf 0.001, NMS IoU 0.7. Tiled runs use sliced eval
   with tile 1024, overlap 256, and class-wise NMS on IoS 0.6.
 
@@ -416,10 +447,10 @@ The 90% threshold is 0.128 held-out mAP50. No 50% or 75% run reached it; the hig
 12. **The §5.2 never-detected confidence-floor numbers are not saved in any repo file** (see §5).
 13. **§5.2 categories depend on the conf 0.25 threshold.** 79.3% of inspect-half "never-detected" boxes have an IoU ≥ 0.5 prediction at a lower confidence (unsaved analysis above).
 14. **No §5.4 prediction was pre-registered.** The instruction contained an unfilled placeholder. smart50 results existed by 04:24 on 3 Oct, before any prediction could be added.
-15. **Smart-selection coverage step.** "Add the unselected image with the most class-c boxes" is an implementation choice (`tools/make_smart_subsets.py` docstring). The pre-registration said "add images in order of rarest class contained".
+15. **Smart-selection coverage step.** "Add the unselected image with the most class-c boxes" is an implementation choice (`tools/make_smart_subsets.py` docstring). The pre-registration said "add images in order of rarest class contained". The runs used the implemented rule; the mismatch is disclosed in REPORT.md §5.4 and the S54 entry (4 Oct), and no author prediction was recorded.
 16. **All learning-curve power-law fits are flagged unreliable.** The extrapolation to 903 images is 2.24× beyond the data, and some upper interval limits exceed 1 (`figures/learning_curve/power_law_fit.csv`).
 17. **Kaggle GPU accounting is uncertain.** `kaggle quota` reported 0.00 h used on the morning of 3 Oct (refresh 2026-10-10). MORNING.md's ~8.3 GPU-h for the night is an upper-bound estimate from poll times.
 18. **Weights are not in the repo.** Drive (B0/B1) availability is UNKNOWN. Kaggle kernel outputs hold the rest.
 19. **The local dataset is a subset.** `data` points at `data_small` (20 train / 22 val). Do not re-run `analysis/eda.py` locally (it would overwrite full-data tables). Several tests use these local files.
-20. **Exact command lines (`command.txt`) and `train/args.yaml` were not copied** into `results/`. Augmentation values above come from a session log, not a repo file.
+20. **Exact command lines (`command.txt`) were not copied** into `results/`. (Corrected 2026-10-04: B1h's `train/args.yaml` is now at `results/b1h_tile1024_holdout40/train/args.yaml` and confirms the augmentation values.)
 21. **Possible label issues** (`analysis/notes/visual_inspection.md`): unlabelled trucks, possibly offset GT boxes. Not quantified.
