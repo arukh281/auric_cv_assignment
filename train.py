@@ -107,7 +107,11 @@ def main():
         def fit(batch):
             model = YOLO(cfg["model"])
             init = Path(model.ckpt_path) if getattr(model, "ckpt_path", None) else Path(cfg["model"])
-            if init.exists():
+            if cfg.get("init_from"):  # architecture from cfg["model"] (a .yaml), weights from another checkpoint
+                info = transfer_weights(model, cfg["init_from"])
+                (run_dir / "init_weights.json").write_text(json.dumps({"model": cfg["model"], **info}, indent=2))
+                print("[train] init_from:", json.dumps(info))
+            elif init.exists():
                 from eval import sha256
                 (run_dir / "init_weights.json").write_text(json.dumps(
                     {"model": cfg["model"], "path": str(init.resolve()), "sha256": sha256(init)}, indent=2))
@@ -125,6 +129,30 @@ def main():
             print(f"[train] {cfg['batch_note']}")
     from detlib.curves import summarize_training
     print("[train] summary:", json.dumps(summarize_training(run_dir)))
+
+
+def transfer_weights(model, src):
+    """Copy every tensor of checkpoint `src` whose name and shape match into `model` (an Ultralytics YOLO built from a
+    .yaml); everything else keeps its fresh initialisation. Returns counts and the names that did not transfer."""
+    try:
+        from ultralytics.nn.tasks import load_checkpoint
+    except ImportError:  # older Ultralytics name
+        from ultralytics.nn.tasks import attempt_load_one_weight as load_checkpoint
+    from eval import sha256
+    ckpt_model, _ = load_checkpoint(src)
+    csd = ckpt_model.float().state_dict()
+    msd = model.model.state_dict()
+    match = {k: v for k, v in csd.items() if k in msd and v.shape == msd[k].shape}
+    model.load(src)  # Ultralytics' own transfer (same name+shape rule); sets model.ckpt so train() starts from it
+    after = model.model.state_dict()
+    assert all(after[k].float().equal(v.float()) for k, v in match.items()), "transfer check failed"
+    n_layers = len({k.rsplit(".", 1)[0] for k in msd})
+    n_layers_tr = len({k.rsplit(".", 1)[0] for k in match})
+    return {"init_from": str(src), "path": str(Path(src).resolve()) if Path(src).exists() else str(src),
+            "sha256": sha256(src) if Path(src).exists() else None,
+            "tensors_transferred": len(match), "tensors_total": len(msd), "tensors_in_source": len(csd),
+            "modules_transferred": n_layers_tr, "modules_total": n_layers,
+            "not_transferred": sorted(k for k in msd if k not in match)}
 
 
 def tiles_dir_name(t, holdout=None, subset=None):

@@ -43,7 +43,10 @@ def main():
     ap.add_argument("--data-root", default="data")
     ap.add_argument("--out-root", default="figures")
     ap.add_argument("--device", default=None)
+    ap.add_argument("--split", choices=["val", "holdout"], default="val",
+                    help="holdout: score the config's holdout_list images; outputs go to checkpoint_curve_holdout/")
     a = ap.parse_args()
+    sub = "checkpoint_curve" if a.split == "val" else "checkpoint_curve_holdout"
     cfg = yaml.safe_load(open(a.config))
     run = Path(a.runs_root) / cfg["name"]
     res = run / "train" / "results.csv"
@@ -54,13 +57,13 @@ def main():
 
     rows = []
     for ep, w in cks.items():
-        out = run / "checkpoint_curve" / f"ep{ep:03d}"
+        out = run / sub / f"ep{ep:03d}"
         m = out / "metrics.json"
         h = sha256(w)
         if not (m.exists() and json.load(open(m)).get("weights_sha256") == h):
             cmd = [sys.executable, str(REPO / "eval.py"), "--config", a.config, "--runs-root", a.runs_root,
                    "--data-root", a.data_root, "--weights", str(w), "--out", str(out), "--bootstrap", "0",
-                   "--no-coco-crosscheck"] + (["--device", a.device] if a.device else [])
+                   "--no-coco-crosscheck", "--split", a.split] + (["--device", a.device] if a.device else [])
             print(f"[ckpt] epoch {ep}: {w.name}", flush=True)
             subprocess.run(cmd, check=True)
         r = json.load(open(m))
@@ -70,16 +73,16 @@ def main():
     t = pd.DataFrame(rows)
     fig_dir = Path(a.out_root) / cfg["name"]
     fig_dir.mkdir(parents=True, exist_ok=True)
-    t.to_csv(fig_dir / "checkpoint_curve.csv", index=False)
-    t.to_csv(run / "checkpoint_curve" / "checkpoint_curve.csv", index=False)
+    t.to_csv(fig_dir / f"{sub}.csv", index=False)
+    t.to_csv(run / sub / f"{sub}.csv", index=False)
     fig, ax = plt.subplots(figsize=(7, 4.5))
     for c in [c for c in t.columns if c.startswith("AP50 ")]:
         ax.plot(t.epoch, t[c], marker="o", lw=1, alpha=.7, label=c[5:])
     ax.plot(t.epoch, t.mAP50, marker="o", lw=2.5, color="black", label="mAP50")
     ax.set(xlabel="completed epoch", ylabel="AP50 (COCO 101-pt, our scorer)", ylim=(0, 1),
-           title=f"{cfg['name']}: {cfg['eval']['mode']} eval per checkpoint")
+           title=f"{cfg['name']}: {cfg['eval']['mode']} eval per checkpoint ({a.split})")
     ax.legend(fontsize=8)
-    fig.tight_layout(); fig.savefig(fig_dir / "checkpoint_curve.png", dpi=120); plt.close(fig)
+    fig.tight_layout(); fig.savefig(fig_dir / f"{sub}.png", dpi=120); plt.close(fig)
     print(t.to_string(index=False, float_format=lambda v: f"{v:.4f}"))
 
 

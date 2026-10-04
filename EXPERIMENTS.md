@@ -520,3 +520,67 @@ AP50 by size was not computed. E1's `errors/` and `figures/` folders are missing
 | auric-label-mismatch v1, auric-e1e2-train40 v1 | 0 (CPU-only) |
 
 `kaggle quota`: **9.56 h used, 20.44 h remaining** of 30 h (refresh 2026-10-10).
+
+## CHECK 0 (4 Oct 2026): which weights produced the reported scores?
+
+- Every reported score used `last.pt`. Each `metrics.json` records its `weights`; all of these end in
+  `train/weights/last.pt`:
+  - B1h: `results/b1h_tile1024_holdout40/{eval,eval_holdout40,eval_train40}`
+  - E1: `results/e1_b1h_150ep/{eval,eval_holdout40,eval_train40}`
+  - E2: `results/e2_b1h_150ep_scale02/{eval,eval_holdout40,eval_train40}`
+  - every other run in `results/`
+- No reported score used `best.pt`. `scripts/_run.sh` calls `eval.py` without `--weights`, and its default is
+  `last.pt`.
+- The training `data.yaml` has `val: /kaggle/tmp/data/val/images`, the official val set
+  (`results/e1_b1h_150ep/data.yaml`). With `val: true`, Ultralytics computed its own un-sliced val mAP every epoch.
+  That was used only for curves.
+- **One leak of val into training.** Ultralytics EarlyStopping (default `patience=100`) watches that per-epoch val
+  fitness. It stopped E1 at epoch 145, because its best fitness was at epoch 45.
+  - So E1's `last.pt` is epoch 145, a stopping point chosen by val.
+  - Effect: 5 fewer epochs (145 instead of 150). E2 ran all 150 epochs without early stopping and shows the same
+    pattern (train40 up, holdout40 down), so the E1/E2 verdict does not rest on this.
+  - B1h (50 epochs) and E2 (150 epochs) never triggered it.
+- The val checkpoint curves (E1/E2 "peak at epoch 90" and so on) were reported as curves, never used to pick weights.
+- From now on:
+  - every config sets `patience: 0`
+  - only `last.pt` is evaluated
+  - per-checkpoint curves are scored on holdout40, not val (`analysis/checkpoint_curve.py --split holdout`)
+
+## E3 / E4: two remedies for overfitting at B1h's length (pre-registered 4 Oct 2026, before any result)
+
+Context: E1/E2 rejected undertraining. From B1h to E1/E2, train40 rose 0.378 → 0.774 / 0.906 while holdout40 fell
+0.151 → 0.092 / 0.111.
+
+Working hypothesis: the model overfits and fails to generalise from limited, fine-grained data.
+
+Both runs use B1h's recipe (`configs/b1h.yaml`) with these settings:
+- 50 epochs, `patience: 0`
+- checkpoints every 10 epochs, each scored on **holdout40**
+- full val / holdout40 / train40 eval on `last.pt` only (`scripts/run_e34.sh`)
+
+Each runs as its own single-GPU kernel.
+
+- **E3, aerial pretraining** (`configs/e3_b1h_dota.yaml`):
+  - Architecture `yolo11s.yaml`. Weights come from Ultralytics' DOTA-trained `yolo11s-obb.pt`: every tensor whose
+    name and shape match is copied (`train.py transfer_weights`). The count is recorded in `init_weights.json`.
+  - Hypothesis (author's): aerial vehicle features generalise better from our small dataset.
+  - Prediction (author's): holdout40 mAP50 beats B1h (0.1507) by more than 0.017 (B1h's holdout seed spread), and
+    the train40-minus-holdout40 gap shrinks (B1h: 0.378 − 0.151 = 0.227).
+- **E4, overhead augmentation** (`configs/e4_b1h_flipud_mixup.yaml`):
+  - B1h plus `flipud: 0.5` and `mixup: 0.1`.
+  - Hypothesis (author's): overfitting. Aerial images have no "up", so vertical flips add free variety.
+  - Prediction (author's): same as E3.
+  - **Two settings change at once, so E4 tests the pair together, not each one separately.**
+- Expected cost: about 2 GPU-h each.
+- Seed noise for the verdicts: 0.017 on holdout40 (B1h seed 0 vs seed 1).
+
+CPU-only kernels run alongside (no GPU quota):
+- (a) Background false-positive audit (`analysis/fp_audit.py`): the 60 highest-confidence B1h holdout40 predictions
+  with IoU < 0.1 to every GT box, as a contact sheet, counted by eye.
+- (b) Crop classifier (`analysis/crop_classifier.py`):
+  - ImageNet ResNet18 trained on GT crops (2× context, 96 px) from the train images minus holdout40.
+  - Scored as per-class accuracy on holdout40 GT crops.
+  - Then B1h's holdout40 predictions are re-labelled with it (score = detector conf × p(class)), scored with
+    `eval.py --from-preds`, and compared with 0.1507.
+  - Val is not used.
+- (c) E1's missing `figures/` and `errors/`, regenerated from its saved val predictions.
