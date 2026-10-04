@@ -65,6 +65,10 @@ generalisation, not the eval pipeline.
 - The three §5.2 thresholds in the author's 4 Oct message (≥ 70%, chance < 1%, 30–50% at ≥ 0.10) appear in no commit
   made before the test half was opened, so they are **not** pre-registered.
 
+**E3 done (4 Oct 13:00):** holdout40 0.082 vs B1h 0.151; train40 0.729; not supported (reversed). Not carried into
+E5. **E6** (repeat-factor sampling, `configs/e6_b1h_rfs.yaml`, code `7ec3894`) launched in E3's slot. Also running:
+E4, `auric-fp-crop`, `auric-lc-per-class`, `auric-tta-b1h`. Quota before E3 finished: 18.64 h left.
+
 **Author's decision rules for E3/E4** (noise 0.017 on holdout40; B1h holdout40 0.1507):
 - **If E3 and/or E4 beats 0.1507 + 0.017 on holdout40:**
   - Pre-register E5 in EXPERIMENTS.md first.
