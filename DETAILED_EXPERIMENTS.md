@@ -2228,7 +2228,8 @@ It now prefers the `auric-cv-code` dataset. The guards caught every case; no res
   - The rule kept all 4 rescaled images at 1.0×, and shrank 7 unaltered images (1181, 1206, 1399, 1447, 1929, 2470,
     2472) to 0.5× (`results/e12_robust/val_score.json`).
   - Per-image median truck size in train spans 13.1–39.7 px from the 5th to the 95th percentile
-    (per-image median sqrt(box area) over the 443 train-split images, `figures/eda/tables/boxes.csv`), about as wide as the 0.5×–2× rescaling.
+    (per-image median sqrt(box area) over the 442 train-split images that have boxes, `figures/eda/tables/boxes.csv`;
+    reproduced in `results/final_diag/final_diag_extra.json`), about as wide as the 0.5×–2× rescaling.
   - So a detected object's size cannot reveal that an image was rescaled.
 
 ### E15: verdict restated (5 Oct 2026)
@@ -2299,3 +2300,46 @@ It now prefers the `auric-cv-code` dataset. The guards caught every case; no res
   - Of the 6880 training boxes (403 images), **2** have a side longer than 128 px: 1 Cargo Truck, 1 Truck w/Box
     (`figures/eda/tables/boxes.csv`, `w_px`/`h_px`).
   - These are the only boxes that may be cut by every 512 tile (whether a given one is depends on its position).
+
+
+### Detection-cap check: Result (5 Oct 2026; CPU-only kernel `auric-maxdet-check`; `results/maxdet_check/maxdet_check.json`)
+
+Holdout40-clean, final system (multi-label; B1h ep40, E4 ep40, E7 ep20):
+
+| max_det | B1h | E4 | E7 | fused | images at the cap (fused) |
+|---|---|---|---|---|---|
+| 902 | 0.2000 | 0.1712 | 0.1900 | **0.2364** | 27 of 40 |
+| 3000 | 0.1990 | 0.1683 | 0.1896 | 0.2317 | 6 of 40 |
+
+- The fused 902 value reproduces E13's 0.2364.
+- **Change with 3000: −0.0047, below the +0.005 bar, so 902 is kept** (per the rule recorded before running).
+- **Limitation:** with multi-label output most images reach 902 detections, so the lowest-confidence copies are
+  truncated. Allowing more did not help, because the extra copies are low-confidence alternates.
+
+## Final-system diagnosis on val (5 Oct 2026; CPU-only kernel `auric-final-diag`; `errors.py` on `results/e13_final/val_predictions_final.csv`)
+
+Per-class val AP50, final system vs B1h (`results/final_diag/final_diag_extra.json`):
+
+| | Cargo | Box | Flatbed | Tractor | Liquid | mAP50 |
+|---|---|---|---|---|---|---|
+| B1h | 0.131 | 0.180 | 0.071 | 0.006 | 0.145 | 0.1065 |
+| **final** | **0.171** | **0.215** | **0.096** | **0.028** | **0.165** | **0.1349** |
+
+Every class improves.
+
+TIDE breakdown on val (`figures/final_ensemble/errors/tide_dAP.csv`):
+
+| fix (dAP50) | B1h | final |
+|---|---|---|
+| Cls | +0.147 | +0.082 |
+| Bkg | +0.077 | **+0.094** |
+| Missed | +0.044 | +0.024 |
+| Loc | +0.022 | +0.026 |
+
+- The ensemble roughly halves the classification loss and the misses. Background false positives are now the largest
+  bin; on holdout40, 62% of B1h's confident background errors were excluded truck types (§3.3b).
+- **Qualitative sheets** (`figures/final_ensemble/errors/`): `crops_bkg.png` (top background false positives),
+  `crops_missed.png` (misses), `crops_cls.png` (class confusions).
+- The confusion matrix at conf 0.25 (`confusion_matrix_conf0.25.csv`) is not representative: fused scores are
+  averaged over the three models, so few boxes reach 0.25. The F1-optimal threshold is 0.10 (§2.4).
+- **Scope:** the deeper §3 analyses (error slices, oracle, recall gap, §5) use **B1h**, the ensemble's main member.

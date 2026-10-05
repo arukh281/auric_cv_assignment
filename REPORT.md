@@ -771,6 +771,14 @@ holdout values are in DETAILED_EXPERIMENTS.md "E1 / E2: Results". Picture: `figu
   `results/b1h_tile1024_holdout40/checkpoint_curve_holdout/`).
 - Each run is a single seed.
 
+**Final system, diagnosed** (val; DETAILED_EXPERIMENTS.md "Final-system diagnosis"):
+- Every class improves over B1h: Cargo 0.131 → 0.171, Box 0.180 → 0.215, Flatbed 0.071 → 0.096, Tractor
+  0.006 → 0.028, Liquid 0.145 → 0.165.
+- TIDE bins: Cls +0.082 (B1h +0.147), Bkg +0.094 (+0.077), Missed +0.024 (+0.044), Loc +0.026 (+0.022). The ensemble
+  roughly halves classification errors and misses, and background false positives become the largest bin.
+- Qualitative sheets: `figures/final_ensemble/errors/crops_{bkg,missed,cls}.png`.
+- The deeper analyses below use B1h, the ensemble's main member.
+
 **(2) Classification between look-alike types: weak on val, partly val-specific (plausible).**
 *Corrected 2026-10-04: previously framed as a general ceiling.*
 
@@ -925,8 +933,9 @@ training or selection; `results/gap_breakdown/gap_breakdown.csv`):
 
 **Verified non-issues** (`results/review_checks/review_checks.json`):
 - Raising max_det from 902 to 3000 / 10000 changes holdout40 mAP50 by +0.0004 **for single-label B1h**. The
-  pycocotools cross-check uses the same maxDets (902). For the multi-label final system see the detection-cap check
-  (TODO-MAXDET).
+  pycocotools cross-check uses the same maxDets (902). For the multi-label final system, max_det 3000 changes holdout40-clean by −0.0047, so 902 is
+  kept. Limitation: 27 of 40 holdout40 images reach the cap, which truncates low-confidence alternate-class copies
+  (`results/maxdet_check/maxdet_check.json`).
 - Class-agnostic merging lowers holdout40 to 0.129.
 - Tractor AP stays near 0 even at IoU 0.1 (0.010), so it is not a box-offset issue.
 - **Density, corrected to boxes per megapixel:** val 6.0 vs train 1.7 pooled (medians 4.8 vs 0.7).
