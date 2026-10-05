@@ -2347,6 +2347,20 @@ TIDE breakdown on val (`figures/final_ensemble/errors/tide_dAP.csv`):
   bin; on holdout40, 62% of B1h's confident background errors were excluded truck types (§3.3b).
 - **Qualitative sheets** (`figures/final_ensemble/errors/`): `crops_bkg.png` (top background false positives),
   `crops_missed.png` (misses), `crops_cls.png` (class confusions).
+- **Class confusion at the final system's best-F1 threshold (0.10)** (val; rows = GT, columns = prediction;
+  `figures/final_ensemble/errors_conf010/confusion_matrix_conf0.1.csv`):
+
+  | GT \ pred | Cargo | Box | Flatbed | Tractor | Liquid | missed |
+  |---|---|---|---|---|---|---|
+  | Cargo (800) | **179** | 111 | 18 | 0 | 0 | 492 |
+  | Box (493) | 60 | **184** | 12 | 1 | 0 | 236 |
+  | Flatbed (122) | 7 | 9 | **25** | 3 | 0 | 78 |
+  | Tractor (117) | 2 | 11 | 2 | **5** | 0 | 97 |
+  | Liquid (20) | 4 | 4 | 1 | 0 | **0** | 11 |
+  | background (FP) | 546 | 430 | 117 | 26 | 1 | — |
+
+  - Cargo ↔ Box remains the main confusion (111 Cargo called Box, 60 Box called Cargo).
+  - Tractor and Liquid are rarely named correctly (5 of 117; 0 of 20).
 - The confusion matrix at conf 0.25 (`confusion_matrix_conf0.25.csv`) is not representative: fused scores are
   averaged over the three models, so few boxes reach 0.25. The F1-optimal threshold is 0.10 (§2.4).
 - **Scope:** the deeper §3 analyses (error slices, oracle, recall gap, §5) use **B1h**, the ensemble's main member.

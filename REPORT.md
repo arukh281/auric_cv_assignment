@@ -800,6 +800,9 @@ holdout values are in DETAILED_EXPERIMENTS.md "E1 / E2: Results". Picture: `figu
   0.006 → 0.028, Liquid 0.145 → 0.165.
 - TIDE bins: Cls +0.082 (B1h +0.147), Bkg +0.094 (+0.077), Missed +0.024 (+0.044), Loc +0.026 (+0.022). The ensemble
   roughly halves classification errors and misses, and background false positives become the largest bin.
+- At its best-F1 threshold (0.10) the main confusion is still Cargo ↔ Box: 111 Cargo predicted as Box and 60 Box as
+  Cargo. Tractor is named correctly for 5 of 117 boxes and Liquid for 0 of 20
+  (`figures/final_ensemble/errors_conf010/confusion_matrix_conf0.1.csv`).
 - Qualitative sheets: `figures/final_ensemble/errors/crops_{bkg,missed,cls}.png`.
 - The deeper analyses below use B1h, the ensemble's main member.
 
