@@ -859,6 +859,13 @@ training or selection; `results/gap_breakdown/gap_breakdown.csv`):
 - Resolution is a known lever: super-resolving 30 cm imagery to 15 cm improved mAP by 13–36% in Shermeyer & Van Etten
   (arXiv 1812.04098). We did not test it.
 
+**Verified non-issues** (`results/review_checks/review_checks.json`):
+- Raising max_det from 902 to 3000 / 10000 changes holdout40 mAP50 by +0.0004. The pycocotools cross-check uses the
+  same maxDets (902).
+- Class-agnostic merging lowers holdout40 to 0.129.
+- Tractor AP stays near 0 even at IoU 0.1 (0.010), so it is not a box-offset issue.
+- **Density, corrected to boxes per megapixel:** val 6.0 vs train 1.7 pooled (medians 4.8 vs 0.7).
+
 ### 6.6 Retrospective
 - In hindsight, auditing the data's provenance first would have saved most of the Phase-2 GPU time:
   - E1–E8 tuned the model against a val set that turned out to be partly altered, and against training labels that

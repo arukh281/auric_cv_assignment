@@ -2123,3 +2123,44 @@ Holdout40-clean mAP50 (xView-original labels), B1h weights (`robust_test_pivot.c
      run, which skipped this, had silently fallen back to Kaggle's own packages.
   2. Kaggle mounts the dataset already extracted, so the data step is a symlink instead of an unzip.
   - Kaggle's `sitecustomize` prints a harmless `wrapt` warning inside the venv.
+
+## Review checks (5 Oct 2026; CPU-only kernel `auric-review-checks` v3; `results/review_checks/review_checks.json`)
+
+*Root cause of repeated "stale code" kernel failures, fixed in `scripts/kaggle_kernel_run.py`:* kernels that mounted
+the B1h kernel's output also saw that kernel's old repo copy (commit `4a17eb1`), and the entry script could pick it.
+It now prefers the `auric-cv-code` dataset. The guards caught every case; no result used stale code.
+
+1. **max_det** (B1h holdout40, re-merged): 902 → 0.1507; 3000 → 0.1511; 10000 → 0.1511 (**+0.0004**).
+   The pycocotools cross-check uses maxDets = the same 902 (`eval.coco_crosscheck`).
+2. **Class-agnostic merging** (NMS ignoring class) lowers holdout40 to **0.1287** (vs 0.1507).
+3. **IoU 0.1 vs 0.5:** holdout40 mAP 0.1666 at IoU 0.1 vs 0.1507 at 0.5. Tractor AP stays near 0: **0.0098** at IoU 0.1
+   (0.0070 at 0.5), so Tractor's failure is not a box-offset issue.
+4. **GT-box oracle, top-1 / top-2:**
+
+   | split | boxes | top-1 | top-2 |
+   |---|---|---|---|
+   | val | 1552 | 0.601 | **0.836** |
+   | holdout40 | 738 | 0.690 | **0.848** |
+
+5. **Density, as boxes per megapixel** (*corrected 2026-10-05: replaces boxes per image*):
+
+   | split | pooled | per-image median | boxes per image |
+   |---|---|---|---|
+   | train | 1.73 | 0.69 | 17.2 |
+   | val | 6.01 | 4.80 | 70.5 |
+
+   Val is about 3.5× denser per area pooled, 7× by median.
+6. **Geography** (GeoTIFF footprints; "touch" includes shared edges; 667 footprints):
+
+   | pair of sets | touching or overlapping pairs |
+   |---|---|
+   | E10 extra images vs val | **8** (e.g. 1216/1211, 2306 and 2309/2308, 2398/2384) |
+   | E10 extra images vs holdout40 | **23** |
+   | our train vs val | 44 (inherent to the supplied split) |
+   | our train vs holdout40 | 56 |
+
+   The earlier review measured these overlaps at ≤ 3.2% of an image's area, i.e. adjacent chips.
+   - **Decision under amendment 3 (Claude Code, applying the pre-recorded rule):** E10 trained on extra images
+     touching val and holdout40 images, so **E10 is excluded from E13** and from any val scoring. It is not
+     retrained: about 2 GPU-h, and E10 showed no gain.
+   - E10's holdout40 numbers are reported as possibly optimistic.
