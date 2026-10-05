@@ -2216,3 +2216,33 @@ It now prefers the `auric-cv-code` dataset. The guards caught every case; no res
   - Otherwise adopt 3000 as a bug fix, score val once more, update the release notes and README, and report both val
     numbers with the reason.
 - The final system's checkpoints (B1h ep40, E4 ep40, E7 ep20) are unchanged.
+
+### E12: decision (author, 5 Oct 2026, after the val score)
+
+- **Not adopted.** Its gain on the 15-corruption holdout40 suite was +0.0004 over plain, below the 0.017 noise
+  threshold ("no detectable effect").
+- **Disclosure:**
+  - Val (0.0906 with auto, vs 0.1065 plain) had already been scored once when this was decided.
+  - The pre-registration should have required a minimum gain (e.g. ≥ 0.017) to pass, not merely "above plain".
+- **Why it failed on val:**
+  - The rule kept all 4 rescaled images at 1.0×, and shrank 7 unaltered images (1181, 1206, 1399, 1447, 1929, 2470,
+    2472) to 0.5× (`results/e12_robust/val_score.json`).
+  - Per-image median truck size in train spans TODO-P5–TODO-P95 px from the 5th to the 95th percentile
+    (`results/final_diag/final_diag_extra.json`), about as wide as the 0.5×–2× rescaling.
+  - So a detected object's size cannot reveal that an image was rescaled.
+
+### E15: verdict restated (5 Oct 2026)
+
+- **Prediction not supported** (single seed):
+
+  | E15 vs B1h | E15 | B1h |
+  |---|---|---|
+  | holdout40-clean | 0.153 | 0.176 |
+  | supplied labels | 0.137 | 0.151 |
+  | val, once | 0.091 | 0.107 |
+
+- **E15's xView-labelled holdout40 is identical to E13's holdout40-clean.**
+  - Both are built by `tools/make_xview_relabel.py` with the same rule from the same geojson.
+  - B1h single-label scores exactly 0.17646 on both (`results/e15_b1h_xview_labels/xviewlabels_holdout40_b1h/` and
+    `results/e13_final/holdout40_candidates.csv`).
+- **Conclusion:** the 5% training-label differences from xView are not a main limiter.

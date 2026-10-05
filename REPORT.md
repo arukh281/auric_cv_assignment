@@ -68,7 +68,7 @@ Rates and confusion matrices are reported at two threshold sets, tagged in every
 
 ---
 
-## Summary (2026-10-04)
+## Summary (2026-10-05)
 
 **The target was missed by a wide margin.** Target: ≥ 0.75 mAP50 on the 22-image val set.
 - **Final system:** a multi-label WBF ensemble of B1h ep40 + E4 ep40 + E7 ep20, selected on holdout40-clean (E13).
@@ -88,37 +88,28 @@ Why, in order of evidence strength:
 3. **More data helps, but not enough.** The learning curve is still rising, but the (unreliable) power-law
    extrapolation to 903 images gives 0.215 holdout mAP50 (CI 0.076–0.276). The 500 extra *instances* the brief asks
    about (~29 images) project to about +0.006, within seed noise (§5.3).
-4. **Other candidate causes.** Terms used: "ruled out" means a discriminating test was run; "no evidence for" means
-   a signal was looked for and not found; "not tested" means neither. *Corrected 2026-10-04: this point previously
-   said all of the following were "ruled out".*
-   - **Train/val domain shift: not ruled out; the leading explanation for val < holdout40.** B1h finds 0.665 of val
-     trucks vs 0.852 of holdout40 trucks, a gap of 0.187 (CI 0.043–0.307). Box size explains 3% of it and image size
-     7%; density does not explain it where it can be compared. That leaves a scene-level difference
-     (`results/recall_gap/standardised.csv`, §3.4). The earlier domain classifier found no separation (AUC CIs include
-     0.5; §3.3), but it ran on only 42 local images and is a weak test.
-   - **Image quality: not tested as a cause of the gap; possible contributor to the scene difference.** The visual
-     notes report haze and blur in val (`analysis/notes/visual_inspection.md`, author-marked uncertain). The only
-     related analysis is a 10-vs-12-image split of val by visual flags. Its CIs overlap (§3.3), so it gives no
-     evidence for an effect, but it could only have detected a large one.
-   - **Label errors / completeness: evidence for.**
-     - Tiling preserves the labels: 0 of 3439 tiles differ (`results/sanity/label_check_iou/label_check.json`).
-     - The background-FP audit found 46 of the 60 most confident unmatched holdout40 predictions truck-like and
-       unlabelled (§3.3b).
-     - These are either missing labels or truck types the dataset excludes. Either way measured mAP50 understates
-       detection.
-   - **Model capacity:** YOLO11s has enough capacity to fit the training data. A 16-tile overfit test reaches AP50 1.000
-     (§3.4), and E1/E2 reach train40 0.774 / 0.906. **Not tested:** whether a larger model would generalise better.
-   - **Tile-merge settings: ruled out as a main cause.** Re-scoring saved raw tile predictions under other settings
-     (class-wise NMS on IoS 0.5/0.6/0.7, NMS on IoU 0.5):
-     - B1h val mAP50 stays between 0.1047 and 0.1077 (default 0.1065). Removing the merge drops it to 0.0805
-       (`figures/b1h_tile1024_holdout40/merge_sensitivity.csv`).
-     - B1 behaves the same, 0.0707–0.0722 (`figures/b1_tile1024/merge_sensitivity.csv`). max_det 3000 adds 0.006 on
-       B1 (`figures/b1_tile1024_maxdet3000/merge_sensitivity.csv`).
-     - *Corrected 2026-10-04:* an earlier version said this was not repeated on B1h. The B1h file already existed and
-       a CPU re-run (`auric-s54-char-merge`) reproduced it exactly.
-
-Experiments still running when this was written: E3 (aerial pretraining), E4 (flipud + mixup), a crop classifier on
-GT crops, and a background false-positive audit (§5.2 test-half confirmation done: all five claims hold).
+4. **Other candidate causes, as since tested.** "Ruled out" means a discriminating test was run; "no evidence for" means
+   a signal was looked for and not found.
+   - **Domain shift / altered val (tested: real, small cost).**
+     - The xView audit (§3.3c) found 8 of 22 val images altered: 4 rescaled 2× / 0.5×, plus noise, blur + noise and
+       contrast changes. All training images are untouched.
+     - B1h finds 0.665 of val trucks vs 0.852 of holdout40 trucks. Box size explains 3% of that gap; brightness and
+       contrast about 31% each; blur and noise little (§3.4, `results/val_review/a_standardised.csv`).
+     - Re-running the 4 rescaled images at native scale lifts val 0.1065 → 0.1122 (§6.5).
+   - **Image quality (tested):** two of the altered images are degraded (noise; blur + noise), and two have changed
+     contrast. Their effect is part of the scene-level gap above.
+   - **Label completeness (tested: real, small cost).**
+     - 216 of 350 confident holdout40 false positives are excluded truck types, and val's labels drop 10.3% of
+       xView's boxes of the five types.
+     - Ignoring both in diagnostic re-scoring lifts val to 0.1237 and 0.1112 respectively (§6.5).
+     - Tiling preserves the labels (0 of 3439 tiles differ).
+   - **Model capacity:** YOLO11s fits its training data (16-tile overfit AP50 1.000; E1/E2 train40 0.774 / 0.906).
+     A larger model was not tested (E9 was cancelled for budget).
+   - **Tile-merge settings: ruled out.** Alternative merges change B1h val mAP50 within 0.1047–0.1077 and holdout40
+     by −0.005 to +0.001 (`figures/b1h_tile1024_holdout40/merge_sensitivity.csv`, `results/val_review/r2_remerge.csv`).
+5. **Audit and gap breakdown.** All data corrections together lift B1h's val mAP50 only from 0.1065 to 0.1371 in
+   diagnostic re-scoring (§6.5). The data issues are real, but they are not what keeps the score far from 0.75.
+6. **What helped:** multi-label output and a 3-model ensemble (E13). Val 0.1065 → 0.1349; +0.032 on holdout40-clean.
 
 ## The four questions
 
@@ -127,29 +118,36 @@ GT crops, and a background false-positive audit (§5.2 test-half confirmation do
   worse on new ones: holdout40 0.092 / 0.111 / 0.082 vs B1h's 0.151.
 - More augmentation (E4) and a frozen aerial backbone (E7) overfitted less, with **no detectable effect** on
   holdout40 vs B1h (0.130 / 0.128 vs 0.151; without Liquid 0.163 / 0.153 vs 0.170; seed spread 0.017).
-- B1h's own holdout40 curve is flat from epoch 40 to 50, and no ensemble of these is final yet (E13 pending).
+- B1h's own holdout40 curve is flat from epoch 40 to 50.
 
 **(2) Are the rare classes the problem? They are weak, but not because they are rare.**
 - Showing rare-class tiles more often (E6b) had **no detectable effect** overall (0.136 vs 0.151) and did not
   raise Tractor or Flatbed AP (0.007 → 0.002, 0.069 → 0.061).
 - Neither did doubling Tractor boxes in the §5.4 subsets.
 - 500 targeted instances project below noise (§5.3).
-- Part of the rare-class training labels are relabelled Cargo/Box trucks (5.0% class changes vs xView).
+- About 5% of training boxes carry a different class than xView. Training on xView's original labels instead (E15) did
+  **not** help: holdout40-clean 0.153 vs 0.176, supplied 0.137 vs 0.151, val (once) 0.091 vs 0.107; single seed.
+  Those label differences are not a main limiter.
 
-**(3) Can smarter inference help? Partly.**
-- Second opinions did not help: TTA had no detectable effect (0.138 vs 0.151; without Liquid 0.167 vs 0.170); the crop classifier 0.100–0.117, and 0.610 vs the head's 0.690 on
-  the same boxes.
-- Scale-adaptive inference recovers synthetically rescaled holdout40 copies: 0.135 vs 0.092 mean, without hurting
-  clean images (0.157). The robust-inference amendment and the single val score are pending.
+**(3) Can smarter inference help? Modestly, yes.**
+- Multi-label output plus a 3-model ensemble (B1h + E4 + E7, E13) is the only change that cleared the noise bar on
+  holdout40-clean: +0.032 (0.2086 vs 0.1765).
+- On val, scored once, it gives 0.107 → 0.135, which is within val's seed spread (0.043).
+- TTA (0.138 vs 0.151), the crop classifier (0.100–0.117; 0.610 vs the head's 0.690 on the same boxes) and
+  scale-adaptive inference (E12: +0.0004 on the corruption suite; val 0.091) did not help.
 
-**(4) Is the data the problem? Largely yes.**
-- All images come from xView.
-- 8 of 22 val images are altered (4 rescaled, 4 photometric).
-- About 5% of training boxes carry a different class than xView.
-- Val drops 10.3% of xView's boxes.
-- 216 of 350 confident holdout40 false positives are excluded truck types.
-- Labelling those types (E10) halved val background errors (9380 → 4056) but did not raise mAP50.
-- E15 (xView-original training labels) is pending.
+**(4) Is the data the problem? Partly.**
+- **The data issues are real:**
+  - all images come from xView;
+  - 8 of 22 val images are altered (4 rescaled, 4 photometric);
+  - val drops 10.3% of xView's boxes;
+  - 216 of 350 confident holdout40 false positives are excluded truck types.
+- **But they cost little measured mAP50.** Correcting all of them diagnostically lifts B1h's val score only from 0.107
+  to 0.137 (§6.5).
+- **Fixing them in training did not raise mAP50:**
+  - E10 halved val background errors (9380 → 4056) without an mAP gain, and was excluded because its extra images
+    touch val and holdout40 scenes;
+  - E15 scored lower on holdout40-clean.
 
 ## 2. Dataset and baselines
 
@@ -393,7 +391,7 @@ Full entries are in DETAILED_EXPERIMENTS.md under the headings named below. "Pre
 | **S54** ("S54") | – | Selection and rule pre-registered (`b02413c`); prediction never provided | smart vs random subsets | §5.4 | rule computed; no subset ≥ 90% | – |
 | **SANITY** ("SANITY") | train40 only 0.378 | settings / labels / capacity | args check, label check, overfit test | §3.4 | pipeline can fit; tiling preserves labels (re-check; annotation correctness not tested) | E1/E2 |
 | **E1/E2** ("E1 / E2") | B1h losses still falling | Pre-registered: E1 undertraining; E2 scale 0.5 hurts small trucks | E1 150 ep; E2 150 ep + scale 0.2 | below | E1 not supported (overfitting); E2 inconclusive, leaning not supported | E3/E4 |
-| **E3/E4** ("E3 / E4") | E1/E2 overfit | Pre-registered (author's): aerial pretraining (E3) / flipud 0.5 + mixup 0.1 (E4) reduce overfitting; holdout > 0.1507 + 0.017 | B1h recipe, 50 ep, `patience: 0`, holdout checkpoint curves | **pending (launched)** | pending | pending |
+| **E3/E4** ("E3 / E4") | E1/E2 overfit | Pre-registered (author's): aerial pretraining (E3) / flipud 0.5 + mixup 0.1 (E4) reduce overfitting; holdout > 0.1507 + 0.017 | B1h recipe, 50 ep, `patience: 0`, holdout checkpoint curves | E3 0.082, E4 0.130 holdout40 | E3 rejected (reversed); E4 partly supported (gap shrank, no detectable mAP effect) | E7, E8 |
 
 E1/E2 results (DETAILED_EXPERIMENTS.md "E1 / E2: Results"; `results/<run>/eval/per_class.csv`, `eval_holdout40/per_class.csv`,
 `eval_train40/metrics.json`):
@@ -409,6 +407,44 @@ More training fits the training images far better while held-out mAP50 falls: ov
 Val checkpoint curves peak mid-training (E1 0.100 at epoch 90, E2 0.107 at 40–50;
 `results/<run>/checkpoint_curve/checkpoint_curve.csv`); they were reported as curves only, never used to pick weights.
 E1's early stop was chosen by Ultralytics val (see Reproducibility, corrected row).
+
+### 4.1 Every model: val mAP50 and per-class AP50 (brief §2.3)
+
+Sources: each row's `results/<run>/eval/per_class.csv` (final system: `results/clean_repro_final/per_class.csv`).
+
+| model | val mAP50 | Cargo | Box | Flatbed | Tractor | Liquid | note |
+|---|---|---|---|---|---|---|---|
+| B0 | 0.0020 | 0.002 | 0.008 | 0.000 | 0.000 | 0.000 |  |
+| B1 | 0.0715 | 0.089 | 0.130 | 0.053 | 0.006 | 0.079 |  |
+| B1h | 0.1065 | 0.131 | 0.180 | 0.071 | 0.006 | 0.145 |  |
+| B1h seed 1 | 0.0634 | 0.102 | 0.129 | 0.053 | 0.029 | 0.004 |  |
+| b1h_f25 | 0.0169 | 0.035 | 0.028 | 0.022 | 0.000 | 0.000 |  |
+| b1h_f50 | 0.0492 | 0.045 | 0.048 | 0.020 | 0.000 | 0.132 |  |
+| b1h_f50 seed 1 | 0.0573 | 0.054 | 0.034 | 0.015 | 0.001 | 0.183 |  |
+| b1h_f75 | 0.0846 | 0.119 | 0.188 | 0.040 | 0.007 | 0.069 |  |
+| b1h_f75 seed 1 | 0.0736 | 0.095 | 0.166 | 0.035 | 0.003 | 0.070 |  |
+| smart50 | 0.0562 | 0.081 | 0.132 | 0.032 | 0.004 | 0.032 |  |
+| smart75 | 0.0832 | 0.090 | 0.153 | 0.051 | 0.003 | 0.119 |  |
+| E1 | 0.0680 | 0.085 | 0.177 | 0.024 | 0.001 | 0.053 |  |
+| E2 | 0.0620 | 0.062 | 0.115 | 0.037 | 0.018 | 0.078 |  |
+| E3 | 0.0881 | 0.122 | 0.207 | 0.053 | 0.004 | 0.054 |  |
+| E4 | 0.0761 | 0.112 | 0.110 | 0.120 | 0.039 | 0.000 |  |
+| E6b | 0.0908 | 0.114 | 0.146 | 0.047 | 0.001 | 0.146 |  |
+| E7 | 0.0715 | 0.090 | 0.165 | 0.070 | 0.014 | 0.018 |  |
+| E10 | 0.0820 | 0.087 | 0.124 | 0.113 | 0.014 | 0.073 | caveat: 8 of its extra training images touch val images geographically |
+| E15 | 0.0908 | 0.104 | 0.125 | 0.088 | 0.028 | 0.109 |  |
+| **Final system (E13)** | 0.1349 | 0.171 | 0.215 | 0.096 | 0.028 | 0.165 | multi-label ensemble; val scored once |
+| E6 | — | | | | | | not evaluated: superseded by E6b (E6 repeated only Liquid tiles, +1.6% views); its CPU evaluation failed twice and was not retried |
+| E8 | — | | | | | | stopped at epoch 68 for GPU budget; never evaluated |
+| E9, E11 | — | | | | | | cancelled for budget, never trained |
+| E12 (auto rule on B1h) | 0.0906 | | | | | | inference rule, not adopted (see E12 entry); per-class not computed |
+| TTA, crop classifier | — | | | | | | holdout40 only by their pre-registered rules (val only if they passed; neither did) |
+
+Other dataset facts recorded with these runs:
+- 44 train–val and 56 train–holdout40 image pairs touch geographically (adjacent chips;
+  each overlap ≤ 3.2% of an image's area). This is a property of the supplied split.
+- The E10 label-conflict check found 10 trucks labelled with both a 5-class box and an excluded-type box, vs 9 inside
+  xView's own labels. That is negligible.
 
 ## 5. Research questions
 
@@ -440,7 +476,7 @@ is 44% vs 20% chance. The TIDE oracle agrees: fixing Cls adds +0.147, Loc +0.022
   also cannot model fixing two error types jointly.
 - **It measures this model's classifier, not the best achievable one.** 60% is what B1h's head does with perfect
   locations. It says nothing about what a dedicated classifier, more context or higher resolution could achieve. The
-  crop-classifier experiment (`auric-fp-crop`, pending) is the first test of that.
+  crop-classifier experiment tested that: 0.610 on holdout40 GT crops vs the head's 0.690 on the same boxes.
 - **It cannot separate ambiguity in the data from weakness of the model.** Some Cargo vs Box confusions may be
   genuinely ambiguous from above, or inconsistently labelled. The oracle cannot tell these apart from model errors.
 - **Small sample.** It is measured on the 22 val images (1552 boxes, but only 20 Liquid and 117 Tractor). Accuracy is
@@ -795,8 +831,10 @@ confirmed on the unseen half).
 - **B0 → B1, tiling: the only large change** (0.0020 → 0.0715 val mAP50). At 640 px a 22 px truck shrinks to a few
   pixels. With 1024 tiles, 1449 of 1552 val trucks have a matching anchor, vs 396 at 640 px (§5.1).
 - **B1 → B1h:** 0.0715 → 0.1065, but within seed noise (B1h seed 1: 0.0634). The same recipe is kept.
-- **Everything after B1h** (E1–E4, E7, TTA, crop classifier) left holdout40 within or below noise. The final system
-  is the B1 recipe, trained without the 40 held-out images.
+- **B1h → final system:** multi-label NMS and a WBF ensemble of B1h ep40 + E4 ep40 + E7 ep20 (E13). Holdout40-clean
+  0.1765 → 0.2086 for the ensemble before checkpoint choice; val 0.1065 → 0.1349. That is the only change after
+  tiling that cleared the noise bar on holdout40-clean.
+- *Corrected 2026-10-05: an earlier version said the final system was the B1 recipe without the held-out images.*
 
 ### 6.4 Single highest-priority next step (one working day)
 
@@ -868,22 +906,31 @@ training or selection; `results/gap_breakdown/gap_breakdown.csv`):
 - Resolution is a known lever: super-resolving 30 cm imagery to 15 cm improved mAP by 13–36% in Shermeyer & Van Etten
   (arXiv 1812.04098). We did not test it.
 
+**E12 (robust inference) was not adopted.**
+- Its holdout40 suite gain (+0.0004) is below the noise threshold.
+- Val (0.0906 vs 0.1065) had been scored before the decision; the pre-registration lacked a minimum-gain requirement.
+- It failed because per-image truck size varies as much across normal images as the rescaling does, so the rule kept
+  the rescaled images at 1× and shrank 7 normal ones (DETAILED_EXPERIMENTS.md "E12: decision").
+
 **Verified non-issues** (`results/review_checks/review_checks.json`):
-- Raising max_det from 902 to 3000 / 10000 changes holdout40 mAP50 by +0.0004. The pycocotools cross-check uses the
-  same maxDets (902).
+- Raising max_det from 902 to 3000 / 10000 changes holdout40 mAP50 by +0.0004 **for single-label B1h**. The
+  pycocotools cross-check uses the same maxDets (902). For the multi-label final system see the detection-cap check
+  (TODO-MAXDET).
 - Class-agnostic merging lowers holdout40 to 0.129.
 - Tractor AP stays near 0 even at IoU 0.1 (0.010), so it is not a box-offset issue.
 - **Density, corrected to boxes per megapixel:** val 6.0 vs train 1.7 pooled (medians 4.8 vs 0.7).
 
 ### 6.6 Retrospective
-- In hindsight, auditing the data's provenance first would have saved most of the Phase-2 GPU time:
-  - E1–E8 tuned the model against a val set that turned out to be partly altered, and against training labels that
-    deviate from their public source.
-- In the first hour of a similar project next time, we would check:
+- Every model choice after B1h was made on holdout40, never on val.
+- In hindsight, auditing the data's provenance first would still have saved time:
+  - we spent effort explaining val-specific anomalies (rescaled and altered images, the recall gap) that a source
+    comparison reveals in minutes;
+  - we could have tested E10 and E15 earlier.
+- It would not have changed the main conclusion: the measured cost of the data issues is about 0.03 mAP50 (§6.5).
+- In the first hour of a similar project, we would check:
   1. **The data's source:** match images to public datasets by name, size and hash.
   2. **Per-split image statistics:** size, brightness, contrast, blur and noise, train vs val.
   3. **Label consistency against the source:** class and box agreement per split.
-  - Each takes minutes on CPU, and here each would have changed which experiments were worth running.
 
 ## 7. Deliverables
 

@@ -11,8 +11,10 @@ them and do worse on new images. It names truck types reasonably on our own held
 for always guessing "Cargo") but much worse on val (60% vs 52%) *(corrected 2026-10-04: previously "it never learned
 to tell look-alike truck types apart")*. Then we stepped outside
 the box and found that the data itself was part of the story: every image is from xView, four val images are
-rescaled copies, and most of the model's "false alarms" are real trucks of types the labels leave out. The last two
-experiments (E10 and E12) try to fix exactly that.
+rescaled copies, and most of the model's "false alarms" are real trucks of types the labels leave out. Measured
+directly, those data issues cost only about 0.03 mAP50 (0.107 → 0.137 when corrected diagnostically). Fixing them in
+training (E10, E15) and adapting inference to scale (E12) did not help. What did help, modestly, was letting each box
+carry several candidate classes and fusing three models.
 
 ## The four questions
 
@@ -21,29 +23,36 @@ experiments (E10 and E12) try to fix exactly that.
   worse on new ones: holdout40 0.092 / 0.111 / 0.082 vs B1h's 0.151.
 - More augmentation (E4) and a frozen aerial backbone (E7) overfitted less, with **no detectable effect** on
   holdout40 vs B1h (0.130 / 0.128 vs 0.151; without Liquid 0.163 / 0.153 vs 0.170; seed spread 0.017).
-- B1h's own holdout40 curve is flat from epoch 40 to 50, and no ensemble of these is final yet (E13 pending).
+- B1h's own holdout40 curve is flat from epoch 40 to 50.
 
 **(2) Are the rare classes the problem? They are weak, but not because they are rare.**
 - Showing rare-class tiles more often (E6b) had **no detectable effect** overall (0.136 vs 0.151) and did not
   raise Tractor or Flatbed AP (0.007 → 0.002, 0.069 → 0.061).
 - Neither did doubling Tractor boxes in the §5.4 subsets.
 - 500 targeted instances project below noise (§5.3).
-- Part of the rare-class training labels are relabelled Cargo/Box trucks (5.0% class changes vs xView).
+- About 5% of training boxes carry a different class than xView. Training on xView's original labels instead (E15) did
+  **not** help: holdout40-clean 0.153 vs 0.176, supplied 0.137 vs 0.151, val (once) 0.091 vs 0.107; single seed.
+  Those label differences are not a main limiter.
 
-**(3) Can smarter inference help? Partly.**
-- Second opinions did not help: TTA had no detectable effect (0.138 vs 0.151; without Liquid 0.167 vs 0.170); the crop classifier 0.100–0.117, and 0.610 vs the head's 0.690 on
-  the same boxes.
-- Scale-adaptive inference recovers synthetically rescaled holdout40 copies: 0.135 vs 0.092 mean, without hurting
-  clean images (0.157). The robust-inference amendment and the single val score are pending.
+**(3) Can smarter inference help? Modestly, yes.**
+- Multi-label output plus a 3-model ensemble (B1h + E4 + E7, E13) is the only change that cleared the noise bar on
+  holdout40-clean: +0.032 (0.2086 vs 0.1765).
+- On val, scored once, it gives 0.107 → 0.135, which is within val's seed spread (0.043).
+- TTA (0.138 vs 0.151), the crop classifier (0.100–0.117; 0.610 vs the head's 0.690 on the same boxes) and
+  scale-adaptive inference (E12: +0.0004 on the corruption suite; val 0.091) did not help.
 
-**(4) Is the data the problem? Largely yes.**
-- All images come from xView.
-- 8 of 22 val images are altered (4 rescaled, 4 photometric).
-- About 5% of training boxes carry a different class than xView.
-- Val drops 10.3% of xView's boxes.
-- 216 of 350 confident holdout40 false positives are excluded truck types.
-- Labelling those types (E10) halved val background errors (9380 → 4056) but did not raise mAP50.
-- E15 (xView-original training labels) is pending.
+**(4) Is the data the problem? Partly.**
+- **The data issues are real:**
+  - all images come from xView;
+  - 8 of 22 val images are altered (4 rescaled, 4 photometric);
+  - val drops 10.3% of xView's boxes;
+  - 216 of 350 confident holdout40 false positives are excluded truck types.
+- **But they cost little measured mAP50.** Correcting all of them diagnostically lifts B1h's val score only from 0.107
+  to 0.137 (§6.5).
+- **Fixing them in training did not raise mAP50:**
+  - E10 halved val background errors (9380 → 4056) without an mAP gain, and was excluded because its extra images
+    touch val and holdout40 scenes;
+  - E15 scored lower on holdout40-clean.
 
 ## The cast
 - 🧑 **Aradhya** decides, runs and directs.
@@ -221,7 +230,8 @@ faster.
 ### E6 and E6b: show the rare trucks more often
 Rare classes are weak, so we repeated the tiles that contain them. The first try (E6) used a threshold so low that
 only Liquid tiles were repeated, adding just 1.6% more tile views: too weak to test anything. E6b raises the
-threshold so Tractor, Flatbed and Liquid tiles are all shown more often (+17.9% views). Its result is still pending.
+threshold so Tractor, Flatbed and Liquid tiles are all shown more often (+17.9% views). It had no detectable effect
+overall (holdout40 0.136 vs 0.151), and Tractor and Flatbed did not rise (0.007 → 0.002, 0.069 → 0.061).
 *[details →](DETAILED_EXPERIMENTS.md#e6b-repeat-factor-sampling-with-t--03-pre-registered-4-oct-2026-before-launch-configse6b_b1h_rfs_t03yaml)*
 
 ### E8: E4 for longer (stopped)
@@ -297,12 +307,20 @@ holdout40 fell to 0.126 vs 0.151, though background false alarms on val halved (
 turned out to sit right next to val and holdout scenes, so E10 was kept out of the final ensemble.
 *[details →](DETAILED_EXPERIMENTS.md#e10-results-4-oct-2026-gpu-kernel-aradhya1211auric-e10-xview-extra-code-23607fb-190-gpu-h-kernel-time)*
 
+### E15: maybe the training labels are the problem?
+About 5% of our training boxes carry a different class than in xView, mostly Cargo or Box turned into a rarer class.
+E15 trained B1h's exact recipe on xView's original labels instead. It scored lower, not higher: 0.153 vs B1h's 0.176
+on holdout40 with clean labels, and 0.091 vs 0.107 on val. So those label differences aren't what holds the model
+back.
+*[details →](DETAILED_EXPERIMENTS.md#e15-results-5-oct-2026-gpu-kernel-aradhya1211auric-e15-xview-labels-code-1bb49a2-176-gpu-h-kernel-time)*
+
 ### E12: inference that adapts to scale
 Four val images are rescaled 2× or 0.5×, so their trucks are far bigger or smaller than anything in training. E12
 keeps B1h's weights and changes only inference. It either runs at three scales, or picks a scale per image from the
 size of what it detects. The rule was chosen on a generic set of corrupted holdout40 copies and then applied to val
-exactly once. The scale rule passed, but only by +0.0004, and on val it lowered the score (0.091 vs 0.107), so it is
-not part of the final system.
+exactly once. The scale rule passed, but only by +0.0004, which is no detectable effect, and on val it lowered the
+score (0.091 vs 0.107). It isn't part of the final system: a truck's apparent size varies as much between normal
+images as rescaling changes it, so the rule couldn't tell which images had been rescaled.
 *[details →](DETAILED_EXPERIMENTS.md#e12-re-scoped-results-5-oct-2026-cpu-only-kernels-auric-e12s-ae--auric-e12-select-resultse12_robust)*
 
 ### 🏁 The final model: three heads are better than one
