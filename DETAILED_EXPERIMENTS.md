@@ -2278,3 +2278,11 @@ It now prefers the `auric-cv-code` dataset. The guards caught every case; no res
   - Otherwise the final stays at 0.1349 and E16 is reported as tested.
 - **Evaluation of E16 `last.pt`:** val once, holdout40 (supplied and clean), train40, class-agnostic.
 - **Budget:** about 2 GPU-h; at least 2.5 h kept in reserve.
+- **Amendment to E16's decision rule (author, 5 Oct 2026, before any E16 result):**
+  - **b1h_seed1** (`last.pt`, multi-label) is added as a candidate.
+  - **One selection on holdout40-clean** among: the current final; final + E16; final + b1h_seed1; final + E16 +
+    b1h_seed1. All are multi-label WBF with the existing members at their chosen checkpoints.
+  - **Same pass rule:** more than 0.017 over the current final **and** better without Liquid. Then val is scored once.
+    One selection, one val scoring.
+  - **Interpretation, recorded now:** E16-containing candidates enter only if E16 passes its own pre-registered
+    test. If it does not, the selection is between the current final and final + b1h_seed1.
