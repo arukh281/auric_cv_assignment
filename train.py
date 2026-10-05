@@ -72,6 +72,8 @@ def main():
                "--min-vis", str(t["min_vis"]), "--seed", str(t["seed"])]
         if holdout:
             cmd += ["--exclude-list", str(REPO / holdout)]
+        if t.get("allow_small_overlap"):  # E16: 512 tiles with overlap 128 < max box side 161 (min_vis rule still applies)
+            cmd += ["--allow-small-overlap"]
         if subset:
             cmd += ["--include-list", str(REPO / subset)]
         if a.max_tile_images:

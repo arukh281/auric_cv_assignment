@@ -2246,3 +2246,35 @@ It now prefers the `auric-cv-code` dataset. The guards caught every case; no res
   - B1h single-label scores exactly 0.17646 on both (`results/e15_b1h_xview_labels/xviewlabels_holdout40_b1h/` and
     `results/e13_final/holdout40_candidates.csv`).
 - **Conclusion:** the 5% training-label differences from xView are not a main limiter.
+
+## E16: train and infer at 2× object scale (pre-registered 5 Oct 2026, before launch; `configs/e16_b1h_tile512_up2x.yaml`)
+
+- **Observation:**
+  - Trucks are about 22 px (median sqrt area). Tractor AP stays near 0 even at IoU 0.1.
+  - Size-sliced recall is lowest below 16 px (§5.2 C1).
+- **Hypothesis (author's):** ~22 px trucks are too small for YOLO11s's finest (stride-8) head, and doubling their size
+  helps.
+  - Precedent: Shermeyer & Van Etten, arXiv 1812.04098 (super-resolving 30 cm to 15 cm gave a 13–36% mAP improvement).
+- **Changes vs B1h (only these):**
+  - **Tiles:** cut at **512 px** with overlap **128** (half of B1h's, scaled with the tile), same empty-tile rule
+    (0.2) and min_vis 0.5.
+    - The overlap is below the largest training box side (161 px), so `allow_small_overlap` is set. Boxes cut by a
+      tile edge follow the same min_vis rule.
+  - **Training:** at **imgsz 1024**, so each 512 tile is upscaled 2× by Ultralytics' loader.
+  - **Inference:** the same geometry: 512 tiles, overlap 128, imgsz 1024, then the usual class-wise NMS merge.
+  - **Steps:** epochs set at run time so total optimizer steps ≈ 10,750, B1h's (`target_iterations`). Warmup and
+    close_mosaic are matched to B1h's step counts (`match_schedule_to`).
+  - **Checkpoints:** every epoch, about 8% of training each at roughly 12–13 epochs. The per-checkpoint scores are
+    not computed for budget; `last.pt` is used.
+  - Supplied labels, YOLO11s COCO init, seed 0, `patience: 0`.
+  - Ultralytics' `train_batch0.jpg` is saved and inspected to confirm the tiles are upscaled, not padded.
+- **Prediction (author's):** E16 alone beats B1h alone on **holdout40-clean** by more than 0.017, both single-label:
+  B1h single = 0.1765, so E16 must exceed 0.1935.
+- **Decision rule (fixed now):**
+  - If E16 passes, score {current final ensemble + E16} vs the current final on holdout40-clean: multi-label, WBF,
+    existing members at their chosen checkpoints, E16 at `last.pt`, max_det as settled by the cap check.
+  - Adopt only if it beats the current final by more than 0.017 **and** also without Liquid. Then score val once,
+    and update the release, README and clean-room test.
+  - Otherwise the final stays at 0.1349 and E16 is reported as tested.
+- **Evaluation of E16 `last.pt`:** val once, holdout40 (supplied and clean), train40, class-agnostic.
+- **Budget:** about 2 GPU-h; at least 2.5 h kept in reserve.
