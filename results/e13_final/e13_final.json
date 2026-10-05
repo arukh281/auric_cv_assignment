@@ -1,0 +1,49 @@
+{
+  "chosen_mode": "multi",
+  "chosen_combo": "b1h+e4+e7",
+  "chosen_clean": 0.20862708886446146,
+  "chosen_clean_no_liquid": 0.22249690562197455,
+  "b1h_clean": 0.1764591279449225,
+  "b1h_clean_no_liquid": 0.1879137944953548,
+  "passes": true,
+  "checkpoints": {
+    "b1h": {
+      "scores": {
+        "epoch010.pt": 0.15124932715940467,
+        "epoch020.pt": 0.1443367447543289,
+        "epoch030.pt": 0.19091814622318232,
+        "epoch040.pt": 0.2000450778804086,
+        "epoch050.pt": 0.18663880902041588,
+        "last.pt": 0.18663880902041588
+      },
+      "chosen": "epoch040.pt"
+    },
+    "e4": {
+      "scores": {
+        "epoch010.pt": 0.1319284483121849,
+        "epoch020.pt": 0.15890120249540035,
+        "epoch030.pt": 0.15864793659965465,
+        "epoch040.pt": 0.1711675736520398,
+        "epoch050.pt": 0.1708590769773178,
+        "last.pt": 0.1708590769773178
+      },
+      "chosen": "epoch040.pt"
+    },
+    "e7": {
+      "scores": {
+        "epoch010.pt": 0.1649058209629382,
+        "epoch020.pt": 0.19003464873275341,
+        "epoch030.pt": 0.1575197349494037,
+        "epoch040.pt": 0.15768029455589644,
+        "epoch050.pt": 0.1533088841279267,
+        "last.pt": 0.1533088841279267
+      },
+      "chosen": "epoch020.pt"
+    }
+  },
+  "final_holdout40_clean": 0.23639166945738807,
+  "final_holdout40_clean_no_liquid": 0.22413047235630607,
+  "final_holdout40_supplied": 0.19407430398719502,
+  "val_mAP50": 0.13494562174771083,
+  "val_mAP50_no_liquid": 0.12740237095182078
+}

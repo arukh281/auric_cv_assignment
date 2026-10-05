@@ -30,7 +30,11 @@ NAMES = {0: "Cargo Truck", 1: "Truck w/Box", 2: "Truck w/Flatbed", 3: "Truck Tra
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--weights", required=True)
+    ap.add_argument("--weights", required=True, nargs="+",
+                    help="one checkpoint, or several: each is predicted and merged as usual, then fused with weighted "
+                         "boxes fusion (equal weights, IoU 0.55, skip 0.001, top 902), as in E13 (analysis/e13_ensemble.py)")
+    ap.add_argument("--multi-label", action="store_true",
+                    help="NMS with multi_label=True (each box may carry several classes), as the final E13 system")
     ap.add_argument("--images", required=True, help="folder of images")
     ap.add_argument("--labels", help="folder of YOLO .txt labels (same stems); enables metrics")
     ap.add_argument("--out", required=True)
@@ -41,20 +45,30 @@ def main():
     ap.add_argument("--max-images", type=int, help="first N images (sorted by name) only")
     a = ap.parse_args()
     ev = yaml.safe_load(open(a.config))["eval"]
-    s = SimpleNamespace(weights=a.weights, device=a.device, batch=a.batch, mode=ev["mode"], imgsz=ev["imgsz"],
-                        tile=ev.get("tile"), overlap=ev.get("overlap"), conf=ev["conf"], nms_iou=ev["nms_iou"],
-                        max_det=ev["max_det"])
-    out = Path(a.out); out.mkdir(parents=True, exist_ok=True)
     images = list_images(a.images)[: a.max_images]
     sizes = image_sizes(images)
-    raw = run_predictions(s, images)
-    raw.to_csv(out / "predictions_raw.csv", index=False)
     method = ev["merge"] if ev["mode"] == "sliced" else "none"
-    preds = finalize(raw, sizes, method, ev.get("merge_thr"), ev.get("merge_metric"), ev["max_det"])
+    per_model, raws = [], []
+    for w in a.weights:
+        s = SimpleNamespace(weights=w, device=a.device, batch=a.batch, mode=ev["mode"], imgsz=ev["imgsz"],
+                            tile=ev.get("tile"), overlap=ev.get("overlap"), conf=ev["conf"], nms_iou=ev["nms_iou"],
+                            max_det=ev["max_det"], multi_label=a.multi_label)
+        raw = run_predictions(s, images)
+        raw = raw[raw.cls < 5] if a.multi_label or len(a.weights) > 1 else raw
+        raws.append(raw.assign(model=Path(w).name))
+        per_model.append(finalize(raw, sizes, method, ev.get("merge_thr"), ev.get("merge_metric"), ev["max_det"]))
+    out = Path(a.out); out.mkdir(parents=True, exist_ok=True)
+    pd.concat(raws).to_csv(out / "predictions_raw.csv", index=False)
+    if len(per_model) == 1:
+        preds = per_model[0]
+    else:
+        sys.path.insert(0, str(REPO / "analysis"))
+        from e13_ensemble import fuse
+        preds = fuse(per_model, sizes)
     preds.to_csv(out / "predictions.csv", index=False)
     print(f"[predict] {len(preds)} predictions on {len(images)} images -> {out / 'predictions.csv'}")
-    info = dict(weights=str(a.weights), weights_sha256=sha256(a.weights), images=[p.name for p in images],
-                config=str(a.config), eval_settings=ev)
+    info = dict(weights=[str(w) for w in a.weights], weights_sha256=[sha256(w) for w in a.weights],
+                multi_label=a.multi_label, images=[p.name for p in images], config=str(a.config), eval_settings=ev)
     if a.labels:
         cm = Path(a.classmap) if a.classmap else Path(a.labels).parent.parent / "classmap.txt"
         names = load_classes(cm.parent) if cm.exists() else NAMES
