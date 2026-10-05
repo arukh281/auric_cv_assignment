@@ -2227,8 +2227,8 @@ It now prefers the `auric-cv-code` dataset. The guards caught every case; no res
 - **Why it failed on val:**
   - The rule kept all 4 rescaled images at 1.0×, and shrank 7 unaltered images (1181, 1206, 1399, 1447, 1929, 2470,
     2472) to 0.5× (`results/e12_robust/val_score.json`).
-  - Per-image median truck size in train spans TODO-P5–TODO-P95 px from the 5th to the 95th percentile
-    (`results/final_diag/final_diag_extra.json`), about as wide as the 0.5×–2× rescaling.
+  - Per-image median truck size in train spans 13.1–39.7 px from the 5th to the 95th percentile
+    (per-image median sqrt(box area) over the 443 train-split images, `figures/eda/tables/boxes.csv`), about as wide as the 0.5×–2× rescaling.
   - So a detected object's size cannot reveal that an image was rescaled.
 
 ### E15: verdict restated (5 Oct 2026)

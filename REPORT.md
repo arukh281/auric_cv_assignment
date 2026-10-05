@@ -153,6 +153,17 @@ Why, in order of evidence strength:
 
 ### 2.1 Dataset
 
+**Class definitions.** The dataset ships only class names, in `classmap.txt`, quoted verbatim:
+```
+0 Cargo Truck
+1 Truck w/Box
+2 Truck w/Flatbed
+3 Truck Tractor
+4 Truck w/Liquid
+```
+These names match xView's type names exactly (xView type ids 24 Cargo Truck, 25 Truck w/Box, 28 Truck w/Flatbed,
+26 Truck Tractor, 29 Truck w/Liquid). No further definition is supplied.
+
 Full-dataset statistics (`figures/eda/summary.json`, `figures/eda/tables/*.csv`):
 
 | Class | train inst. | val inst. | train imgs | val imgs | train share | val share |
