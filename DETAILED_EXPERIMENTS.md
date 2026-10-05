@@ -45,7 +45,7 @@ column) in brackets, which is a lower bound.
 | E12 | scale-robust / robust inference (B1h weights) | done; auto passed the suite by +0.0004, val 0.0906; not adopted | 0.0906 (auto) | 0.1840 (auto, clean) | — | 0.51 (scale test) + ~0.45 (superseded first amendment, estimate) + 0 (CPU suite) | "E12: decision" |
 | E13 final | multi-label WBF ensemble B1h ep40 + E4 ep40 + E7 ep20 | **done; FINAL SYSTEM** | **0.1349** | 0.2086 clean (0.2364 after checkpoint choice, optimistic) | — | 0.45 (kernel time) | "E13 final: Results" |
 | E15 `e15_b1h_xview_labels` | train on xView-original labels | done; not supported | 0.0908 | 0.1372 (0.1526 clean) | 0.3717 | 1.76 (kernel time) | "E15: Results" |
-| E16 `e16_b1h_tile512_up2x` | 2× object scale (512 tiles at imgsz 1024) | running | — | — | — | ~2 (estimate) | "E16" pre-registration |
+| E16 `e16_b1h_tile512_up2x` | 2× object scale (512 tiles at imgsz 1024) | ~~running~~ final (Update 5 Oct): not supported alone (holdout40-clean 0.155 vs B1h 0.176); in ensemble +0.010, below 0.017, not adopted | 0.0799 | — | — | 1.74 | "E16: Results", "E16 ensemble selection" |
 | TTA (`auric-tta-b1h`) | flips + 1.5× on B1h tiles | done; not supported | — | 0.1381 | — | 0 (CPU) | "TTA on B1h: Results" |
 | Two-stage on E4 boxes | crop classifier relabels E4 | done; not supported | — | 0.1006 / 0.1182 | — | 0 (CPU) | "Two-stage on E4's boxes" |
 | fp-crop (`auric-fp-crop`) | background-FP audit + crop classifier on B1h | done; 46/60 truck-like; classifier hurts | — | 0.0999 / 0.1167 | — | 0 (CPU) | "Background false-positive audit" |
@@ -368,6 +368,10 @@ By my pre-registered rule: the projected held-out gain at +500 images (+0.080 mA
 | (a) Pre-registered: 500 more **images** (403 → 903) | helps by the pre-registered rule (+0.080 > 0.017 noise); direction only, because the fit extrapolates 2.24× and is flagged unreliable | `figures/learning_curve/power_law_fit.csv` |
 | (b) The brief: 500 more **instances** (~29 images, current class mix) | **no**: +0.006, below the 0.017 noise | same fit at 403 → 432 images; REPORT.md §5.3 |
 | (b′) 500 targeted instances of one class | pending (`auric-lc-per-class`) | — |
+
+*Update 5 Oct:* (b′) is no longer pending. 500 targeted instances project Box +0.011 (reliable fit), Liquid +0.016
+(unreliable, a 4.1× extrapolation) and no gain for Tractor; all below the 0.017 noise. See REPORT.md §5.3 and
+`figures/learning_curve/power_law_fit.csv`.
 
 ### Smallest useful training subset
 
@@ -1043,6 +1047,7 @@ Source: `results/s52_confirm/test/claims.csv`.
   - r_c = max(1, √(0.1 / f_c)), and each tile's r is the maximum r_c over its classes. The list
     `<run>/train_rfs.txt` holds floor(r) copies of each tile plus one more with probability r − floor(r) (seed 0).
     The per-class f_c and r_c are written to `<run>/rfs.json` and will be reported here.
+    *Update 5 Oct:* reported in "E6b" (`results/e6b_b1h_rfs_t03/rfs.json`); E6 itself was superseded by E6b.
   - Epochs are set at run time so that epochs × ceil(list length / 16) is closest to B1h's 10,750 iterations. Only
     which tiles are seen changes, not how many steps are taken.
   - Caveat: warmup (3) and close_mosaic (10) are counted in epochs, so they cover a different number of iterations
@@ -1065,6 +1070,7 @@ Source: `results/s52_confirm/test/claims.csv`.
     - close_mosaic = round(10 × 215 / it_ep), aiming for B1h's 2150 no-mosaic steps.
   - The residual difference in no-mosaic steps (close_mosaic × it_ep − 2150) is written to `<run>/rfs.json` and will be
     reported here with the results. It is at most half an epoch of steps.
+    *Update 5 Oct:* reported in "E6b" (`results/e6b_b1h_rfs_t03/rfs.json`).
 
 ## TTA on B1h (pre-registered 4 Oct 2026, before any run; `analysis/tta_eval.py`, CPU-only kernel)
 
@@ -1156,6 +1162,7 @@ Holdout40 checkpoint curve (`results/e3_b1h_dota/checkpoint_curve_holdout/checkp
   section). The neck (11–22) and the Detect head (23) are trained.
   - The kernel writes the frozen layer indices and the total and trainable parameter counts to
     `<run>/trainable_params.json` (new `train.py` callback); they will be reported here.
+    *Update 5 Oct:* reported in "E7: Results" (`results/e7_b1h_dota_frozen/trainable_params.json`).
   - Ultralytics freezing sets `requires_grad = False`; BatchNorm running statistics in frozen layers still update in
     train mode.
 - **Unchanged from E3:** 50 epochs, `patience: 0`, `last.pt` only, holdout40 scored at every 10-epoch checkpoint
@@ -1325,6 +1332,7 @@ Holdout40 checkpoint curve (`results/e4_b1h_flipud_mixup/checkpoint_curve_holdou
   - The decision rule for applying it as a second stage (> +0.017) is **not met**.
   - Single seed and a single setting (96 px, 2× context).
 - **Next:** the pre-registered two-stage test on E4's boxes (running) uses this same model.
+- *Update 5 Oct:* the two-stage test finished and failed its rule (0.101 / 0.118); see "Two-stage on E4's boxes: Result".
 
 ## TTA on B1h: Results (4 Oct 2026; CPU-only kernel `aradhya1211/auric-tta-b1h`, code `095cf9b`)
 
@@ -1516,6 +1524,8 @@ Holdout40 curve: 0.128 / 0.132 / 0.124 / 0.135 / 0.128 at epochs 10–50, flat
   - The supplied labels are therefore xView's boxes for these five types, with a small share of class changes. That
     count is pooled over train and val; the per-split breakdown and the 4 rescaled val images are pending (audit
     item 5).
+    *Update 5 Oct:* per-split changed-class counts are train 341 (5.0%), holdout40 38 (5.2%), val 0 (0%); see the
+    table in "E15" (`label_compare_by_split.csv`, `label_changes_by_split.csv`).
 - **Step 2, extra data:** 382 xView train images are not in our dataset (`extra_counts.csv`).
 
   | group | instances (images) |
@@ -1570,6 +1580,7 @@ Holdout40 curve: 0.128 / 0.132 / 0.124 / 0.135 / 0.128 at epochs 10–50, flat
   - **Recipe:** B1h's (YOLO11s COCO, 1024 tiles with overlap 256, `patience: 0`, `last.pt` only, holdout40 at every
     checkpoint). Total iterations are matched to B1h's 10,750 (`target_iterations`; epochs set at run time), and
     warmup and close_mosaic are matched to B1h's steps (as E6). The actual epochs and iterations will be reported.
+    *Update 5 Oct:* 6601 tiles, 26 epochs, 10,738 iterations; see "E10: Results" (`results/e10_b1h_xview_extra/rfs.json`).
   - **Caveat:** some excluded-type boxes (for example haul trucks and trailers) may exceed the 256 px tile overlap
     and are then clipped or dropped by the tiler's min_vis 0.5 rule.
 - **Predictions (author's direction; numbers from the §5.3 curve):**
@@ -1623,6 +1634,8 @@ Holdout40 curve: 0.128 / 0.132 / 0.124 / 0.135 / 0.128 at epochs 10–50, flat
 - **E8 is stopped for GPU budget.** It is not a result. Any holdout40 checkpoints it finished will be reported
   descriptively only, with no verdict against its pre-registration. The stop is done by the author in the Kaggle web
   UI, because the CLI (2.2.4) has no stop command; `delete` would destroy its output.
+- *Update 5 Oct:* E8's saved checkpoints were never scored on holdout40 (or val); there is no `results/e8_*` output.
+  E8 has no result.
 - **E9 (yolo11m) is cancelled** (never launched); it does not fit the budget.
 - **E11 (photometric-robustness run) is cancelled** (never pre-registered).
 - **Final candidate:** E10's model with E12's scale-robust inference, each only if it passes its own pre-registered
@@ -1840,6 +1853,8 @@ Holdout40 curve: 0.092 / 0.133 / 0.126 at epochs 10 / 20 / 26.
      - Liquid fell to 0 (29 boxes).
   2. **Background false positives shrink: supported on val** (Bkg errors 9380 → 4056, dAP +0.077 → +0.055). Misses
      rose (419 → 727). Part (ii), the xView re-scoring of E10's holdout40 FPs, is pending (CPU).
+     *Update 5 Oct:* part (ii) was not run (time); B1h's FP re-scoring (§3.3b, `results/fp_audit/fp_audit.csv`) is the
+     evidence used.
 - **Decision:** E10 does not beat B1h on holdout40. It is not the final model on its own; it still enters E13 as an
   ensemble candidate.
 
@@ -2211,6 +2226,8 @@ It now prefers the `auric-cv-code` dataset. The guards caught every case; no res
   - Reproduced by `predict.py --weights <3 files> --multi-label`.
   - E12's auto rule is **not** included: it passed its holdout test by +0.0004 but lowered val, and the author's
     decision on it is pending.
+    *Update 5 Oct:* decision recorded: **not adopted** (passed its holdout test by +0.0004, within noise, and lowered
+    val to 0.0906 vs 0.1065); see "E12: decision".
 
 ## Detection-cap check for the final system (rule recorded 5 Oct 2026, before running)
 

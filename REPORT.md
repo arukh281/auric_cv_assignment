@@ -470,7 +470,7 @@ Sources: each row's `results/<run>/eval/per_class.csv` (final system: `results/c
 | E15 | 0.0908 | 0.104 | 0.125 | 0.088 | 0.028 | 0.109 |  |
 | **Final system (E13)** | 0.1349 | 0.171 | 0.215 | 0.096 | 0.028 | 0.165 | multi-label ensemble; val scored once |
 | E6 | — | | | | | | not evaluated: superseded by E6b (E6 repeated only Liquid tiles, +1.6% views); its CPU evaluation failed twice and was not retried |
-| E8 | — | | | | | | stopped at epoch 68 for GPU budget; never evaluated |
+| E8 | — | | | | | | stopped at epoch 68 for GPU budget; never evaluated (no checkpoint scored on holdout40 or val) |
 | E9, E11 | — | | | | | | cancelled for budget, never trained |
 | E12 (auto rule on B1h) | 0.0906 | | | | | | inference rule, not adopted (see E12 entry); per-class not computed |
 | TTA, crop classifier | — | | | | | | holdout40 only by their pre-registered rules (val only if they passed; neither did) |
