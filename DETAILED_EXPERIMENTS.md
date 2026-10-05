@@ -2055,3 +2055,71 @@ Claude Code reproduced the numbers.
   - 2459 (train) overlaps 2470 by 0.34% of its area.
 - **(d) E11** (photometric robustness) was cancelled for budget. The E12 robust-inference suite covers the inference
   side.
+
+## E12 (re-scoped): Results (5 Oct 2026; CPU-only kernels `auric-e12s-a`–`e` + `auric-e12-select`; `results/e12_robust/`)
+
+Holdout40-clean mAP50 (xView-original labels), B1h weights (`robust_test_pivot.csv`):
+
+| rule | clean holdout40 | mean over the 15 corruptions | passes |
+|---|---|---|---|
+| plain | 0.1765 | 0.1447 | — |
+| **auto** | **0.1840** | **0.1451** | **yes** |
+| denoise | 0.1712 | 0.1432 | no |
+| combo | 0.1655 | 0.1353 | no |
+| cnorm | 0.1605 | 0.1314 | no |
+
+- **Selection by the pre-registered rule:** auto is the only passing rule, so it is chosen.
+- **Its margin over plain on the suite average is tiny:** +0.0004 (0.1451 vs 0.1447). It is ahead on the clean images
+  (+0.0076).
+- **Val, scored once with auto** (`val_score.json`):
+
+  | val subset | mAP50 with auto | plain |
+  |---|---|---|
+  | all 22 | **0.0906** | 0.1065 |
+  | 14 unaltered | 0.1119 | not computed |
+  | 4 rescaled | 0.0621 | not computed |
+  | 4 photometric | 0.1021 | not computed |
+
+- **On val, auto lowers mAP50 by 0.016 vs plain**, at the edge of the val seed spread (0.043) and well within it.
+- **Auto's choices on val:** it chose 0.5× for 7 unaltered images, including 2470 and 2472, and 1× for all 4 rescaled
+  images (`chosen_scales`). So it did not apply the intended correction to the rescaled images.
+  - On the 2× upscaled images (2308, 2391) the detected boxes' median size evidently did not push the rule to 0.5×,
+    plausibly because most of those trucks were missed in the first pass (see 2391: 68 of 108 boxes never matched).
+- **Verdict:** the rule passed its pre-registered holdout40 test by a negligible margin and does not help on val. By
+  the pre-registration it qualifies for the final system; whether to include it is the author's decision, recorded
+  with this result. No other rule is tried on val.
+
+## E10 label-conflict check (5 Oct 2026; CPU-only kernel `auric-e10-conflicts`; `results/e10_conflicts/`)
+
+- **E10 conflicts:** in E10's training labels for our 403 images, **10** pairs where a supplied 5-class box and an
+  appended excluded-type xView box overlap at IoU ≥ 0.5, i.e. the same truck labelled twice:
+
+  | our class | xView excluded type | pairs |
+  |---|---|---|
+  | Cargo | Truck | 3 |
+  | Box | Trailer | 2 |
+  | Cargo | Dump Truck | 1 |
+  | Box | Truck | 1 |
+  | Flatbed | Utility Truck | 1 |
+  | Tractor | Trailer | 1 |
+  | Flatbed | Dump Truck | 1 |
+
+- **Inside xView's own labels** on the same images there are **9** such pairs, with almost the same class pairs
+  (`xview_internal_conflicts.csv`). The conflicts come from xView itself.
+- **Conclusion:** a handful (10 among about 3700 appended boxes). It is not a material caveat on E10. E15-style
+  xView-consistent labels would **not** avoid it, because xView double-labels these trucks itself.
+
+## Clean-room reproducibility (5 Oct 2026; CPU-only kernel `auric-clean-repro` v2; `results/clean_repro/`)
+
+- **What it ran:** the README's commands, from a fresh `git clone` of the public repo, into a new virtual environment
+  (`.venv`, Python 3.13.15, torch 2.10.0+cpu, Ultralytics 8.4.171; verified with `sys.prefix`). The weights came by
+  anonymous `curl` from the GitHub release.
+- **Weights:** SHA-256 `3fa24066…7ffb`, as expected.
+- **Result:** val mAP50 **0.1065**. The per-class AP50 values equal `results/b1h_tile1024_holdout40/eval/per_class.csv`
+  exactly.
+- **Runtime:** install 143 s, prediction on 22 val images 356 s (CPU), total 501 s.
+- **Two Kaggle-specific deviations:**
+  1. Kaggle's Python image lacks `ensurepip`, so the venv was made with `--without-pip` plus `get-pip.py`. The v1
+     run, which skipped this, had silently fallen back to Kaggle's own packages.
+  2. Kaggle mounts the dataset already extracted, so the data step is a symlink instead of an unzip.
+  - Kaggle's `sitecustomize` prints a harmless `wrapt` warning inside the venv.

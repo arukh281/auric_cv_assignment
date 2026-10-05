@@ -1,0 +1,8 @@
+our_class,xview_excluded_type,e10_conflicts
+Cargo Truck,Truck,3
+Truck w/Box,Trailer,2
+Cargo Truck,Dump Truck,1
+Truck w/Box,Truck,1
+Truck w/Flatbed,Utility Truck,1
+Truck Tractor,Trailer,1
+Truck w/Flatbed,Dump Truck,1

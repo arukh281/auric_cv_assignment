@@ -1,0 +1,50 @@
+{
+  "weights": "b1h_tile1024_holdout40_last.pt",
+  "weights_sha256": "3fa2406665706b9f44a155ca8b411b73e1c9eb4ffdc58ab03c4cb0e5bae37ffb",
+  "images": [
+    "1181.png",
+    "1206.png",
+    "1211.png",
+    "1362.png",
+    "1399.png",
+    "1447.png",
+    "1456.png",
+    "1457.png",
+    "1530.png",
+    "1929.png",
+    "20.png",
+    "2139.png",
+    "2292.png",
+    "2293.png",
+    "2308.png",
+    "2384.png",
+    "2391.png",
+    "2460.png",
+    "2470.png",
+    "2472.png",
+    "2543.png",
+    "31.png"
+  ],
+  "config": "/kaggle/tmp/cr/auric_cv_assignment/configs/b1h.yaml",
+  "eval_settings": {
+    "mode": "sliced",
+    "imgsz": 1024,
+    "tile": 1024,
+    "overlap": 256,
+    "merge": "nms",
+    "merge_metric": "ios",
+    "merge_thr": 0.6,
+    "conf": 0.001,
+    "nms_iou": 0.7,
+    "max_det": 902
+  },
+  "mAP50": 0.10645813485684832,
+  "mAP50_ultralytics_interp": 0.11814625638911933,
+  "per_class_AP50": {
+    "Cargo Truck": 0.13055128526616727,
+    "Truck w/Box": 0.1797118712003455,
+    "Truck w/Flatbed": 0.0710933212814027,
+    "Truck Tractor": 0.006234012232181463,
+    "Truck w/Liquid": 0.1447001843041447
+  }
+}

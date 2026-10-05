@@ -58,8 +58,14 @@ python predict.py --weights b1h_tile1024_holdout40_last.pt --images data/val/ima
 computes no bootstrap CIs; those come from `eval.py`. To get predictions only, for any folder of images, drop
 `--labels`.
 
-**Clean-room check:** TODO-FINAL. CPU kernel `auric-clean-repro` runs exactly these commands and records the
-runtime.
+**Clean-room check:** the CPU-only Kaggle kernel `auric-clean-repro` ran exactly these commands in a fresh venv.
+- Result: mAP50 0.1065, with per-class AP50 identical to the reported values.
+- Time: 8.4 min in total, about 6 min of it for prediction on CPU.
+- Kaggle-only adjustments: its Python lacks `ensurepip`, so step 2 used
+  `python3 -m venv --without-pip .venv && curl -sS https://bootstrap.pypa.io/get-pip.py | .venv/bin/python`; and its
+  dataset arrives already unzipped.
+- Details: `results/clean_repro/`, DETAILED_EXPERIMENTS.md "Clean-room reproducibility".
+- If `python3 -m venv` fails on your machine with an `ensurepip` error, use the same workaround.
 
 ## Reproduce everything
 
