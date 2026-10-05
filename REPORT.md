@@ -385,6 +385,10 @@ Source: DETAILED_EXPERIMENTS.md "Data-integrity audit"; `results/xview_pixels/`,
     where holdout has no images.
   - The gap is therefore a difference between the scenes themselves, not size, density or resolution, and these
     analyses cannot name it. Val has only 22 images.
+  - *Corrected 5 Oct:* re-weighting holdout40 to val's per-image brightness explains 0.307 of the gap and RMS contrast
+    0.310 (`results/val_review/a_standardised.csv`). These probably overlap rather than add, since bright and
+    contrasty images coincide. Blur (−0.101) and noise (0.059) explain little. With 22 val images, the gap is partly
+    explained by brightness/contrast; the rest is unexplained.
   - Sources: `results/recall_gap/standardised.csv`, `recall_by_factor.csv`; DETAILED_EXPERIMENTS.md "Val vs holdout40 recall
     gap".
 - **Overfit test** (16 tiles, all 5 classes, augmentation off): AP50 0.355 / 0.987 / 1.000 at epochs 50 / 100 / 300;
@@ -861,6 +865,8 @@ Sources: `figures/b1h_tile1024_holdout40/gt_oracle/comparison.csv`, `gt_oracle_h
 - B1h finds 0.665 of val trucks vs 0.852 of holdout40 trucks, a gap of 0.187 (CI 0.043–0.307).
 - Box size explains 3% of the gap and image size 7%; density does not explain it where it can be compared (§3.4).
 - The remaining difference is at scene level, so val is harder than our own held-out images.
+- *Corrected 5 Oct:* partly explained by brightness/contrast (~31% each, overlapping; `results/val_review/a_standardised.csv`);
+  the rest unexplained (§3.4).
 
 **(5) More data alone will not close the gap.**
 - 500 more instances in the current class mix project about +0.006 holdout mAP50.
@@ -880,7 +886,7 @@ confirmed on the unseen half).
 | A crop classifier or TTA does not fix classification | **supported** (single settings) | crop classifier 0.100 / 0.117; TTA 0.138 |
 | Small trucks are "never confident", not invisible | **strongly supported** (pre-registered, test half) | §5.2 C1, C4 |
 | Labels are incomplete, or exclude real truck types, and the score undercounts | **supported, size unquantified** | FP audit 46/60 |
-| Val has a scene-level shift from train | **plausible; mechanism unknown** | recall gap 0.187 |
+| Val has a scene-level shift from train | **plausible; partly explained by brightness/contrast (~31% each, overlapping); the rest unexplained** (*Corrected 5 Oct:* previously "mechanism unknown") | recall gap 0.187; `results/val_review/a_standardised.csv` |
 | 500 more instances would not materially help | **supported as projected; extrapolation caveats** | §5.3 |
 | Augmentation improves detection but not class-aware mAP50 | **plausible** (one run, two settings at once) | E4 |
 | Smart subsets beat random on detection | **supported by the pre-registered rule, confounded with box count** | §5.4 |
