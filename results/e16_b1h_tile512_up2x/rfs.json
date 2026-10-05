@@ -1,0 +1,30 @@
+{
+  "t": 0.0,
+  "tiles": 8763,
+  "list_entries": 8763,
+  "class_image_fraction": [
+    0.312221841834988,
+    0.1555403400661874,
+    0.07862604131005363,
+    0.046673513636882345,
+    0.029441971927422116
+  ],
+  "class_repeat_factor": [
+    1.0,
+    1.0,
+    1.0,
+    1.0,
+    1.0
+  ],
+  "mean_tile_repeat": 1.0,
+  "iterations_per_epoch": 548,
+  "epochs": 20,
+  "total_iterations": 10960,
+  "warmup_epochs": 1.177007299270073,
+  "warmup_steps": 645.0,
+  "warmup_steps_reference": 645,
+  "close_mosaic": 4,
+  "close_mosaic_steps": 2192,
+  "close_mosaic_steps_reference": 2150,
+  "close_mosaic_step_difference": 42
+}

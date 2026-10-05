@@ -2383,3 +2383,29 @@ TIDE breakdown on val (`figures/final_ensemble/errors/tide_dAP.csv`):
 | E2 | 0.117 | 0.114 | 0.116 | **0.159** | 0.128 | 0.128 | 0.127 | 0.116 | 0.109 | 0.112 | 0.107 | 0.109 | 0.113 | 0.107 | 0.111 (150) |
 
 - Both peak at epoch 40 and then decline: the overfitting signature, measured on holdout40.
+
+## E16: Results (5 Oct 2026; GPU kernel `aradhya1211/auric-e16-up2x`, code `23dc9bc`, ~1.74 GPU-h kernel time)
+
+- **Run** (`results/e16_b1h_tile512_up2x/rfs.json`):
+  - 8763 tiles of 512 px; 20 epochs, 10,960 iterations (B1h 10,750).
+  - Warmup 645 steps (equal to B1h's); close_mosaic residual +42 steps.
+- **Upscaling confirmed:** in `figures/e16_b1h_tile512_up2x/train_batch0.jpg`, each 512 tile fills its 1024 mosaic
+  cell at 2× scale, not as a small padded tile.
+
+| single-label, `last.pt` | B1h | E16 |
+|---|---|---|
+| **holdout40-clean mAP50** | **0.1765** | **0.1551** (0.056–0.190) |
+| holdout40-clean without Liquid | 0.188 | 0.194 |
+| holdout40 supplied | 0.1507 | 0.1384 (0.050–0.168) |
+| val mAP50 | 0.1065 | 0.0799 (0.054–0.125) |
+| train40 | 0.378 | 0.212 |
+| holdout40-clean AP50 (Cargo / Box / Flatbed / Tractor / Liquid) | 0.094 / 0.569 / 0.086 / 0.003 / 0.131 | 0.102 / 0.592 / 0.076 / 0.005 / **0.000** |
+
+- **Hypothesis test: not supported.** E16 is 0.021 *below* B1h on holdout40-clean (predicted: more than 0.017
+  above).
+  - Without Liquid it is +0.006, which is no detectable effect.
+  - Liquid scores 0 on every split.
+- Train40 is lower (0.212 vs 0.378): at matched steps each tile is seen fewer times (8763 tiles vs 3439).
+- **Reading:** doubling object size at matched compute did not help. The resolution lever is not supported at 2×
+  bilinear upscaling with matched steps. Learned super-resolution (arXiv 1812.04098) remains untested.
+- E16 still enters the four-candidate ensemble selection (amendment 2), now running on CPU.
