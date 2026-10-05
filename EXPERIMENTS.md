@@ -4,7 +4,8 @@
 > the sources, the pre-registrations and all the caveats.
 
 ## TL;DR
-We set out to hit 0.75 mAP50 on val; our best model, B1h, reached 0.107 (the same recipe with another seed: 0.063).
+We set out to hit 0.75 mAP50 on val; our best single model, B1h, reached 0.107 (the same recipe with another seed: 0.063),
+and the final ensemble reached 0.135.
 For a long time we looked inside the model. Every attempt to make it fit its training images better made it memorise
 them and do worse on new images. It names truck types reasonably on our own held-out images (69% right vs 43.5%
 for always guessing "Cargo") but much worse on val (60% vs 52%) *(corrected 2026-10-04: previously "it never learned
@@ -279,7 +280,7 @@ not shifted, Truck w/Box labels concentrated in two dark port images, Cargo vs B
 train and val, and several visibly degraded val images (dark, hazy, blurry, low-resolution). Claude Code is
 reproducing the numbers behind each observation. Image quality, the trucks missed in one image and geographic
 overlap with training images are being measured now.
-*TODO-FINAL: link once the reproduction is in DETAILED_EXPERIMENTS.md*
+*[details →](DETAILED_EXPERIMENTS.md#visual-review-claude-chat-with-supporting-numbers-5-oct-2026-cpu-only-kernel-auric-val-review-code-5204c51-resultsval_review)*
 
 ![inspection sheet](figures/inspect_val/06_val_fp_top.jpg)
 
@@ -287,23 +288,31 @@ overlap with training images are being measured now.
 
 ## 3. Fixing what we found
 
-### E10: teach the model the look-alikes ⏳
+### E10: teach the model the look-alikes
 If most false alarms are excluded truck types, tell the model about them. E10 trains on our images plus 382 extra
 xView images, with the excluded truck types as extra classes that never count at test time, and with val and the
 holdout images strictly excluded. The extra images hold few of our five classes, so this is mainly a test of "label
-the look-alikes". The learning curve predicts a gain right at the noise bar (about +0.019). Running now.
-*[details →](DETAILED_EXPERIMENTS.md#e10-extra-xview-data-val-and-holdout40-excluded-pre-registered-4-oct-2026-before-launch-configse10_b1h_xview_extrayaml) · TODO-FINAL: result*
+the look-alikes". The learning curve predicted a gain right at the noise bar (about +0.019). It didn't happen:
+holdout40 fell to 0.126 vs 0.151, though background false alarms on val halved (9380 → 4056). Some extra images also
+turned out to sit right next to val and holdout scenes, so E10 was kept out of the final ensemble.
+*[details →](DETAILED_EXPERIMENTS.md#e10-results-4-oct-2026-gpu-kernel-aradhya1211auric-e10-xview-extra-code-23607fb-190-gpu-h-kernel-time)*
 
-### E12: inference that adapts to scale ⏳
+### E12: inference that adapts to scale
 Four val images are rescaled 2× or 0.5×, so their trucks are far bigger or smaller than anything in training. E12
 keeps B1h's weights and changes only inference. It either runs at three scales, or picks a scale per image from the
-size of what it detects. The rule is chosen on rescaled copies of holdout40 and then applied to val exactly once.
-Waiting for a GPU slot.
-*[details →](DETAILED_EXPERIMENTS.md#e12-scale-robust-inference-no-training-pre-registered-4-oct-2026-before-any-run-analysise12_scalepy) · TODO-FINAL: result*
+size of what it detects. The rule was chosen on a generic set of corrupted holdout40 copies and then applied to val
+exactly once. The scale rule passed, but only by +0.0004, and on val it lowered the score (0.091 vs 0.107), so it is
+not part of the final system.
+*[details →](DETAILED_EXPERIMENTS.md#e12-re-scoped-results-5-oct-2026-cpu-only-kernels-auric-e12s-ae--auric-e12-select-resultse12_robust)*
 
-### The final model
-The final candidate is E10's model with E12's inference, each only if it passes its own pre-registered test.
-Otherwise it stays B1h with plain inference. TODO-FINAL.
+### 🏁 The final model: three heads are better than one
+Nothing we changed in a single model beat B1h. So E13 combined existing models, with no new training. It let each
+box carry more than one candidate class, which matters because the right class is in the model's top two about 84%
+of the time, and fused B1h, E4 and E7 into one set of boxes. The pick was made once, on holdout40 with xView's
+original labels: 0.209 vs B1h's 0.177, which passed the pre-registered bar. Scored once on val, it reaches 0.135,
+up from 0.107. That is still far from 0.75, and within val's seed noise, but it's our best system. It reproduces
+exactly from the public release.
+*[details →](DETAILED_EXPERIMENTS.md#e13-final-results-5-oct-2026-gpu-kernel-aradhya1211auric-e13-final-code-3f340cf-045-gpu-h-resultse13_final)*
 
 ---
 

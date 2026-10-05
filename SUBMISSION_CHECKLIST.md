@@ -88,7 +88,7 @@ establish."
 | Deliverable (verbatim) | Expectation (verbatim) | Status | Where |
 |---|---|---|---|
 | Concise technical report | "Dataset observations, baseline, experiment records, quantitative and qualitative results, failure analysis, research investigations, conclusions and prioritized next step." | partial (§6 and §7 pending; gaps above) | `REPORT.md` |
-| Final model weights | "The exact checkpoint corresponding to your claimed validation result." | done for B1h (sha256 matches `metrics.json`); to be updated if E5 replaces it | GitHub release `weights-b1h-v1` |
+| Final model weights | "The exact checkpoint corresponding to your claimed validation result." | done: final ensemble in release `weights-final-v1` (3 checkpoints + SHA256SUMS); baseline B1h in `weights-b1h-v1` | README "Final system" |
 | Inference and evaluation code | "A reproducible path from provided validation images to predictions and reported metrics." | done; reproducibility check done: CPU run on 2 val images reproduces the saved predictions (`results/predict_test/compare.json`) | `predict.py`, `eval.py` |
 | Training code/configuration | "All configurations, scripts and commands required to reproduce the final training setup." | done | `train.py`, `configs/b1h.yaml`, `scripts/run_b1h.sh`, README |
 | Environment/dependencies | "Requirements file, environment specification or equivalent, including key package versions." | done | `requirements.txt`, `requirements-lock.txt` |

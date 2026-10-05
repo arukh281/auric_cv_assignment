@@ -10,6 +10,14 @@ generalisation, not the eval pipeline.
 
 ---
 
+## FINAL STATE (5 Oct 2026)
+- **Final system:** a multi-label WBF ensemble of B1h ep40 + E4 ep40 + E7 ep20 (E13). Val mAP50 **0.1349**, scored
+  once, reproduced in a clean environment.
+- **Weights:** release `weights-final-v1`. Run: `predict.py --weights <3 files> --multi-label` (README "Final system").
+- **No more experiments.** E8 was stopped; E9 and E11 were cancelled; E10 is excluded from E13 (geographic touches);
+  E12 auto passed its holdout test by +0.0004 and lowered val, so it is excluded (author decision pending).
+- Remaining work is writing only.
+
 ## 0. CURRENT STATE (updated 2026-10-04 afternoon IST; supersedes older statements below where they differ)
 
 **Best model is still `b1h_tile1024_holdout40`.** Val mAP50 0.1065, holdout 0.1507.

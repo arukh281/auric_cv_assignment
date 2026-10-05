@@ -2,10 +2,40 @@
 
 YOLO11s (COCO-pretrained) on a 5-class overhead truck dataset. Target: mAP50 ≥ 0.75 on the provided val set.
 
-**Result:** the target was not reached. Best val mAP50 is 0.1065 (95% CI 0.0563–0.1653), from B1h. Why: see
+**Result:** the target (0.75) was not reached.
+- **Final system:** a multi-label WBF ensemble of three YOLO11s checkpoints. Val mAP50 **0.1349**, scored once.
+- **Single-model baseline B1h:** 0.1065 (95% CI 0.0563–0.1653). Why: see
 `REPORT.md` (summary at the top) and `DETAILED_EXPERIMENTS.md` (one entry per run, index at the top).
 
-## Final model and prediction (deliverable)
+## Final system (deliverable)
+
+- **What it is:** B1h epoch 40, E4 epoch 40 and E7 epoch 20. Each runs the B1h sliced pipeline with multi-label NMS,
+  and the three are fused with weighted boxes fusion (equal weights, IoU 0.55). It was selected by E13 on
+  holdout40-clean under a pre-registered rule; see DETAILED_EXPERIMENTS.md "E13 final".
+- **Weights:** public release [`weights-final-v1`](https://github.com/arukh281/auric_cv_assignment/releases/tag/weights-final-v1).
+
+  | file | SHA-256 |
+  |---|---|
+  | `final_b1h_epoch040.pt` | `327ff973…9886` |
+  | `final_e4_epoch040.pt` | `7c45a4f7…0f6f` |
+  | `final_e7_epoch020.pt` | `3599627a…0a70` |
+
+  Full checksums are in `SHA256SUMS.txt`.
+- **Reproduce the final val mAP50 (0.1349):** follow steps 1, 2 and 4 of the B1h section below (clone, environment,
+  data), then:
+  ```bash
+  U=https://github.com/arukh281/auric_cv_assignment/releases/download/weights-final-v1
+  for f in final_b1h_epoch040.pt final_e4_epoch040.pt final_e7_epoch020.pt SHA256SUMS.txt; do curl -L -o $f $U/$f; done
+  sha256sum -c SHA256SUMS.txt          # macOS: shasum -a 256 -c SHA256SUMS.txt
+  python predict.py --weights final_b1h_epoch040.pt final_e4_epoch040.pt final_e7_epoch020.pt --multi-label \
+    --images data/val/images --labels data/val/labels --out out_final --device cpu
+  # expected last line: [predict] mAP50 0.1349 (COCO 101-point, conf >= 0.001)
+  ```
+  Expected per-class AP50: Cargo 0.1713, Box 0.2145, Flatbed 0.0960, Tractor 0.0277, Liquid 0.1651.
+- **Clean-room check:** kernel `auric-clean-repro-final` (CPU) ran exactly these commands from the public repo and
+  release. It reproduced 0.1349 and the per-class values above in 22 min of prediction (`results/clean_repro_final/`).
+
+## Single-model baseline B1h (also reproducible)
 
 - **Weights:** GitHub release
   [`weights-b1h-v1`](https://github.com/arukh281/auric_cv_assignment/releases/tag/weights-b1h-v1), file

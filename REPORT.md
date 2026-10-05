@@ -70,9 +70,11 @@ Rates and confusion matrices are reported at two threshold sets, tagged in every
 
 ## Summary (2026-10-04)
 
-**The target was missed by a wide margin.** Target: ≥ 0.75 mAP50 on the 22-image val set. Best result: **0.1065**
-(95% CI 0.0563–0.1653), run `b1h_tile1024_holdout40` (`results/b1h_tile1024_holdout40/eval/per_class.csv`), about
-one seventh of the target. Its repeat with seed 1 scored 0.0634 (`results/b1h_seed1/eval/per_class.csv`).
+**The target was missed by a wide margin.** Target: ≥ 0.75 mAP50 on the 22-image val set.
+- **Final system:** a multi-label WBF ensemble of B1h ep40 + E4 ep40 + E7 ep20, selected on holdout40-clean (E13).
+  Val mAP50 **0.1349**, scored once (`results/e13_final/e13_final.json`; reproduced in a clean environment,
+  `results/clean_repro_final/`).
+- **Single-model baseline B1h:** 0.1065 (95% CI 0.0563–0.1653). Its seed-1 repeat scored 0.0634.
 
 Why, in order of evidence strength:
 1. **The model does not generalise from 403 images.** The same B1h weights score 0.378 on 40 of their own training
@@ -236,7 +238,10 @@ Grids of TP / FN / FP (background, localisation, wrong class) and full-image ove
   holdout40** (P 0.346, R 0.332, F1 0.339). Figures: `figures/operating_points/`.
 - **Precision is understated:** detections of excluded truck types (§3.3b) and of the 178 xView boxes missing from
   val's labels count as false positives.
-- TODO-FINAL: the same table for the final model, once E13 is chosen.
+- **Final system on val** (`results/clean_repro_final/operating_points_final_val.csv`):
+  - mAP50 0.135 at conf 0.001.
+  - F1-optimal threshold **0.10** (P 0.263, R 0.298, F1 0.280).
+  - mAP50 falls to 0 by conf 0.7: fused scores are averaged over models, so they are lower than single-model scores.
 
 ## 3. Failure diagnosis
 
@@ -686,9 +691,11 @@ Class coverage, as boxes (images) and share of the pool's boxes of that class:
 
 ## 6. Final analysis and next experiment
 
-**Final model: B1h** (`b1h_tile1024_holdout40`, `last.pt`). Val mAP50 0.1065 (CI 0.056–0.165), holdout40 0.1507.
-Nothing tested so far beats it on holdout40 by more than the 0.017 seed spread. TODO-FINAL: E13/E15 can still
-change this under their pre-registered rules.
+**Final system:** a multi-label WBF ensemble of B1h ep40 + E4 ep40 + E7 ep20 (E13). Val mAP50 **0.1349**, scored once.
+- On holdout40-clean, the ensemble before checkpoint choice scores 0.2086, vs B1h's 0.1765.
+- The checkpoints were chosen on holdout40, so holdout numbers after that choice are optimistic.
+- The val gain over B1h (+0.028) is within val's seed spread (0.043).
+- No single-model change beat B1h.
 
 ### 6.1 Dominant limitations, with evidence
 
@@ -736,7 +743,8 @@ Sources: `figures/b1h_tile1024_holdout40/gt_oracle/comparison.csv`, `gt_oracle_h
 - **A dedicated crop classifier is worse than the detector head on the same 738 holdout40 boxes** (0.610 vs 0.690;
   `results/crop_classifier/summary.json`). Re-labelling detections with it lowers holdout40 mAP50 to 0.100 / 0.117.
 - TTA did not help either (0.138 vs 0.151; without Liquid 0.167 vs 0.170).
-- TODO-FINAL: TIDE breakdown on holdout40 vs val (whether classification also dominates the holdout errors).
+- TIDE on holdout40 confirms that classification also dominates there: Cls +0.177, Bkg +0.130, Missed +0.014, Loc
+  +0.015 (`figures/b1h_tile1024_holdout40/errors_holdout/tide_dAP.csv`).
 
 **(3) Labels: the metric undercounts.**
 - 46 of the 60 most confident unmatched holdout40 predictions look like real, unlabelled trucks (§3.3b).
@@ -781,7 +789,7 @@ confirmed on the unseen half).
 | *Weakened:* "size isn't what limits detections" (B1) | weakened: size matters most below 16 px | §5.2 C1; DETAILED B1 note |
 | *Weakened:* "no domain shift" (B1 diagnosis) | weakened by the recall gap | §3.4 |
 | Rare-class resampling helps Tractor/Flatbed (E6b) | not supported (Tractor 0.007 → 0.002, Flatbed 0.069 → 0.061; overall no detectable effect) | E6b; E6 was too weak a test (+1.6% tile views) |
-| Longer training helps when augmentation limits overfitting (E8) | TODO-FINAL | |
+| Longer training helps when augmentation limits overfitting (E8) | not tested: E8 was stopped at epoch 68 for GPU budget | DETAILED "Budget decisions" |
 
 ### 6.3 What changed most between the initial and final system
 - **B0 → B1, tiling: the only large change** (0.0020 → 0.0715 val mAP50). At 640 px a 22 px truck shrinks to a few
@@ -810,8 +818,8 @@ confirmed on the unseen half).
   - More labels: projected below noise.
   - All of them would be measured on the same flawed labels.
   - Ensembling: the top xView solutions combined several detectors, for example the first-place RFL (Reduced Focal
-    Loss) solution, arXiv 1903.01347. E13 tests an ensemble of our existing models with no new training.
-    TODO-FINAL: result.
+    Loss) solution, arXiv 1903.01347. E13's multi-label ensemble of existing models raised val to 0.1349 with no new
+    training. It is the final system.
 
 ### 6.5 Why 0.75 was not reached
 
@@ -834,7 +842,8 @@ the measured gap is in the evaluation data rather than in the model.
 6. **Levers tried.**
    - Without detectable gains: longer training (E1/E2), aerial pretraining (E3, E7), augmentation (E4), resampling
      (E6/E6b), extra xView data with excluded types (E10), xView-original labels (E15), TTA, and a crop classifier.
-   - Pending: ensembles (E13) and robust inference (E12).
+   - Helped modestly: a multi-label ensemble (E13, val 0.1065 → 0.1349).
+   - Robust inference (E12) passed its holdout test by a negligible margin and lowered val (0.0906).
 
 **Error-repair sum (an indication, not a bound).** Fixing each TIDE error type on val in turn adds +0.147 (Cls),
 +0.077 (Bkg), +0.044 (Missed) and +0.022 (Loc) to 0.1065, about 0.40 in total
@@ -879,6 +888,7 @@ training or selection; `results/gap_breakdown/gap_breakdown.csv`):
 ## 7. Deliverables
 
 See `SUBMISSION_CHECKLIST.md` and the README sections "Final model and prediction" and "Reproduce everything".
-Final weights: GitHub release `weights-b1h-v1` (TODO-FINAL: replace only if the E13 final system passes its rule).
+Final weights: GitHub release `weights-final-v1` (3 checkpoints; the ensemble). The baseline B1h is in
+`weights-b1h-v1`.
 `predict.py` on CPU reproduced B1h's saved predictions for 2 val images (all paired; max confidence difference 3e-6;
 `results/predict_test/compare.json`).
