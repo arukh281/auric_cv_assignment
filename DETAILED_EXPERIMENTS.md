@@ -2164,3 +2164,43 @@ It now prefers the `auric-cv-code` dataset. The guards caught every case; no res
      touching val and holdout40 images, so **E10 is excluded from E13** and from any val scoring. It is not
      retrained: about 2 GPU-h, and E10 showed no gain.
    - E10's holdout40 numbers are reported as possibly optimistic.
+
+## E13 final: Results (5 Oct 2026; GPU kernel `aradhya1211/auric-e13-final`, code `3f340cf`, ~0.45 GPU-h; `results/e13_final/`)
+
+- **Candidates:** B1h, E4, E7 and E15. E10 is excluded under amendment 3 (its extra images touch val and holdout40).
+  All B1h-containing combinations are scored, single- and multi-label, on holdout40-clean (xView-original labels)
+  and supplied labels (`holdout40_candidates.csv`).
+
+| top candidates | mode | holdout40-clean | clean without Liquid | supplied |
+|---|---|---|---|---|
+| **B1h + E4 + E7** | **multi** | **0.2086** | **0.2225** | 0.1789 |
+| B1h + E4 + E7 + E15 | multi | 0.2065 | 0.2244 | 0.1782 |
+| B1h + E4 | multi | 0.2048 | 0.2092 | 0.1759 |
+| B1h + E4 + E7 | single | 0.2004 | 0.2196 | 0.1723 |
+| B1h alone | multi | 0.1866 | 0.1939 | 0.1597 |
+| **B1h alone (reference)** | single | **0.1765** | **0.1879** | 0.1507 |
+
+- **Selection:** multi-label B1h + E4 + E7, by the highest holdout40-clean mAP50.
+- **Pass rule (amendment 1):** **passes.** It is +0.032 over B1h on holdout40-clean (> 0.017) and beats B1h without
+  Liquid (0.2225 vs 0.1879).
+  - Caveat: the choice is the best of 32 candidates on the same 40 images, so 0.2086 is optimistic.
+- **Multi-label output** helps every candidate here, for example B1h alone 0.1765 → 0.1866.
+- **Checkpoint rule (amendment 6):** for each member, the checkpoint with the highest holdout40-clean mAP50 alone (multi):
+
+  | member | checkpoint scores (clean) | chosen |
+  |---|---|---|
+  | B1h | ep10 0.151, ep20 0.144, ep30 0.191, **ep40 0.200**, ep50 0.187 | **epoch040** |
+  | E4 | 0.132, 0.159, 0.159, **0.171**, 0.171 | **epoch040** |
+  | E7 | 0.165, **0.190**, 0.158, 0.158, 0.153 | **epoch020** |
+
+  With these checkpoints the system scores 0.2364 on holdout40-clean. That is doubly optimistic (checkpoints and
+  combination both picked on holdout40). Supplied labels: 0.1941.
+- **Val, scored once:** **mAP50 0.1349** (without Liquid 0.1274), vs B1h's 0.1065, i.e. **+0.028**.
+  - This is the claimed final result.
+  - Seed noise on val is 0.043 (B1h seeds), so the gain is below the val seed spread. On holdout40-clean the gain is
+    larger than the seed spread.
+- **The final system:** three YOLO11s checkpoints, each with the B1h sliced pipeline and multi-label NMS, fused by WBF.
+  - Weights: GitHub release `weights-final-v1`, with SHA-256 sums.
+  - Reproduced by `predict.py --weights <3 files> --multi-label`.
+  - E12's auto rule is **not** included: it passed its holdout test by +0.0004 but lowered val, and the author's
+    decision on it is pending.
