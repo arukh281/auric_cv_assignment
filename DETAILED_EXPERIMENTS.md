@@ -2204,3 +2204,15 @@ It now prefers the `auric-cv-code` dataset. The guards caught every case; no res
   - Reproduced by `predict.py --weights <3 files> --multi-label`.
   - E12's auto rule is **not** included: it passed its holdout test by +0.0004 but lowered val, and the author's
     decision on it is pending.
+
+## Detection-cap check for the final system (rule recorded 5 Oct 2026, before running)
+
+- **Observation:** with multi-label output, each box can carry several class copies, and 21 of 22 val images hit
+  max_det = 902 in the final system. 902 was set before multi-label output existed.
+- **Test, holdout40-clean only:** re-run the final ensemble with max_det = 3000 everywhere: per-tile prediction,
+  per-model merge, and the top-k after fusion. Compare with max_det = 902. Count the images that hit the cap.
+- **Rule:**
+  - If holdout40-clean mAP50 improves by **less than 0.005**, keep 902 and note it as a limitation.
+  - Otherwise adopt 3000 as a bug fix, score val once more, update the release notes and README, and report both val
+    numbers with the reason.
+- The final system's checkpoints (B1h ep40, E4 ep40, E7 ep20) are unchanged.
