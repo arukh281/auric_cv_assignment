@@ -5,7 +5,7 @@ Every number cites the file it came from. This log was written with AI assistanc
 
 *Corrected 2026-10-04: this line previously said "Hypothesis and Conclusion are written by the author", which was inaccurate.*
 
-## Index of runs (added 2026-10-04 audit)
+## Index of runs (added 2026-10-04 audit; updated 2026-10-05 to final status)
 
 mAP50 = COCO 101-point AP50 averaged over the 5 classes, on `last.pt`. val = 22-image official val; holdout40 = 40
 train images never trained on by B1h-family runs (`splits/holdout40_seed0.txt`); train40 = 40 sampled seen train
@@ -19,7 +19,7 @@ column) in brackets, which is a lower bound.
 |---|---|---|---|---|---|---|---|
 | B0 `b0_full640` | naive whole image at 640 | done | 0.0020 | — | — | UNKNOWN (Colab; train 0.64 h) | [B0](#b0-naive-full-image-baseline-configsb0yaml-run-b0_full640) |
 | B1 `b1_tile1024` | native-resolution 1024 tiles | done | 0.0715 | — (trained on these images) | 0.4027 | UNKNOWN (Colab; train 2.34 h) | [B1](#b1-native-resolution-tiled-baseline-configsb1yaml-run-b1_tile1024) |
-| B1h `b1h_tile1024_holdout40` | B1 with holdout40 removed; generalisation test; current best | done | 0.1065 | 0.1507 | 0.3778 | UNKNOWN (train 1.52 h) | [B1h](#b1h-b1-with-40-train-images-held-out-configsb1hyaml-run-b1h_tile1024_holdout40) |
+| B1h `b1h_tile1024_holdout40` | B1 with holdout40 removed; generalisation test; best single model (main member of the final ensemble) | done | 0.1065 | 0.1507 | 0.3778 | UNKNOWN (train 1.52 h) | [B1h](#b1h-b1-with-40-train-images-held-out-configsb1hyaml-run-b1h_tile1024_holdout40) |
 | `b1h_seed1` | B1h, training seed 1 (seed noise) | done | 0.0634 | 0.1333 | — | UNKNOWN (train 1.45 h) | [LC](#lc-learning-curves-53-runs-b1h_f25--b1h_f50--b1h_f75--b1h_seed1) |
 | `b1h_f25` | learning curve, 101 images | done | 0.0169 | 0.0606 | — | UNKNOWN (train 1.49 h) | [LC](#lc-learning-curves-53-runs-b1h_f25--b1h_f50--b1h_f75--b1h_seed1) |
 | `b1h_f50` | learning curve, 202 images | done | 0.0492 | 0.0948 | — | UNKNOWN (train 1.41 h) | [LC](#lc-learning-curves-53-runs-b1h_f25--b1h_f50--b1h_f75--b1h_seed1) |
@@ -35,14 +35,21 @@ column) in brackets, which is a lower bound.
 | CHECK 0 | which weights produced the scores | done | — | — | — | 0 (no compute) | [CHECK 0](#check-0-4-oct-2026-which-weights-produced-the-reported-scores) |
 | E3 `e3_b1h_dota` | DOTA-pretrained init | done; prediction not supported (reversed) — see "E3: Results" | 0.0881 | 0.0817 | 0.7291 | 1.64 (kernel time) | [E3/E4](#e3--e4-two-remedies-for-overfitting-at-b1hs-length-pre-registered-4-oct-2026-before-any-result) |
 | E4 `e4_b1h_flipud_mixup` | flipud 0.5 + mixup 0.1 | done; partly supported — see "E4: Results" | 0.0761 | 0.1304 | 0.2657 | 1.84 (kernel time) | [E3/E4](#e3--e4-two-remedies-for-overfitting-at-b1hs-length-pre-registered-4-oct-2026-before-any-result) |
-| E6 `e6_b1h_rfs` | repeat-factor sampling, B1h steps | running (launched 13:01, 4 Oct) | — | — | — | pending | "E6" entry |
-| E7 `e7_b1h_dota_frozen` | DOTA init + frozen backbone | running (launched 13:14, 4 Oct) | — | — | — | pending | "E7" entry |
-| E8 `e8_b1h_flipud_mixup_100ep` | E4 recipe, 100 epochs | pre-registered; waits for E6 and E7 | — | — | — | (~3.7 expected) | "E8" entry |
-| TTA (`auric-tta-b1h`) | flips + 1.5× on B1h tiles | running | — | pending | — | 0 (CPU) | "TTA on B1h" entry |
-| Two-stage on E4 boxes | crop classifier relabels E4 | pre-registered; waits for fp-crop | — | — | — | 0 (CPU) | "Two-stage" entry |
-| fp-crop (`auric-fp-crop`) | background-FP audit + crop classifier on B1h | running | — | — | — | 0 (CPU) | "E3 / E4" pre-registration, CPU (a)/(b) |
 | CPU analyses, done | e1-figs, s52-confirm, s52-floor, recall-gap, sanity-labels, predict-test, s54-char-merge | done | — | — | — | 0 (CPU) | their entries below |
-| CPU analyses, running | lc-per-class; B1h / E1 / E2 holdout checkpoint curves | running | — | — | — | 0 (CPU) | — |
+| E6 `e6_b1h_rfs` | repeat-factor sampling t = 0.1 | done training; too weak a test (+1.6% views); not evaluated (superseded by E6b) | — | — | — | ~1.5 (estimate: train 1.41 h + setup) | "E6: run record" |
+| E6b `e6b_b1h_rfs_t03` | repeat-factor sampling t = 0.3 | done; Tractor/Flatbed did not rise; no detectable overall effect | 0.0908 | 0.1363 | 0.5687 | 1.71 (kernel time) | "E6b: Results" |
+| E7 `e7_b1h_dota_frozen` | DOTA init + frozen backbone | done; supported vs E3, no win vs B1h | 0.0715 | 0.1282 | 0.5990 | 1.20 (kernel time) | "E7: Results" |
+| E8 `e8_b1h_flipud_mixup_100ep` | E4 recipe, 100 epochs | **stopped at epoch 68** for GPU budget; not a result | — | — | — | ~2.3 (estimate: train 2.25 h) | "Budget decisions" |
+| E9 / E11 | yolo11m / photometric run | cancelled for budget, never trained | — | — | — | 0 | "Budget decisions" |
+| E10 `e10_b1h_xview_extra` | extra xView data + 8 excluded truck classes | done; mAP not supported, background errors halved; excluded from E13 (geographic touches) | 0.0820 | 0.1256 | 0.2343 | 1.90 (kernel time) | "E10: Results" |
+| E12 | scale-robust / robust inference (B1h weights) | done; auto passed the suite by +0.0004, val 0.0906; not adopted | 0.0906 (auto) | 0.1840 (auto, clean) | — | 0.51 (scale test) + ~0.45 (superseded first amendment, estimate) + 0 (CPU suite) | "E12: decision" |
+| E13 final | multi-label WBF ensemble B1h ep40 + E4 ep40 + E7 ep20 | **done; FINAL SYSTEM** | **0.1349** | 0.2086 clean (0.2364 after checkpoint choice, optimistic) | — | 0.45 (kernel time) | "E13 final: Results" |
+| E15 `e15_b1h_xview_labels` | train on xView-original labels | done; not supported | 0.0908 | 0.1372 (0.1526 clean) | 0.3717 | 1.76 (kernel time) | "E15: Results" |
+| E16 `e16_b1h_tile512_up2x` | 2× object scale (512 tiles at imgsz 1024) | running | — | — | — | ~2 (estimate) | "E16" pre-registration |
+| TTA (`auric-tta-b1h`) | flips + 1.5× on B1h tiles | done; not supported | — | 0.1381 | — | 0 (CPU) | "TTA on B1h: Results" |
+| Two-stage on E4 boxes | crop classifier relabels E4 | done; not supported | — | 0.1006 / 0.1182 | — | 0 (CPU) | "Two-stage on E4's boxes" |
+| fp-crop (`auric-fp-crop`) | background-FP audit + crop classifier on B1h | done; 46/60 truck-like; classifier hurts | — | 0.0999 / 0.1167 | — | 0 (CPU) | "Background false-positive audit" |
+| CPU analyses | all diagnostics, audits, oracles, gap breakdown, clean-room checks | done | — | — | — | 0 (CPU) | their entries |
 
 Seed noise for comparisons: B1h vs b1h_seed1 differ by 0.043 val / 0.017 holdout40 mAP50 (rows above).
 
@@ -2343,3 +2350,22 @@ TIDE breakdown on val (`figures/final_ensemble/errors/tide_dAP.csv`):
 - The confusion matrix at conf 0.25 (`confusion_matrix_conf0.25.csv`) is not representative: fused scores are
   averaged over the three models, so few boxes reach 0.25. The F1-optimal threshold is 0.10 (§2.4).
 - **Scope:** the deeper §3 analyses (error slices, oracle, recall gap, §5) use **B1h**, the ensemble's main member.
+
+
+## Two-stage on E4's boxes: Result (4 Oct 2026; CPU-only kernel `auric-twostage-e4`; recorded 5 Oct)
+
+- **Holdout40 mAP50** with the crop classifier re-labelling E4's detections:
+  - argmax: **0.1006** (0.038–0.120)
+  - allclass: 0.1182 (0.046–0.141)
+  - Source: `twostage_e4/eval_holdout40_{argmax,allclass}/per_class.csv` in the kernel output.
+- **Verdict:** the prediction (> 0.168) is **not supported**. As with B1h, re-labelling lowers the score. Val was not
+  scored.
+
+## E1 / E2 holdout40 checkpoint curves (descriptive; CPU-only kernels `auric-e1-holdout-curve`, `auric-e2-holdout-curve`)
+
+| epoch | 10 | 20 | 30 | 40 | 50 | 60 | 70 | 80 | 90 | 100 | 110 | 120 | 130 | 140 | last |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| E1 | 0.107 | 0.111 | 0.116 | **0.134** | 0.131 | 0.119 | 0.124 | 0.113 | 0.111 | 0.096 | 0.094 | 0.100 | 0.093 | 0.095 | 0.092 (145) |
+| E2 | 0.117 | 0.114 | 0.116 | **0.159** | 0.128 | 0.128 | 0.127 | 0.116 | 0.109 | 0.112 | 0.107 | 0.109 | 0.113 | 0.107 | 0.111 (150) |
+
+- Both peak at epoch 40 and then decline: the overfitting signature, measured on holdout40.

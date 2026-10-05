@@ -110,6 +110,10 @@ Why, in order of evidence strength:
 5. **Audit and gap breakdown.** All data corrections together lift B1h's val mAP50 only from 0.1065 to 0.1371 in
    diagnostic re-scoring (§6.5). The data issues are real, but they are not what keeps the score far from 0.75.
 6. **What helped:** multi-label output and a 3-model ensemble (E13). Val 0.1065 → 0.1349; +0.032 on holdout40-clean.
+7. **Labelling the look-alikes did not raise mAP50.** We trained with the 8 excluded xView truck types as extra
+   classes (E10). Background errors on val halved (9380 → 4056), but holdout40 mAP50 fell (0.126 vs 0.151).
+8. **Compute:** about 24.75 GPU-h this week, plus an earlier week for the baselines and learning curves; most went to
+   training-side tests. All diagnosis ran on CPU (§4.2).
 
 ## The four questions
 
@@ -145,8 +149,8 @@ Why, in order of evidence strength:
 - **But they cost little measured mAP50.** Correcting all of them diagnostically lifts B1h's val score only from 0.107
   to 0.137 (§6.5).
 - **Fixing them in training did not raise mAP50:**
-  - E10 halved val background errors (9380 → 4056) without an mAP gain, and was excluded because its extra images
-    touch val and holdout40 scenes;
+  - E10 trained with the excluded truck types as extra classes. It halved val background errors (9380 → 4056) with no
+    mAP gain, and was excluded from the final system because its extra images touch val and holdout40 scenes;
   - E15 scored lower on holdout40-clean.
 
 ## 2. Dataset and baselines
@@ -418,6 +422,26 @@ More training fits the training images far better while held-out mAP50 falls: ov
 Val checkpoint curves peak mid-training (E1 0.100 at epoch 90, E2 0.107 at 40–50;
 `results/<run>/checkpoint_curve/checkpoint_curve.csv`); they were reported as curves only, never used to pick weights.
 E1's early stop was chosen by Ultralytics val (see Reproducibility, corrected row).
+
+### 4.2 Where the compute went
+
+The Kaggle T4 quota is 30 GPU-h per week. This week (refresh 10 Oct) used 24.75 h before E16 (`kaggle quota`).
+Kernel times are from each kernel's log; "est." marks estimates.
+
+| group | runs | GPU-h |
+|---|---|---|
+| sanity | auric-sanity | ≤ 0.30 |
+| undertraining | E1, E2 (150 epochs each) | ~9.1 (est. from run.log: 4.7 + 4.4) |
+| overfitting remedies | E3, E4, E7, E8 (stopped) | 1.64 + 1.84 + 1.20 + ~2.3 est. = ~7.0 |
+| rare classes | E6, E6b | ~1.5 est. + 1.71 = ~3.2 |
+| data | E10, E15 | 1.90 + 1.76 = 3.66 |
+| inference and ensemble | E12 scale test, the superseded E12 run, E13 final | 0.51 + ~0.45 est. + 0.45 = ~1.4 |
+| resolution | E16 | ~2 est. (running) |
+| earlier week | B1h, b1h_seed1, LC (f25/f50/f75), S54 (smart50/75, f50/f75 seed 1) | ≈ 1.4–1.9 each (MORNING.md / train times); previous quota week |
+| Colab (not Kaggle) | B0, B1 | train 0.64 h, 2.34 h |
+
+- **All diagnosis and analysis ran as CPU-only Kaggle kernels (0 GPU-h).** That covers the audits, oracles, gap
+  breakdown, TTA, crop classifier, E12's corruption suite, operating points and clean-room checks.
 
 ### 4.1 Every model: val mAP50 and per-class AP50 (brief §2.3)
 
@@ -878,6 +902,12 @@ confirmed on the unseen half).
     Loss) solution, arXiv 1903.01347. E13's multi-label ensemble of existing models raised val to 0.1349 with no new
     training. It is the final system.
 
+**What the final-system diagnosis adds to this choice.**
+- After the ensemble, background false positives are the largest error bin on val (+0.094, vs +0.082 for
+  classification).
+- On holdout40, 62% of confident false positives overlap excluded truck types (§3.3b).
+- This strengthens the case for label completion with ignore regions as the next step.
+
 ### 6.5 Why 0.75 was not reached
 
 The following points together suggest that 0.75 mAP50 is out of reach for this data and protocol, and that part of
@@ -947,10 +977,37 @@ training or selection; `results/gap_breakdown/gap_breakdown.csv`):
     comparison reveals in minutes;
   - we could have tested E10 and E15 earlier.
 - It would not have changed the main conclusion: the measured cost of the data issues is about 0.03 mAP50 (§6.5).
+- **The costliest single test was E1/E2:** two 150-epoch runs, about 9 of about 30 GPU-h.
+  - A shorter run (for example 75 epochs with a holdout40 curve) would have answered "is it undertrained?".
+  - That would have freed budget for a larger model or a different detector family (§6.7).
 - In the first hour of a similar project, we would check:
   1. **The data's source:** match images to public datasets by name, size and hash.
   2. **Per-split image statistics:** size, brightness, contrast, blur and noise, train vs val.
   3. **Label consistency against the source:** class and box agreement per split.
+
+### 6.7 What we did not try, and why
+
+| idea | why not tried | evidence on likely effect | what it would take |
+|---|---|---|---|
+| Larger model (yolo11m, E9) | cancelled for budget | E3 suggests stronger features memorise faster; capacity is not the binding limit (16-tile overfit 1.000) | ~5 GPU-h |
+| Different detector family (FPN two-stage, as the xView 1st place, arXiv 1903.01347) | time and budget | top xView entries reached ~0.3 mAP on many small classes (arXiv 2104.11854) | new pipeline + ~5 GPU-h per run |
+| P2 / stride-4 head (E11) | cancelled for budget | E16 tests the same scale question by upscaling | config change + ~2 GPU-h |
+| Rare-class loss reweighting (focal, class-balanced, reduced focal) | not prioritised | resampling (E6b) and more Tractor boxes (§5.4) did not help rare classes | ~2 GPU-h per variant |
+| Copy-paste of rare classes | not prioritised | same evidence as above | augmentation code + ~2 GPU-h |
+| Learning-rate / optimizer tuning | not prioritised | the limit is generalisation, not fitting (E1–E3) | ~2 GPU-h per point |
+| Multiple seeds per experiment | budget | seed spread 0.017 (holdout40) / 0.043 (val); most verdicts are single-seed | ×2–3 the GPU cost |
+| Geographically clean rerun of E10 | budget, and E10 showed no gain | E10 halved background errors without an mAP gain | ~2 GPU-h |
+| Learned super-resolution beyond E16's 2× upscaling | time | 13–36% mAP gain from super-resolution in arXiv 1812.04098 | SR model + retraining |
+
+**Refused on principle:**
+- **xView-pretrained weights:** all 465 images are xView training images, so these would leak every val label.
+- **Training or tuning on val:** all selection was on holdout40 (clean labels from E13 on).
+- **Augmentation copied from val's measured edits:** the E12 suite was kept generic.
+
+**Out of reach:**
+- More labelled data of these classes: all of xView adds only ~25% instances.
+- Finer imagery.
+- More compute: one T4 at about 30 GPU-h per week.
 
 ## 7. Deliverables
 

@@ -12,8 +12,9 @@ for always guessing "Cargo") but much worse on val (60% vs 52%) *(corrected 2026
 to tell look-alike truck types apart")*. Then we stepped outside
 the box and found that the data itself was part of the story: every image is from xView, four val images are
 rescaled copies, and most of the model's "false alarms" are real trucks of types the labels leave out. Measured
-directly, those data issues cost only about 0.03 mAP50 (0.107 → 0.137 when corrected diagnostically). Fixing them in
-training (E10, E15) and adapting inference to scale (E12) did not help. What did help, modestly, was letting each box
+directly, those data issues cost only about 0.03 mAP50 (0.107 → 0.137 when corrected diagnostically). Training with the
+excluded truck types as extra classes (E10) halved background errors without raising mAP50; training on xView's
+original labels (E15) and adapting inference to scale (E12) did not help either. What did help, modestly, was letting each box
 carry several candidate classes and fusing three models.
 
 ## The four questions
@@ -50,8 +51,8 @@ carry several candidate classes and fusing three models.
 - **But they cost little measured mAP50.** Correcting all of them diagnostically lifts B1h's val score only from 0.107
   to 0.137 (§6.5).
 - **Fixing them in training did not raise mAP50:**
-  - E10 halved val background errors (9380 → 4056) without an mAP gain, and was excluded because its extra images
-    touch val and holdout40 scenes;
+  - E10 trained with the excluded truck types as extra classes. It halved val background errors (9380 → 4056) with no
+    mAP gain, and was excluded from the final system because its extra images touch val and holdout40 scenes;
   - E15 scored lower on holdout40-clean.
 
 ## The cast
@@ -333,6 +334,12 @@ exactly from the public release.
 *[details →](DETAILED_EXPERIMENTS.md#e13-final-results-5-oct-2026-gpu-kernel-aradhya1211auric-e13-final-code-3f340cf-045-gpu-h-resultse13_final)*
 
 ---
+
+## What we didn't try
+We didn't try a bigger model or a different detector family, rare-class loss tricks, or multiple seeds per run,
+mostly for GPU budget (one T4, about 30 GPU-h a week, about 9 of which went to the 150-epoch E1/E2 runs). We
+refused, on principle, the shortcut of xView-pretrained weights, because they would have seen every val label.
+The full table is in REPORT §6.7.
 
 ## Plot twists & roadblocks 🎢
 - ⏱️ **Colab's free tier was too short** for our runs (Aradhya's screenshot), so everything moved to Kaggle, driven
