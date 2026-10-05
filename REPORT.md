@@ -1,4 +1,4 @@
-# Technical report: overhead truck detection (draft)
+# Technical report: overhead truck detection
 
 **AI assistance.** This project was built with AI assistance: Claude Code for code, analysis and drafting, and a
 chat assistant for experiment planning. Hypotheses, predictions and decision rules marked "author's" in
@@ -112,16 +112,20 @@ Why, in order of evidence strength:
 6. **What helped:** multi-label output and a 3-model ensemble (E13). Val 0.1065 → 0.1349; +0.032 on holdout40-clean.
 7. **Labelling the look-alikes did not raise mAP50.** We trained with the 8 excluded xView truck types as extra
    classes (E10). Background errors on val halved (9380 → 4056), but holdout40 mAP50 fell (0.126 vs 0.151).
-8. **Compute:** about 24.75 GPU-h this week, plus an earlier week for the baselines and learning curves; most went to
+8. **Compute:** 26.49 GPU-h this week including E16 (1.74; `kaggle quota`), plus an earlier week for the baselines and learning curves; most went to
    training-side tests. All diagnosis ran on CPU (§4.2).
+9. **Resolution lever (E16): not supported.** Training on 2×-upscaled tiles scored 0.155 vs B1h's 0.176 on
+   holdout40-clean and added +0.010 (< 0.017) to the ensemble; the final system is unchanged
+   (`results/e16_selection/e16_selection.json`).
 
 ## The four questions
 
 **(1) Is the training the problem? Mostly no.**
 - Training longer (E1, E2) or starting from aerial weights (E3) made the model fit its training images better and do
   worse on new ones: holdout40 0.092 / 0.111 / 0.082 vs B1h's 0.151.
-- More augmentation (E4) and a frozen aerial backbone (E7) overfitted less, with **no detectable effect** on
-  holdout40 vs B1h (0.130 / 0.128 vs 0.151; without Liquid 0.163 / 0.153 vs 0.170; seed spread 0.017).
+- More augmentation (E4) and a frozen aerial backbone (E7) overfitted less, but scored lower on holdout40 by
+  0.020 / 0.023 (0.130 / 0.128 vs 0.151), just beyond the 0.017 seed spread; without Liquid, within noise
+  (0.163 / 0.153 vs 0.170). *Corrected 5 Oct: previously "no detectable effect".*
 - B1h's own holdout40 curve is flat from epoch 40 to 50.
 
 **(2) Are the rare classes the problem? They are weak, but not because they are rare.**
@@ -172,7 +176,7 @@ Full-dataset statistics (`figures/eda/summary.json`, `figures/eda/tables/*.csv`)
 
 | Class | train inst. | val inst. | train imgs | val imgs | train share | val share |
 |---|---|---|---|---|---|---|
-| Cargo Truck | 3773 | 800 | 368 | 19 | 0.495 | 0.516 |
+| Cargo Truck | 3773 | 800 | 368 | 19 | 0.495 | 0.515 |
 | Truck w/Box | 2366 | 493 | 261 | 17 | 0.311 | 0.318 |
 | Truck w/Flatbed | 662 | 122 | 195 | 14 | 0.087 | 0.079 |
 | Truck Tractor | 625 | 117 | 128 | 11 | 0.082 | 0.075 |
@@ -401,12 +405,22 @@ Full entries are in DETAILED_EXPERIMENTS.md under the headings named below. "Pre
 |---|---|---|---|---|---|---|
 | **B0** (EXPERIMENTS "B0") | ~3200 px images, ~22 px trucks | Not recorded before the run; reconstructed afterwards: 640 letterbox makes trucks ~4–5 px, so B0 is a floor | whole image @640, 50 ep | val 0.0020 (0.0009–0.0045) | Almost no detection; tiling needed | B1 |
 | **B1** ("B1") | as B0; max box side 161 px < overlap 256 | Pre-registered: 0.40–0.60 mAP50; Cls dominant; Liquid worst | 1024 tiles, overlap 256, sliced eval | val 0.0715 (0.0419–0.1242) | Far below prediction; Cls dominant (correct); rejection condition (b) largely met (size not the main limiter) | test generalisation |
-| **B1h** ("B1h") | is val unusually hard? | No prediction written before this run | 40 train imgs held out; max_det 902 | val 0.1065, holdout 0.1507, train40 0.378 | Poor generalisation, not val-specific; B1→B1h gain within seed noise | learning curves |
+| **B1h** ("B1h") | is val unusually hard? | No prediction written before this run | 40 train imgs held out; max_det 902 | val 0.1065, holdout 0.1507, train40 0.378 | Seen-vs-unseen gap is the main gap; val is additionally harder (§3.4); B1→B1h gain within seed noise | learning curves |
 | **LC** ("LC") | train/holdout gap | Pre-registered: curve still rising; 25% → 0.07–0.12 holdout | 25/50/75% subsets at equal iterations + seed 1 | §5.3 | Rising; 25% gave 0.061 | §5.4 |
 | **S54** ("S54") | – | Selection and rule pre-registered (`b02413c`); prediction never provided | smart vs random subsets | §5.4 | rule computed; no subset ≥ 90% | – |
 | **SANITY** ("SANITY") | train40 only 0.378 | settings / labels / capacity | args check, label check, overfit test | §3.4 | pipeline can fit; tiling preserves labels (re-check; annotation correctness not tested) | E1/E2 |
 | **E1/E2** ("E1 / E2") | B1h losses still falling | Pre-registered: E1 undertraining; E2 scale 0.5 hurts small trucks | E1 150 ep; E2 150 ep + scale 0.2 | below | E1 not supported (overfitting); E2 inconclusive, leaning not supported | E3/E4 |
 | **E3/E4** ("E3 / E4") | E1/E2 overfit | Pre-registered (author's): aerial pretraining (E3) / flipud 0.5 + mixup 0.1 (E4) reduce overfitting; holdout > 0.1507 + 0.017 | B1h recipe, 50 ep, `patience: 0`, holdout checkpoint curves | E3 0.082, E4 0.130 holdout40 | E3 rejected (reversed); E4 partly supported (gap shrank, no detectable mAP effect) | E7, E8 |
+| **E6b** ("E6b") | rare classes weakest | Pre-registered: repeat-factor sampling (t 0.3) raises Tractor/Flatbed | rare-class tiles repeated (+17.9% views), steps matched | holdout40 0.136 vs 0.151; Tractor 0.007 → 0.002, Flatbed 0.069 → 0.061 | not supported | E10, E15 |
+| **E7** ("E7") | E3 overfit fastest | Pre-registered: freezing the DOTA backbone limits overfitting | E3 with frozen backbone | holdout40 0.128 (E3 0.082, B1h 0.151) | recovers vs E3; lower than B1h by 0.023 | ensemble member (E13) |
+| **E10** ("E10") | most confident FPs are excluded truck types | Pre-registered: training on them as extra classes cuts background FPs and raises mAP | +202 xView images, 8 excluded types as extra classes | holdout40 0.126; val Bkg 9380 → 4056 | FPs supported; mAP not; excluded (geographic touches) | E13 |
+| **E12** ("E12") | 4 val images rescaled | Pre-registered: per-image scale rule recovers rescaled images | inference-only auto scale | corruption suite +0.0004; val 0.0906 | not adopted (within noise) | – |
+| **TTA** ("TTA") | Cls is the main loss | Pre-registered: TTA improves holdout40 | flips + 1.5×, inference-only | 0.138 vs 0.151 | rejected | crop classifier |
+| **Crop classifier** ("fp-crop") | Cls dominant | a dedicated classifier names types better | 96 px crops, 2× context | 0.610 vs head 0.690; holdout40 0.100 / 0.117 | not supported | two-stage |
+| **Two-stage** ("Two-stage") | E4 finds most trucks | Pre-registered: crop classifier on E4's boxes beats B1h by > 0.017 | relabel E4 boxes | 0.101 / 0.118 | fails its rule | E13 |
+| **E13** ("E13") | members err differently | Pre-registered: multi-label + WBF ensemble beats B1h on holdout40-clean | B1h + E4 + E7, multi-label, WBF | holdout40-clean 0.2086 vs 0.1765; val 0.1349 (once) | supported on holdout; within noise on val; final system | E15, E16 |
+| **E15** ("E15") | ~5% train class changes vs xView | Pre-registered: xView labels raise mAP | train on xView's original labels | holdout40-clean 0.153 vs 0.176; val 0.091 | not supported | E16 |
+| **E16** ("E16") | trucks ~22 px | Pre-registered: 2× upscaling beats B1h by > 0.017 on holdout40-clean | 512 tiles at imgsz 1024, steps matched | 0.155 vs 0.176; ensemble +0.010 | not supported; final unchanged | label completion (§6.4) |
 
 E1/E2 results (DETAILED_EXPERIMENTS.md "E1 / E2: Results"; `results/<run>/eval/per_class.csv`, `eval_holdout40/per_class.csv`,
 `eval_train40/metrics.json`):
@@ -422,26 +436,6 @@ More training fits the training images far better while held-out mAP50 falls: ov
 Val checkpoint curves peak mid-training (E1 0.100 at epoch 90, E2 0.107 at 40–50;
 `results/<run>/checkpoint_curve/checkpoint_curve.csv`); they were reported as curves only, never used to pick weights.
 E1's early stop was chosen by Ultralytics val (see Reproducibility, corrected row).
-
-### 4.2 Where the compute went
-
-The Kaggle T4 quota is 30 GPU-h per week. This week (refresh 10 Oct) used 24.75 h before E16 (`kaggle quota`).
-Kernel times are from each kernel's log; "est." marks estimates.
-
-| group | runs | GPU-h |
-|---|---|---|
-| sanity | auric-sanity | ≤ 0.30 |
-| undertraining | E1, E2 (150 epochs each) | ~9.1 (est. from run.log: 4.7 + 4.4) |
-| overfitting remedies | E3, E4, E7, E8 (stopped) | 1.64 + 1.84 + 1.20 + ~2.3 est. = ~7.0 |
-| rare classes | E6, E6b | ~1.5 est. + 1.71 = ~3.2 |
-| data | E10, E15 | 1.90 + 1.76 = 3.66 |
-| inference and ensemble | E12 scale test, the superseded E12 run, E13 final | 0.51 + ~0.45 est. + 0.45 = ~1.4 |
-| resolution | E16 (training; selection on CPU) | 1.74 |
-| earlier week | B1h, b1h_seed1, LC (f25/f50/f75), S54 (smart50/75, f50/f75 seed 1) | ≈ 1.4–1.9 each (MORNING.md / train times); previous quota week |
-| Colab (not Kaggle) | B0, B1 | train 0.64 h, 2.34 h |
-
-- **All diagnosis and analysis ran as CPU-only Kaggle kernels (0 GPU-h).** That covers the audits, oracles, gap
-  breakdown, TTA, crop classifier, E12's corruption suite, operating points and clean-room checks.
 
 ### 4.1 Every model: val mAP50 and per-class AP50 (brief §2.3)
 
@@ -470,6 +464,7 @@ Sources: each row's `results/<run>/eval/per_class.csv` (final system: `results/c
 | E15 | 0.0908 | 0.104 | 0.125 | 0.088 | 0.028 | 0.109 |  |
 | **Final system (E13)** | 0.1349 | 0.171 | 0.215 | 0.096 | 0.028 | 0.165 | multi-label ensemble; val scored once |
 | E6 | — | | | | | | not evaluated: superseded by E6b (E6 repeated only Liquid tiles, +1.6% views); its CPU evaluation failed twice and was not retried |
+| E16 | — | | | | | | not scored on val: failed the pre-registered selection rule (+0.010 < 0.017; `results/e16_selection/`) |
 | E8 | — | | | | | | stopped at epoch 68 for GPU budget; never evaluated (no checkpoint scored on holdout40 or val) |
 | E9, E11 | — | | | | | | cancelled for budget, never trained |
 | E12 (auto rule on B1h) | 0.0906 | | | | | | inference rule, not adopted (see E12 entry); per-class not computed |
@@ -480,6 +475,27 @@ Other dataset facts recorded with these runs:
   each overlap ≤ 3.2% of an image's area). This is a property of the supplied split.
 - The E10 label-conflict check found 10 trucks labelled with both a 5-class box and an excluded-type box, vs 9 inside
   xView's own labels. That is negligible.
+
+
+### 4.2 Where the compute went
+
+The Kaggle T4 quota is 30 GPU-h per week. This week (refresh 10 Oct) used 24.75 h before E16 and 26.49 h after it (`kaggle quota`).
+Kernel times are from each kernel's log; "est." marks estimates.
+
+| group | runs | GPU-h |
+|---|---|---|
+| sanity | auric-sanity | ≤ 0.30 |
+| undertraining | E1, E2 (150 epochs each) | ~9.1 (est. from run.log: 4.7 + 4.4) |
+| overfitting remedies | E3, E4, E7, E8 (stopped) | 1.64 + 1.84 + 1.20 + ~2.3 est. = ~7.0 |
+| rare classes | E6, E6b | ~1.5 est. + 1.71 = ~3.2 |
+| data | E10, E15 | 1.90 + 1.76 = 3.66 |
+| inference and ensemble | E12 scale test, the superseded E12 run, E13 final | 0.51 + ~0.45 est. + 0.45 = ~1.4 |
+| resolution | E16 (training; selection on CPU) | 1.74 |
+| earlier week | B1h, b1h_seed1, LC (f25/f50/f75), S54 (smart50/75, f50/f75 seed 1) | ≈ 1.4–1.9 each (MORNING.md / train times); previous quota week |
+| Colab (not Kaggle) | B0, B1 | train 0.64 h, 2.34 h |
+
+- **All diagnosis and analysis ran as CPU-only Kaggle kernels (0 GPU-h).** That covers the audits, oracles, gap
+  breakdown, TTA, crop classifier, E12's corruption suite, operating points and clean-room checks.
 
 ## 5. Research questions
 
@@ -495,7 +511,7 @@ and check whether the top class is right. This removes detection and measures cl
 | B1h | 0.601 | 0.436 | 1455 |
 
 Sources: `figures/{b0_full640,b1_tile1024,b1h_tile1024_holdout40}/gt_oracle/comparison.csv`, `summary.json`.
-Baselines: always "Cargo" = 0.516 (800/1552, `figures/eda/tables/class_counts.csv`); uniform guessing = 0.20 per class.
+Baselines: always "Cargo" = 0.515 (800/1552, `figures/eda/tables/class_counts.csv`); uniform guessing = 0.20 per class.
 
 With perfect locations B1h names the type correctly 60% of the time, barely above always answering Cargo; per class it
 is 44% vs 20% chance. The TIDE oracle agrees: fixing Cls adds +0.147, Loc +0.022, Missed +0.044
@@ -786,11 +802,12 @@ holdout values are in DETAILED_EXPERIMENTS.md "E1 / E2: Results". Picture: `figu
 
 - **Fitting faster hurts.** E1, E2 and E3 all raised train40 and lowered holdout40, by more than the seed noise each
   time.
-- **Freezing helps relative to E3.** E7 recovered +0.046 of E3's loss; vs B1h there is no detectable effect
-  (−0.023, without Liquid −0.017).
+- **Freezing helps relative to E3.** E7 recovered +0.046 of E3's loss; vs B1h it is lower by 0.023, just beyond
+  the 0.017 seed spread; without Liquid, within noise (0.153 vs 0.170). *Corrected 5 Oct: previously "no detectable
+  effect".*
 - **Augmentation helps detection, not naming.** E4 overfits least, and it is the only run that finds *more* held-out
-  trucks than B1h (class-agnostic 0.400 vs 0.362). Its class-aware mAP50 differs by −0.020, which is within seed noise: **no detectable effect** (without Liquid
-  0.163 vs 0.170).
+  trucks than B1h (class-agnostic 0.400 vs 0.362). Its class-aware mAP50 is lower by 0.020, just beyond the 0.017 seed spread; without Liquid, within noise
+  (0.163 vs 0.170). *Corrected 5 Oct: previously "within seed noise".*
 - **B1h stops near the right point.** Its own holdout curve is flat from epoch 40 to 50 (0.154 → 0.151;
   `results/b1h_tile1024_holdout40/checkpoint_curve_holdout/`).
 - Each run is a single seed.
@@ -806,7 +823,8 @@ holdout values are in DETAILED_EXPERIMENTS.md "E1 / E2: Results". Picture: `figu
 - Qualitative sheets: `figures/final_ensemble/errors/crops_{bkg,missed,cls}.png`.
 - The deeper analyses below use B1h, the ensemble's main member.
 
-**(2) Classification between look-alike types: weak on val, partly val-specific (plausible).**
+**(2) Classification between look-alike types: weak on val, partly val-specific (supported).**
+*Corrected 5 Oct: re-graded from "plausible" now that the pixel comparison (§3.3c) and per-split counts are in.*
 *Corrected 2026-10-04: previously framed as a general ceiling.*
 
 | at the true boxes (GT-box oracle, B1h head, pool) | val (1552 boxes) | holdout40 (738 boxes) |
@@ -820,8 +838,11 @@ Sources: `figures/b1h_tile1024_holdout40/gt_oracle/comparison.csv`, `gt_oracle_h
 - That fits what was found about val:
   - 4 rescaled images (2× / 0.5×).
   - A scene-level recall gap (§3.4).
-  - Class changes relative to xView: 4.3% of pairs, pooled over train and val.
-- Graded **plausible** until the pixel comparison and the per-split class-change counts are in.
+  - Class changes relative to xView, per split: train 341 (5.0%), holdout40 38 (5.2%), val 0 (0%)
+    (DETAILED_EXPERIMENTS.md "E15", `label_compare_by_split.csv`). *Corrected 5 Oct: previously 4.3% pooled.*
+  - Val's classes are exactly xView's, so class flips cannot explain val's weaker naming. The pixel comparison
+    (§3.3c) found 8 of 22 val images altered, which remains a candidate.
+- Graded **supported** for "weaker on val"; the mechanism (altered images vs scene differences) is unresolved.
 - **A dedicated crop classifier is worse than the detector head on the same 738 holdout40 boxes** (0.610 vs 0.690;
   `results/crop_classifier/summary.json`). Re-labelling detections with it lowers holdout40 mAP50 to 0.100 / 0.117.
 - TTA did not help either (0.138 vs 0.151; without Liquid 0.167 vs 0.170).
@@ -871,6 +892,10 @@ confirmed on the unseen half).
 | *Weakened:* "size isn't what limits detections" (B1) | weakened: size matters most below 16 px | §5.2 C1; DETAILED B1 note |
 | *Weakened:* "no domain shift" (B1 diagnosis) | weakened by the recall gap | §3.4 |
 | Rare-class resampling helps Tractor/Flatbed (E6b) | not supported (Tractor 0.007 → 0.002, Flatbed 0.069 → 0.061; overall no detectable effect) | E6b; E6 was too weak a test (+1.6% tile views) |
+| Multi-label ensemble (E13) improves on B1h | **supported on holdout40-clean** (+0.032, 0.2086 vs 0.1765); within noise on val (0.1349 vs 0.1065, seed spread 0.043) | E13; `results/e13_final/` |
+| 2× upscaling helps small trucks (E16) | not supported at matched steps (0.155 vs 0.176; +0.010 in ensemble) | E16; `results/e16_selection/` |
+| Training on excluded truck types reduces background FPs and helps mAP (E10) | FPs: supported on val (9380 → 4056); mAP: not supported (holdout40 0.126 vs 0.151) | E10 |
+| Supplied-label class changes limit the model (E15) | not supported (holdout40-clean 0.153 vs 0.176; val 0.091) | E15 |
 | Longer training helps when augmentation limits overfitting (E8) | not tested: E8 was stopped at epoch 68 for GPU budget | DETAILED "Budget decisions" |
 
 ### 6.3 What changed most between the initial and final system
@@ -891,13 +916,16 @@ confirmed on the unseen half).
 - Re-score B1h with the same scorer.
 
 **Why this beats the alternatives:**
-- About three quarters of the most confident "false alarms" look like real vehicles (46/60). Until the labels are
-  fixed, every model comparison is measured against a target that punishes correct detections, and no model change
-  can be measured properly.
-- It is cheap (62 images, no GPU) and it tells us how far the true score is from 0.107.
-- It also tells us whether the 0.75 target is reachable with these labels at all.
+*Corrected 5 Oct: reframed as a measurement fix; earlier claims about what it would reveal are withdrawn.*
+- It is a measurement fix: cheap (62 images, no GPU), and it makes future model comparisons trustworthy. About three
+  quarters of the most confident "false alarms" look like real vehicles (46/60, §3.3b), so the current labels
+  penalise some correct detections.
+- It is not expected to move the score much: the xView-label proxy (§6.5 gap breakdown) predicts only about
+  +0.02–0.03 for B1h (0.1065 → 0.1237 with excluded types ignored; 0.1371 with all corrections;
+  `results/gap_breakdown/gap_breakdown.csv`).
 - The alternatives are weaker:
-  - More model changes: four runs already show no gain.
+  - More model changes: none of nine single-model changes beat B1h on holdout40 (E1, E2, E3, E4, E6b, E7, E10, E15,
+    E16; §4.1, DETAILED_EXPERIMENTS.md).
   - A better classifier: the crop classifier did not help.
   - More labels: projected below noise.
   - All of them would be measured on the same flawed labels.
@@ -963,8 +991,9 @@ training or selection; `results/gap_breakdown/gap_breakdown.csv`):
 - Scored against xView's original holdout labels, B1h reaches 0.1765 (E15 entry).
 - Neither comes close to 0.75. The remaining distance is the detection and classification difficulty of about
   22-pixel, look-alike trucks.
-- Resolution is a known lever: super-resolving 30 cm imagery to 15 cm improved mAP by 13–36% in Shermeyer & Van Etten
-  (arXiv 1812.04098). We did not test it.
+- Resolution: 2× bilinear upscaling was tested (E16) and gave no gain at matched steps (holdout40-clean 0.155 vs
+  0.176; `results/e16_selection/`). Learned super-resolution, which improved mAP by 13–36% from 30 cm to 15 cm in
+  Shermeyer & Van Etten (arXiv 1812.04098), was not tested. *Corrected 5 Oct: previously "We did not test it."*
 
 **E12 (robust inference) was not adopted.**
 - Its holdout40 suite gain (+0.0004) is below the noise threshold.
@@ -1002,7 +1031,7 @@ training or selection; `results/gap_breakdown/gap_breakdown.csv`):
 |---|---|---|---|
 | Larger model (yolo11m, E9) | cancelled for budget | E3 suggests stronger features memorise faster; capacity is not the binding limit (16-tile overfit 1.000) | ~5 GPU-h |
 | Different detector family (FPN two-stage, as the xView 1st place, arXiv 1903.01347) | time and budget | top xView entries reached ~0.3 mAP on many small classes (arXiv 2104.11854) | new pipeline + ~5 GPU-h per run |
-| P2 / stride-4 head (E11) | cancelled for budget | E16 tests the same scale question by upscaling | config change + ~2 GPU-h |
+| P2 / stride-4 head (E11) | cancelled for budget | E16 tested the scale question by 2× bilinear upscaling: no gain at matched steps; learned super-resolution not tested | config change + ~2 GPU-h |
 | Rare-class loss reweighting (focal, class-balanced, reduced focal) | not prioritised | resampling (E6b) and more Tractor boxes (§5.4) did not help rare classes | ~2 GPU-h per variant |
 | Copy-paste of rare classes | not prioritised | same evidence as above | augmentation code + ~2 GPU-h |
 | Learning-rate / optimizer tuning | not prioritised | the limit is generalisation, not fitting (E1–E3) | ~2 GPU-h per point |
