@@ -2408,4 +2408,24 @@ TIDE breakdown on val (`figures/final_ensemble/errors/tide_dAP.csv`):
 - Train40 is lower (0.212 vs 0.378): at matched steps each tile is seen fewer times (8763 tiles vs 3439).
 - **Reading:** doubling object size at matched compute did not help. The resolution lever is not supported at 2×
   bilinear upscaling with matched steps. Learned super-resolution (arXiv 1812.04098) remains untested.
-- E16 still enters the four-candidate ensemble selection (amendment 2), now running on CPU.
+- E16 then entered the four-candidate ensemble selection (amendment 2); see "E16 ensemble selection" below.
+
+## E16 ensemble selection: Result (5 Oct 2026; CPU-only kernels `auric-sel-{b1h,e4,e7,seed1,e16}` + `auric-sel-combine`; `results/e16_selection/`)
+
+- **Reproduction check passed:** WBF of the saved B1h/E4/E7 predictions gives 0.23639163751484532 on holdout40-clean,
+  identical to the reference.
+- Single models (multi-label, holdout40-clean): B1h 0.2000, E4 0.1712, E7 0.1900, E16 0.1947, b1h_seed1 0.1683.
+
+| candidate | holdout40-clean | without Liquid |
+|---|---|---|
+| final (B1h + E4 + E7) | 0.2364 | 0.2241 |
+| final + E16 | **0.2464** | 0.2305 |
+| final + seed1 | 0.2195 | 0.2278 |
+| final + E16 + seed1 | 0.2273 | 0.2336 |
+
+- **Decision (pre-registered rule: > final + 0.017 and better without Liquid): no candidate passes.** The best,
+  final + E16, is +0.0100, below the 0.017 noise threshold. Val was not scored. The final system is unchanged
+  (E13, val 0.1349).
+- GPU quota: 3.51 h left before and after (26.49 / 30 h used); the selection used CPU only.
+- Process note: the first two pushes of the inference kernels failed their stale-code guard because the code dataset
+  had not been re-uploaded after `e16_parts.py` was added; nothing ran on stale code.

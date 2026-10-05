@@ -1,0 +1,37 @@
+{
+  "final_reproduced": 0.23639163751484532,
+  "final_reference": 0.23639163751484532,
+  "reproduction_ok": true,
+  "single_model_multi_clean": {
+    "b1h": 0.2000450778804086,
+    "e4": 0.1711675736520398,
+    "e7": 0.19003464873275341,
+    "e16": 0.194724282104263,
+    "seed1": 0.16825789849087547
+  },
+  "candidates": [
+    {
+      "candidate": "final",
+      "clean_mAP50": 0.23639163751484532,
+      "clean_no_liquid": 0.2241304324281276
+    },
+    {
+      "candidate": "final+e16",
+      "clean_mAP50": 0.24640306803404913,
+      "clean_no_liquid": 0.23050596430887982
+    },
+    {
+      "candidate": "final+seed1",
+      "clean_mAP50": 0.21946848950267778,
+      "clean_no_liquid": 0.22784854279641314
+    },
+    {
+      "candidate": "final+e16+seed1",
+      "clean_mAP50": 0.22726704071702838,
+      "clean_no_liquid": 0.2336185904584876
+    }
+  ],
+  "chosen": "final+e16",
+  "margin": 0.010011430519203807,
+  "passes": false
+}

@@ -363,3 +363,9 @@ The full table is in REPORT §6.7.
   validation split. We still kept the last checkpoint, as pre-registered.
 - 🏃 **"Keep going nonstop."** Aradhya's call, which is why there are so many small experiments.
 - 🤝 **AI-assistance disclosure.** Flagged by Claude chat, approved by Aradhya.
+
+### E16: does a higher input resolution help?
+E16 trained B1h's recipe on 512-px tiles upscaled 2×, so small trucks appear twice as large. Alone it scored lower
+than B1h (0.155 vs 0.176 on holdout40 with clean labels). Added to the final ensemble it gave 0.246 vs 0.236, which is
+within noise (the bar was +0.017), so val was not scored and the final system is unchanged.
+*[details →](DETAILED_EXPERIMENTS.md#e16-ensemble-selection-result-5-oct-2026-cpu-only-kernels-auric-sel-b1he4e7seed1e16--auric-sel-combine-resultse16_selection)*

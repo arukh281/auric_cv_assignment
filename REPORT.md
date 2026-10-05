@@ -436,7 +436,7 @@ Kernel times are from each kernel's log; "est." marks estimates.
 | rare classes | E6, E6b | ~1.5 est. + 1.71 = ~3.2 |
 | data | E10, E15 | 1.90 + 1.76 = 3.66 |
 | inference and ensemble | E12 scale test, the superseded E12 run, E13 final | 0.51 + ~0.45 est. + 0.45 = ~1.4 |
-| resolution | E16 | ~2 est. (running) |
+| resolution | E16 (training; selection on CPU) | 1.74 |
 | earlier week | B1h, b1h_seed1, LC (f25/f50/f75), S54 (smart50/75, f50/f75 seed 1) | ≈ 1.4–1.9 each (MORNING.md / train times); previous quota week |
 | Colab (not Kaggle) | B0, B1 | train 0.64 h, 2.34 h |
 
@@ -911,7 +911,15 @@ confirmed on the unseen half).
 - On holdout40, 62% of confident false positives overlap excluded truck types (§3.3b).
 - This strengthens the case for label completion with ignore regions as the next step.
 
+**Resolution lever, tested (E16).** Training on 2×-upscaled 512 tiles did not help: single model 0.155 vs B1h 0.176
+on holdout40-clean (Liquid 0), and adding it to the final ensemble gave +0.010 (0.2464 vs 0.2364), below the 0.017
+bar. Val was not scored; the final system is unchanged (`results/e16_selection/`). So resolution is not the next lever
+either, which leaves label completion first.
+
 ### 6.5 Why 0.75 was not reached
+
+- **Resolution is not the missing piece:** E16 (2× upscaled tiles) scored below B1h alone and added only +0.010
+  (within noise) to the ensemble.
 
 The following points together suggest that 0.75 mAP50 is out of reach for this data and protocol, and that part of
 the measured gap is in the evaluation data rather than in the model.
