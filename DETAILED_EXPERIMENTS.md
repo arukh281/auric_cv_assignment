@@ -2286,3 +2286,16 @@ It now prefers the `auric-cv-code` dataset. The guards caught every case; no res
     One selection, one val scoring.
   - **Interpretation, recorded now:** E16-containing candidates enter only if E16 passes its own pre-registered
     test. If it does not, the selection is between the current final and final + b1h_seed1.
+- **Amendment 2 to E16's decision rule (author, 5 Oct 2026, before E16 finishes): all four candidates are kept
+  regardless of E16's single-model result.**
+  - This replaces the interpretation above. The selection on holdout40-clean is among the current final, final + E16,
+    final + b1h_seed1, and final + E16 + b1h_seed1.
+  - **Reason:** ensemble value comes from diversity, not single-model strength. E4 and E7 each scored below B1h alone,
+    yet improved the ensemble in E13, so gating membership on beating B1h would be inconsistent with how the current
+    final was built.
+  - E16's own test (beat B1h alone by more than 0.017 on holdout40-clean) is still reported separately, as the
+    hypothesis test.
+- **Boxes larger than the 128-px overlap:**
+  - Of the 6880 training boxes (403 images), **2** have a side longer than 128 px: 1 Cargo Truck, 1 Truck w/Box
+    (`figures/eda/tables/boxes.csv`, `w_px`/`h_px`).
+  - These are the only boxes that may be cut by every 512 tile (whether a given one is depends on its position).
