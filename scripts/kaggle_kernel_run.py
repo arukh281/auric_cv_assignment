@@ -42,7 +42,9 @@ def sh(cmd, check=True):
 def install_code():
     marks = sorted(Path("/kaggle/input").rglob("CODE_COMMIT"))
     # prefer the packaged dataset (code.tar.gz); a mounted kernel output (kernel_sources) also holds an older repo/ copy
+    # Kaggle may auto-extract code.tar.gz, so also prefer any copy under the auric-cv-code dataset over kernel outputs
     src = next((m.parent for m in marks if (m.parent / "code.tar.gz").exists()), None) or \
+        next((m.parent for m in marks if "auric-cv-code" in str(m) and (m.parent / "scripts").is_dir()), None) or \
         next((m.parent for m in marks if (m.parent / "scripts").is_dir()), None)
     if src is None:
         sys.exit(f"code dataset not found under /kaggle/input (CODE_COMMIT files: {marks})")
