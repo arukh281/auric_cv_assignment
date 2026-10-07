@@ -1,0 +1,129 @@
+{
+ "results/b0_full640/eval/metrics.json": 0.001986463498503182,
+ "results/b1_tile1024/eval/metrics.json": 0.07147762081931593,
+ "results/b1h_tile1024_holdout40/eval/metrics.json": 0.10645813485684832,
+ "results/clean_repro_final/metrics.json": 0.13494562174771083,
+ "results/b1h_tile1024_holdout40/eval_holdout40/metrics.json": 0.1506784940044492,
+ "results/b1h_tile1024_holdout40/eval_train40/metrics.json": 0.37777818328654433,
+ "results/e1_b1h_150ep/eval_train40/metrics.json": 0.7737263958483117,
+ "results/e1_b1h_150ep/eval_holdout40/metrics.json": 0.09230254082500153,
+ "results/e2_b1h_150ep_scale02/eval_train40/metrics.json": 0.9055815184147006,
+ "results/e2_b1h_150ep_scale02/eval_holdout40/metrics.json": 0.1112077309951021,
+ "results/e3_b1h_dota/eval_train40/metrics.json": 0.7291203190846823,
+ "results/e3_b1h_dota/eval_holdout40/metrics.json": 0.0816584826828333,
+ "results/e7_b1h_dota_frozen/eval_train40/metrics.json": 0.5990053649831779,
+ "results/e7_b1h_dota_frozen/eval_holdout40/metrics.json": 0.12816885113121662,
+ "results/e4_b1h_flipud_mixup/eval_train40/metrics.json": 0.2657263481215746,
+ "results/e4_b1h_flipud_mixup/eval_holdout40/metrics.json": 0.13044129270198182,
+ "figures/b1h_tile1024_holdout40/errors/tide_dAP.csv": {
+  "Wrong truck type": 0.14704728479750065,
+  "False alarm (nothing there)": 0.07723640284913724,
+  "Missed truck": 0.04423654328020288,
+  "Box slightly off": 0.022333288927766093
+ },
+ "results/e2_b1h_150ep_scale02/checkpoint_curve/checkpoint_curve.csv": [
+  [
+   10,
+   0.04866002244852929
+  ],
+  [
+   20,
+   0.0615149510786959
+  ],
+  [
+   30,
+   0.06982745597485798
+  ],
+  [
+   40,
+   0.10518372555365788
+  ],
+  [
+   50,
+   0.10685172768131271
+  ],
+  [
+   60,
+   0.08769722168434571
+  ],
+  [
+   70,
+   0.07883543191732285
+  ],
+  [
+   80,
+   0.06774966498461828
+  ],
+  [
+   90,
+   0.06776522501982597
+  ],
+  [
+   100,
+   0.06232674319175818
+  ],
+  [
+   110,
+   0.061732435354670614
+  ],
+  [
+   120,
+   0.0596709283134948
+  ],
+  [
+   130,
+   0.06379895141906762
+  ],
+  [
+   140,
+   0.06632535343152784
+  ],
+  [
+   150,
+   0.061960436711861744
+  ]
+ ],
+ "figures/learning_curve/learning_curve.csv": {
+  "101": 0.060610379016799644,
+  "202": 0.09483817145046493,
+  "302": 0.10450308708656472,
+  "403": 0.1506784940044492
+ },
+ "figures/final_ensemble/errors_conf010/confusion_matrix_conf0.1.csv": [
+  [
+   179,
+   111,
+   18,
+   0,
+   0
+  ],
+  [
+   60,
+   184,
+   12,
+   1,
+   0
+  ],
+  [
+   7,
+   9,
+   25,
+   3,
+   0
+  ],
+  [
+   2,
+   11,
+   2,
+   5,
+   0
+  ],
+  [
+   4,
+   4,
+   1,
+   0,
+   0
+  ]
+ ]
+}

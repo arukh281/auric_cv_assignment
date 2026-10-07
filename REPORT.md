@@ -76,6 +76,9 @@ Rates and confusion matrices are reported at two threshold sets, tagged in every
   `results/clean_repro_final/`).
 - **Single-model baseline B1h:** 0.1065 (95% CI 0.0563–0.1653). Its seed-1 repeat scored 0.0634.
 
+![progress](figures/simple/1_progress.png)
+*Val mAP50 by stage: tiling (B0 → B1) is the only large step; every stage is far below 0.75.*
+
 Why, in order of evidence strength:
 1. **The model does not generalise from 403 images.** The same B1h weights score 0.378 on 40 of their own training
    images, 0.151 on 40 held-out train images and 0.107 on val
@@ -278,6 +281,9 @@ Gain in mAP50 if each error type were fixed by the oracle (`figures/<run>/errors
 For the tiled runs, classification errors are the largest single loss, followed by background FPs and misses.
 Localisation is small.
 
+![mistakes](figures/simple/3_mistakes.png)
+*B1h on val: gain if each error type were fixed (Cls, Bkg, Missed, Loc).*
+
 ### 3.2 Class-agnostic vs class-aware
 
 | B1h | mAP50 (class-aware) | class-agnostic AP50 | trucks found (any class, conf ≥ 0.001) |
@@ -441,6 +447,9 @@ Val checkpoint curves peak mid-training (E1 0.100 at epoch 90, E2 0.107 at 40–
 `results/<run>/checkpoint_curve/checkpoint_curve.csv`); they were reported as curves only, never used to pick weights.
 E1's early stop was chosen by Ultralytics val (see Reproducibility, corrected row).
 
+![training longer](figures/simple/4_training_longer.png)
+*E2's val checkpoint curve (descriptive only): it peaks at epoch 50 and falls with longer training.*
+
 ### 4.1 Every model: val mAP50 and per-class AP50 (brief §2.3)
 
 Sources: each row's `results/<run>/eval/per_class.csv` (final system: `results/clean_repro_final/per_class.csv`).
@@ -593,6 +602,9 @@ above chance, and the effect is the same in both halves.
 ### 5.3 Value of 500 more labels
 
 Learning curve at equal iterations (~10,750), held-out = holdout40, seed 0 unless noted
+![more photos](figures/simple/5_more_photos.png)
+*Holdout40 mAP50 vs training images (seed 0), with the 0.75 target.*
+
 (`figures/learning_curve/learning_curve.csv`, `power_law_fit.csv`):
 
 | Train images | holdout mAP50 | holdout class-agnostic AP50 | val mAP50 |
@@ -804,6 +816,9 @@ Class coverage, as boxes (images) and share of the pool's boxes of that class:
 Sources: `results/<run>/{eval_train40,eval_holdout40}/{metrics.json,class_agnostic.json}`.
 holdout values are in DETAILED_EXPERIMENTS.md "E1 / E2: Results". Picture: `figures/story/scoreboard.png`.
 
+![memorise vs learn](figures/simple/2_memorise_vs_learn.png)
+*train40 (grey) vs holdout40 (blue) per run; the band is B1h ± 0.017 (seed spread).*
+
 - **Fitting faster hurts.** E1, E2 and E3 all raised train40 and lowered holdout40, by more than the seed noise each
   time.
 - **Freezing helps relative to E3.** E7 recovered +0.046 of E3's loss; vs B1h it is lower by 0.023, just beyond
@@ -825,6 +840,9 @@ holdout values are in DETAILED_EXPERIMENTS.md "E1 / E2: Results". Picture: `figu
   Cargo. Tractor is named correctly for 5 of 117 boxes and Liquid for 0 of 20
   (`figures/final_ensemble/errors_conf010/confusion_matrix_conf0.1.csv`).
 - Qualitative sheets: `figures/final_ensemble/errors/crops_{bkg,missed,cls}.png`.
+
+![confusion](figures/simple/6_confusion.png)
+*Final system at conf 0.10, rows = true class, share of matched boxes; Cargo ↔ Box is the main confusion.*
 - The deeper analyses below use B1h, the ensemble's main member.
 
 **(2) Classification between look-alike types: weak on val, partly val-specific (supported).**
