@@ -7,7 +7,8 @@ sources, the full tables and every caveat. The run-by-run log, with each predict
 > **Words used here**
 > - **Score:** mAP50, the brief's metric, from 0 (nothing right) to 1 (perfect). A truck counts only if the box
 >   overlaps it by at least half *and* the type is right.
-> - **Official test:** the 22 supplied validation photos ("val"). Never used to train or choose anything.
+> - **Official test:** the 22 supplied validation photos ("val"). Never used to train or to choose the final system
+>   (one disclosed exception: E1's automatic early stopping; see docs/REPORT_FULL.md, Reproducibility).
 > - **Practice test:** 40 training photos held back ("holdout40"), used for every choice. "Practice test, clean labels"
 >   means the same 40 photos scored against the public xView originals' labels.
 > - **Luck alone:** how much a score moves when the same recipe is trained twice: about **0.017** on the practice test
@@ -98,8 +99,8 @@ Details: docs/REPORT_FULL.md §3.1–§3.4.
 
 ## 4. Experiments
 
-Every experiment changed one thing from the baseline, had its prediction and decision rule written down first, and
-was judged on the practice test. Each was trained once.
+Most experiments changed one thing from the baseline and had a prediction and decision rule written down first
+(DETAILED_EXPERIMENTS.md marks which). Each was trained once.
 
 ![memorise vs learn](figures/simple/2_memorise_vs_learn.png)
 *Photos it trained on (grey) vs the practice test (blue). The band is the baseline ± 0.017 (luck alone).*
@@ -113,7 +114,7 @@ was judged on the practice test. Each was trained once.
 | E7 | aerial weights, frozen | 0.128 vs 0.151 (E3: 0.082) | lower by 0.023, just beyond luck alone |
 | E6b | show rare types more often | 0.136 vs 0.151; rare types did not rise | not supported |
 | E8 | E4 for longer | stopped at 68 of 100 passes for budget | no result |
-| TTA | look at each tile four ways | 0.138 vs 0.151 | rejected (within luck alone) |
+| TTA | flips and 1.5x zoom at test time | 0.138 vs 0.151 | rejected (within luck alone) |
 | Crop classifier | a separate type classifier | 61% vs the detector's 69% on the same trucks | not supported |
 | Two-stage | that classifier on E4's boxes | 0.101 / 0.118 | fails its rule |
 | E10 | teach the left-out truck types | 0.126 vs 0.151; false alarms halved | mAP not supported; excluded |
@@ -164,7 +165,7 @@ Details: docs/REPORT_FULL.md §5.1.
   named right and never found.
 - Five claims were written down from half the photos and tested on the other, unread half. All five held.
 - About 38% of training trucks are never found at the usual confidence, yet 78% of those get a correctly placed guess
-  at very low confidence. Under 16 pixels, most trucks are never found.
+  at very low confidence. Trucks under 16 px are never found far more often than trucks over 32 px (+0.63 in share).
 - Main caveat: the explanation (size, low confidence, unstable cargo/box boundary, rare types) was written after the
   result.
 
@@ -242,7 +243,7 @@ Details: docs/REPORT_FULL.md §6.3.
 
 ### 6.4 The next step, with one more day
 
-**Relabel the 62 test photos properly**, adding the missing trucks and marking the left-out truck types as "don't
+**Relabel the 62 evaluation photos (22 official + 40 practice) properly**, adding the missing trucks and marking the left-out truck types as "don't
 count". It is cheap (no GPU) and removes one known source of error from future comparisons. It is not expected to move
 the score much: correcting the labels diagnostically predicts only about +0.02–0.03 for the baseline. Model changes
 are weaker candidates: none of nine single-model changes beat the baseline.
@@ -251,8 +252,8 @@ Details: docs/REPORT_FULL.md §6.4.
 
 ### 6.5 Why 0.75 was not reached
 
-- **Published results are far lower:** the best result we found reported on 19 similar small xView vehicle types is
-  0.3065 (arXiv 2104.11854, Table IV).
+- **Published results on similar data are far below 0.75:** the best we found reported, on 19 similar small xView
+  vehicle types, is 0.3065 (arXiv 2104.11854, Table IV).
 - **Even ignoring the type, the baseline reaches only 0.255** on the official test.
 - **The data issues are real but small:** correcting all of them lifts the baseline from 0.1065 to 0.1371.
 - **Simple 2× enlarging was tested (E16) and did not help;** learned super-resolution was not tested.
