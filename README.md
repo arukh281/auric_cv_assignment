@@ -17,6 +17,10 @@ the program finds many of the trucks but often names the wrong type on photos it
 | [docs/REPORT_FULL.md](docs/REPORT_FULL.md) | All the evidence: full tables, sources and caveats |
 | [docs/REPRODUCE.md](docs/REPRODUCE.md) | Every command, for Colab, Kaggle and a laptop |
 
+This ZIP leaves out large raw files (training plots, per-checkpoint predictions, ~440 MB of figures) to stay under
+the email size limit. Everything is in the public repo at commit 7ef0f7b:
+https://github.com/arukh281/auric_cv_assignment/tree/7ef0f7b
+
 ## 3. How I approached it
 
 - **Looked at the data first:** photo sizes, truck sizes (most are about 22 pixels long), and how many of each type.
