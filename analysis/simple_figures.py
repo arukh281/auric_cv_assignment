@@ -54,7 +54,7 @@ def progress(root, out):
     colors = [GREY, ACCENT, GREY, GREY]
     ax.bar(range(4), vals, color=colors, width=0.6)
     for i, v in enumerate(vals):
-        ax.text(i, v + 0.012, f"{v:.3f}", ha="center", fontsize=13)
+        ax.text(i, v + 0.012, f"{v:.4f}", ha="center", fontsize=13)
     ax.axhline(TARGET, ls="--", color=DARK, lw=1.2)
     ax.text(3.35, TARGET + 0.015, "Target 0.75", ha="right", fontsize=12)
     ax.set_xticks(range(4), [n for n, _ in rows])
@@ -74,7 +74,7 @@ def memorise(root, out):
     fig, ax = plt.subplots(figsize=(10, 6))
     base = metric(root, "results/b1h_tile1024_holdout40/eval_holdout40/metrics.json")
     ax.axvspan(base - NOISE, base + NOISE, color=BAND, zorder=0)
-    ax.text(base, len(runs) - 0.35, "luck alone", ha="center", fontsize=11, color=ACCENT)
+    ax.text(base + NOISE + 0.01, len(runs) - 1.45, "luck alone\n(around baseline)", fontsize=11, color=ACCENT)
     for i, (name, r) in enumerate(runs):
         y = len(runs) - 1 - i
         seen = metric(root, f"results/{r}/eval_train40/metrics.json")
@@ -120,7 +120,7 @@ def longer(root, out):
     ax.plot(ep, v, color=ACCENT, lw=2.5, marker="o", ms=5)
     ax.annotate(f"Best at about {ep[k]} passes ({v[k]:.2f})", (ep[k], v[k]), xytext=(ep[k] + 15, v[k] + 0.012),
                 fontsize=12, arrowprops=dict(arrowstyle="-", color=DARK))
-    ax.annotate(f"After {ep[-1]} passes: {v[-1]:.2f}", (ep[-1], v[-1]), xytext=(ep[-1] - 45, v[-1] - 0.025),
+    ax.annotate(f"After {ep[-1]} passes: {v[-1]:.2f}", (ep[-1], v[-1]), xytext=(ep[-1] - 40, v[-1] - 0.018),
                 fontsize=12)
     ax.set_ylim(0, max(v) + 0.04)
     ax.set_xlabel("Training passes over the photos")
