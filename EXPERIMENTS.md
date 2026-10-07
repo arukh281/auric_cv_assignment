@@ -59,6 +59,9 @@ REPORT.md.
 ![mistakes](figures/simple/3_mistakes.png)
 *Notice that naming the wrong truck type costs far more than missing trucks or drawing the box slightly off.*
 
+![examples](figures/simple/7_examples.png)
+*Real examples from the official test (final system, confidence >= 0.10). Picked at random, not the best or worst.*
+
 ### 🚩 Sanity checks: can it even learn its own homework?
 - **What we tried:** check the settings, draw the labels on the tiles, and ask the model to memorise just 16 tiles.
 - **Why:** 0.38 on its own training photos looked suspiciously low.

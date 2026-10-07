@@ -80,6 +80,9 @@ Details: docs/REPORT_FULL.md §2.1–§2.4.
 ![mistakes](figures/simple/3_mistakes.png)
 *Baseline on the official test: how much the score would rise if each kind of mistake were fixed.*
 
+![examples](figures/simple/7_examples.png)
+*Real examples from the official test (final system, confidence >= 0.10). Picked at random, not the best or worst.*
+
 - **Wrong type is the biggest mistake (+0.147)**, then false alarms (+0.077), missed trucks (+0.044) and slightly-off
   boxes (+0.022). The bins overlap, so they don't add up to a ceiling.
 - **Ignoring the type, the baseline scores 0.255** on the official test against 0.107 with the type. It finds trucks
