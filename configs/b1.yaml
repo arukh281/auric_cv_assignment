@@ -1,7 +1,7 @@
 # B1: native-resolution tiles. Train on 1024 px train tiles at imgsz 1024 (no downscaling);
 # evaluate by slicing full-res val images with the same geometry and merging, scored on full-image labels.
 name: b1_tile1024
-model: yolo11s.pt          # COCO-pretrained Ultralytics release weights (NOT xView-pretrained; see REPORT.md)
+model: yolo11s.pt          # COCO-pretrained Ultralytics release weights (NOT xView-pretrained; see docs/REPORT_FULL.md)
 seed: 0
 deterministic: true
 epochs: 50                 # equal schedule for B0 and B1; B1 still does more iterations per epoch (tiles), see training_summary.json

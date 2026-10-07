@@ -17,7 +17,7 @@ We reached 0.13: far short of the goal, and this page explains, in plain words, 
 >   is about 0.02, so smaller differences mean nothing.
 > - **Three models voting:** three models look at each photo and their answers are combined.
 
-The full evidence, sources and caveats are in [REPORT.md](REPORT.md) and [DETAILED_EXPERIMENTS.md](DETAILED_EXPERIMENTS.md).
+The full evidence, sources and caveats are in [REPORT.md](REPORT.md) (short report), [docs/REPORT_FULL.md](docs/REPORT_FULL.md) (all the evidence) and [DETAILED_EXPERIMENTS.md](DETAILED_EXPERIMENTS.md).
 Run codes in brackets, like (E1), point to the matching entries there.
 
 ![progress](figures/simple/1_progress.png)
@@ -91,7 +91,7 @@ REPORT.md.
 - **What it means:** naming is decent on photos like the training set and weak on the official test.
 
 ![confusion](figures/simple/6_confusion.png)
-*Notice the two highlighted squares: cargo and box trucks are mistaken for each other far more than anything else.*
+*Notice the highlighted squares: cargo and box are mixed up most often by number of trucks (111 and 60); rarer types are mislabelled at even higher rates. Percentages are among trucks the model found and placed correctly; trucks it missed are not counted.*
 
 ### Which trucks does it struggle to learn?
 - **What we tried:** follow every training truck through training and sort them into "learned early", "learned
@@ -169,7 +169,7 @@ inside the "luck alone" band.*
 ### 🔍 Are the false alarms really false?
 - **What we tried:** look at the 60 most confident "false alarms".
 - **Why:** some looked suspiciously like trucks.
-- **What happened:** 46 of the 60 looked like real trucks that simply had no label.
+- **What happened:** 46 of the 60 looked like real trucks that simply had no label (one viewer, not blind, top 60 only).
 - **What it means:** the score punishes the model for some correct finds.
 
 ### 🕵️ The xView reveal
@@ -191,7 +191,7 @@ inside the "luck alone" band.*
 - **What we tried:** Claude chat looked through the official test photos without seeing our conclusions first.
 - **Why:** a fresh pair of eyes.
 - **What happened:** it saw dark, hazy and blurry photos, and cargo vs box labels that look inconsistent.
-- **What it means:** this matches the measurements above.
+- **What it means:** this fits the measured brightness and contrast differences and the altered photos (docs/REPORT_FULL.md §3.3c, §3.4).
 
 ---
 
@@ -220,10 +220,10 @@ inside the "luck alone" band.*
 
 ### 🏁 The final system: three heads are better than one (E13)
 - **What we tried:** let three existing models vote, and let each truck keep its top few type guesses.
-- **Why:** nothing beat the baseline alone, and the right type is in the top two guesses most of the time.
+- **Why:** nothing beat the baseline alone, and the right type is in the top two guesses about 84% of the time (DETAILED_EXPERIMENTS.md, E13).
 - **What happened:** on the practice test it beat the baseline by more than luck alone; on the official test it
   reached 0.13, up from 0.11.
-- **What it means:** it's our best system, though still far from 0.75. It reproduces exactly from the published files.
+- **What it means:** it's the highest-scoring system we tested, though still far from 0.75. It reproduces exactly from the published files.
 
 ### Bigger trucks on screen (E16)
 - **What we tried:** enlarge each tile 2× so small trucks look twice as big.
@@ -249,7 +249,7 @@ shortcut on principle: models pretrained on xView would already have seen the of
 - 🔢 **"500 trucks" isn't "500 photos".** Our first estimate answered the wrong question; the right answer is still
   below luck alone.
 - 🧮 **The budget squeeze** forced us to stop one run and cancel two.
-- 🎯 **"Can we reach 0.7?"** Aradhya asked. The best published result on a similar xView task is about 0.31.
+- 🎯 **"Can we reach 0.7?"** Aradhya asked. The best result we found reported on a similar xView task is about 0.31 (arXiv 2104.11854, Table IV).
 - 🏃 **"Keep going nonstop."** Aradhya's call, which is why there are so many small experiments.
 - 🤝 **AI-assistance disclosure.** Flagged by Claude chat, approved by Aradhya.
 
@@ -258,4 +258,4 @@ Relabel the 62 test photos properly, marking the left-out truck types as "don't 
 punished. This is cheap and needs no new training. It would make future comparisons fair, though it is expected to
 raise the score only by about 0.02–0.03.
 
-Full evidence: [REPORT.md](REPORT.md) · [DETAILED_EXPERIMENTS.md](DETAILED_EXPERIMENTS.md)
+Full evidence: [REPORT.md](REPORT.md) · [docs/REPORT_FULL.md](docs/REPORT_FULL.md) · [DETAILED_EXPERIMENTS.md](DETAILED_EXPERIMENTS.md)

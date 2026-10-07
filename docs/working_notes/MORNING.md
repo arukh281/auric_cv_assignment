@@ -144,5 +144,5 @@ Inspect half, 3,511 GT boxes:
 | 3140888 | b1h_smart75, b1h_f50_seed1 results |
 | 7deafdb | b1h_f75_seed1 results; S54 comparison table and rule output |
 
-No conclusions were written into EXPERIMENTS.md or REPORT.md. The only overnight change to EXPERIMENTS.md is the S54
+No conclusions were written into EXPERIMENTS.md or docs/REPORT_FULL.md. The only overnight change to EXPERIMENTS.md is the S54
 pre-registration entry in b02413c.

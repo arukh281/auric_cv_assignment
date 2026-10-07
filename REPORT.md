@@ -1,1082 +1,275 @@
-# Technical report: overhead truck detection
+# Technical report: finding trucks in satellite photos (short version)
 
-**AI assistance.** This project was built with AI assistance: Claude Code for code, analysis and drafting, and a
-chat assistant for experiment planning. Hypotheses, predictions and decision rules marked "author's" in
-DETAILED_EXPERIMENTS.md were chosen and approved by the author before each run; other interpretations were drafted by
-Claude Code and reviewed by the author. The brief allows this: "External resources and AI-assisted code are
-permitted, but you remain responsible for understanding, documenting and defending the submitted system and
-conclusions."
+This is the short report. Every number here is taken from [docs/REPORT_FULL.md](docs/REPORT_FULL.md), which has the
+sources, the full tables and every caveat. The run-by-run log, with each prediction written down before its result, is
+[DETAILED_EXPERIMENTS.md](DETAILED_EXPERIMENTS.md).
 
-## Pretrained weights and val leakage
+> **Words used here**
+> - **Score:** mAP50, the brief's metric, from 0 (nothing right) to 1 (perfect). A truck counts only if the box
+>   overlaps it by at least half *and* the type is right.
+> - **Official test:** the 22 supplied validation photos ("val"). Never used to train or choose anything.
+> - **Practice test:** 40 training photos held back ("holdout40"), used for every choice. "Practice test, clean labels"
+>   means the same 40 photos scored against the public xView originals' labels.
+> - **Luck alone:** how much a score moves when the same recipe is trained twice: about **0.017** on the practice test
+>   and **0.043** on the official test (one repeat). Smaller differences mean nothing.
+> - **Tiles:** full-resolution squares cut from each photo. **Three models voting:** an ensemble whose answers are
+>   combined box by box.
 
-All models start from **COCO-pretrained** Ultralytics YOLO11s (`yolo11s.pt`, Ultralytics release asset). The
-SHA-256 of the file actually loaded is recorded in each run's `init_weights.json`.
+## Summary
 
-**xView-pretrained checkpoints are deliberately not used.** Our five classes (Cargo Truck, Truck w/Box,
-Truck w/Flatbed, Truck Tractor, Truck w/Liquid) are xView classes, and the imagery looks like xView. A checkpoint
-trained on xView may have seen our validation images or their source scenes during pretraining. That would
-inflate validation mAP in a way we cannot measure or remove.
-
-## Reproducibility details (per run)
-
-| Item | Where it is recorded |
-|---|---|
-| Architecture, initialization | `configs/*.yaml` (`model`), `runs/<run>/init_weights.json` |
-| Image size / preprocessing, tiling | `configs/*.yaml`, `runs/<run>/tiling_params.json` |
-| Train/val usage | Train split for training only. **Corrected 2026-10-04:** an earlier version said `val: false`; the configs actually set `val: true` (`configs/*.yaml`). Ultralytics then computes its own per-epoch val metrics on un-sliced full images, used for training curves only; `last.pt` is always reported (`results/*/eval*/metrics.json`, field `weights`). One leak: Ultralytics EarlyStopping (default `patience=100`, unset in configs before E3/E4) watches that val fitness and stopped E1 at epoch 145 of 150 (DETAILED_EXPERIMENTS.md, "CHECK 0"). From E3/E4 on, configs set `patience: 0` and checkpoint curves are scored on holdout40 |
-| Augmentations, optimizer, scheduler, batch, epochs, losses | `runs/<run>/train/args.yaml` (full Ultralytics args, defaults included) |
-| Seed / determinism | `seed: 0`, `deterministic: true` in config and `args.yaml` |
-| Inference thresholds / post-processing | `runs/<run>/eval/eval_args.json` (conf 0.001, NMS IoU 0.7, max_det, tile merge) |
-| Software | `requirements.txt`, `runs/<run>/env/*_pip_freeze.txt` |
-| Hardware / runtime | `runs/<run>/env/*_hardware.json` (GPU, CUDA, cuDNN, torch, git commit) |
-| Exact commands | `runs/<run>/command.txt` (every invocation, including resumes) |
-
-## Metric definition
-
-- **mAP50** is the mean over the 5 classes of AP at IoU 0.5, with COCO 101-point interpolation. It is computed by
-  `detlib/scoring.py` on full-resolution val images, identically for every model.
-- The Ultralytics-style interpolation is also reported (`AP50_ultralytics`). It is higher whenever recall saturates
-  below 1, and it caps a perfect AP at 0.995.
-- 95% CIs come from a 1000-sample bootstrap over the 22 val images (seed 0).
-
-## Error taxonomy (Phase 3, `analysis/errors.py`)
-
-Error types follow TIDE (Bolya et al., "TIDE: A General Toolbox for Identifying Object Detection Errors",
-ECCV 2020). The order and boundaries were checked against the reference implementation, `tidecv/quantify.py`,
-`TIDERun._eval_image` (github.com/dbolya/tide, commit `49a5d2a`), and match it. A first draft used a different
-order (Cls, Dupe, Loc, Both, Bkg); it was changed to the reference before any run was analysed.
-
-Every prediction that is not a true positive at IoU 0.5 gets the first type that applies (fg = 0.5, bg = 0.1):
-
-1. **Loc**: bg <= best same-class IoU <= fg.
-2. **Cls**: best other-class IoU >= fg.
-3. **Dupe**: IoU >= fg with a same-class GT already matched by a higher-confidence prediction.
-4. **Bkg**: best IoU with any GT <= bg.
-5. **Both**: everything else (TIDE's `OtherError`, short name "Both").
-
-**Missed** is a GT that no true positive matched and that no Cls or Loc error can claim.
-
-Oracle fixes follow the reference `fix()` methods. Cls relabels the prediction and Loc snaps its box to the GT; either
-is dropped instead if that GT is already matched. Dupe, Bkg and Both are removed. Missed removes the GT. Each fix is
-re-scored with `detlib/scoring.py`. Matching uses our scorer, not TIDE's COCO-API matcher.
-
-Rates and confusion matrices are reported at two threshold sets, tagged in every table:
-
-- A fixed confidence of 0.25.
-- The per-class F1-optimal confidence. It is chosen on val, which is the only test set, so it is an optimistic
-  diagnostic, not a deployable setting.
-
----
-
-## Summary (2026-10-05)
-
-**The target was missed by a wide margin.** Target: ≥ 0.75 mAP50 on the 22-image val set.
-- **Final system:** a multi-label WBF ensemble of B1h ep40 + E4 ep40 + E7 ep20, selected on holdout40-clean (E13).
-  Val mAP50 **0.1349**, scored once (`results/e13_final/e13_final.json`; reproduced in a clean environment,
-  `results/clean_repro_final/`).
-- **Single-model baseline B1h:** 0.1065 (95% CI 0.0563–0.1653). Its seed-1 repeat scored 0.0634.
+**The target was missed by a wide margin.** The target was 0.75 on the official test.
+- **Final system:** three models voting (the baseline plus two variants), selected on the practice test. It scores
+  **0.1349** on the official test, scored once and reproduced in a clean environment.
+- **Single-model baseline (B1h):** 0.1065 (95% CI 0.056–0.165). The same recipe trained again scored 0.0634.
 
 ![progress](figures/simple/1_progress.png)
-*Val mAP50 by stage: tiling (B0 → B1) is the only large step; every stage is far below 0.75.*
+*Score on the official test by stage: tiling is the only large step, and every stage is far below 0.75.*
 
 Why, in order of evidence strength:
-1. **The model does not generalise from 403 images.** The same B1h weights score 0.378 on 40 of their own training
-   images, 0.151 on 40 held-out train images and 0.107 on val
-   (`results/b1h_tile1024_holdout40/{eval_train40,eval_holdout40,eval}/metrics.json`). Training 3× longer (E1, E2)
-   raised train40 to 0.774 / 0.906 but *lowered* holdout40 to 0.092 / 0.111 (`results/e{1,2}_*/eval*/metrics.json`).
-2. **Classification is the ceiling, not localisation.** Ignoring class, B1h's val AP50 is 0.255 vs 0.107 class-aware
-   (`results/b1h_tile1024_holdout40/eval/class_agnostic.json`). Placing a box perfectly on every GT, B1h names the
-   right type 60% of the time vs 52% for always answering "Cargo Truck" (§5.1). Oracle-fixing classification errors
-   adds +0.147 mAP50, localisation errors +0.022 (`figures/b1h_tile1024_holdout40/errors/tide_dAP.csv`).
-3. **More data helps, but not enough.** The learning curve is still rising, but the (unreliable) power-law
-   extrapolation to 903 images gives 0.215 holdout mAP50 (CI 0.076–0.276). The 500 extra *instances* the brief asks
-   about (~29 images) project to about +0.006, within seed noise (§5.3).
-4. **Other candidate causes, as since tested.** "Ruled out" means a discriminating test was run; "no evidence for" means
-   a signal was looked for and not found.
-   - **Domain shift / altered val (tested: real, small cost).**
-     - The xView audit (§3.3c) found 8 of 22 val images altered: 4 rescaled 2× / 0.5×, plus noise, blur + noise and
-       contrast changes. All training images are untouched.
-     - B1h finds 0.665 of val trucks vs 0.852 of holdout40 trucks. Box size explains 3% of that gap; brightness and
-       contrast about 31% each; blur and noise little (§3.4, `results/val_review/a_standardised.csv`).
-     - Re-running the 4 rescaled images at native scale lifts val 0.1065 → 0.1122 (§6.5).
-   - **Image quality (tested):** two of the altered images are degraded (noise; blur + noise), and two have changed
-     contrast. Their effect is part of the scene-level gap above.
-   - **Label completeness (tested: real, small cost).**
-     - 216 of 350 confident holdout40 false positives are excluded truck types, and val's labels drop 10.3% of
-       xView's boxes of the five types.
-     - Ignoring both in diagnostic re-scoring lifts val to 0.1237 and 0.1112 respectively (§6.5).
-     - Tiling preserves the labels (0 of 3439 tiles differ).
-   - **Model capacity:** YOLO11s fits its training data (16-tile overfit AP50 1.000; E1/E2 train40 0.774 / 0.906).
-     A larger model was not tested (E9 was cancelled for budget).
-   - **Tile-merge settings: ruled out.** Alternative merges change B1h val mAP50 within 0.1047–0.1077 and holdout40
-     by −0.005 to +0.001 (`figures/b1h_tile1024_holdout40/merge_sensitivity.csv`, `results/val_review/r2_remerge.csv`).
-5. **Audit and gap breakdown.** All data corrections together lift B1h's val mAP50 only from 0.1065 to 0.1371 in
-   diagnostic re-scoring (§6.5). The data issues are real, but they are not what keeps the score far from 0.75.
-6. **What helped:** multi-label output and a 3-model ensemble (E13). Val 0.1065 → 0.1349; +0.032 on holdout40-clean.
-7. **Labelling the look-alikes did not raise mAP50.** We trained with the 8 excluded xView truck types as extra
-   classes (E10). Background errors on val halved (9380 → 4056), but holdout40 mAP50 fell (0.126 vs 0.151).
-8. **Compute:** 26.49 GPU-h this week including E16 (1.74; `kaggle quota`), plus an earlier week for the baselines and learning curves; most went to
-   training-side tests. All diagnosis ran on CPU (§4.2).
-9. **Resolution lever (E16): not supported.** Training on 2×-upscaled tiles scored 0.155 vs B1h's 0.176 on
-   holdout40-clean and added +0.010 (< 0.017) to the ensemble; the final system is unchanged
-   (`results/e16_selection/e16_selection.json`).
+1. **It does not generalise from 403 photos.** The baseline scores 0.378 on photos it trained on, 0.151 on the practice
+   test and 0.107 on the official test. Training 3× longer raised the first and lowered the second.
+2. **Naming the type is the main loss, not finding the truck.** Fixing every wrong-type mistake would add +0.147;
+   fixing every slightly-off box only +0.022.
+3. **More photos help, but slowly.** 500 more labelled trucks project to about +0.006, below luck alone.
+4. **The data has real problems, but they cost little.** 8 of 22 official-test photos were altered, and many "false
+   alarms" are truck types the labels leave out. Correcting for all of it lifts the baseline only from 0.107 to 0.137.
+5. **What helped, modestly:** three models voting, +0.032 on the practice test (clean labels), and 0.107 → 0.135 on
+   the official test, which is within luck alone (0.043) there.
 
-## The four questions
+Compute: 26.49 GPU-hours this week (one Kaggle T4), plus an earlier week for the baselines. All diagnosis ran on CPU.
 
-**(1) Is the training the problem? Mostly no.**
-- Training longer (E1, E2) or starting from aerial weights (E3) made the model fit its training images better and do
-  worse on new ones: holdout40 0.092 / 0.111 / 0.082 vs B1h's 0.151.
-- More augmentation (E4) and a frozen aerial backbone (E7) overfitted less, but scored lower on holdout40 by
-  0.020 / 0.023 (0.130 / 0.128 vs 0.151), just beyond the 0.017 seed spread; without Liquid, within noise
-  (0.163 / 0.153 vs 0.170). *Corrected 5 Oct: previously "no detectable effect".*
-- B1h's own holdout40 curve is flat from epoch 40 to 50.
+Details: docs/REPORT_FULL.md "Summary" and "The four questions".
 
-**(2) Are the rare classes the problem? They are weak, but not because they are rare.**
-- Showing rare-class tiles more often (E6b) had **no detectable effect** overall (0.136 vs 0.151) and did not
-  raise Tractor or Flatbed AP (0.007 → 0.002, 0.069 → 0.061).
-- Neither did doubling Tractor boxes in the §5.4 subsets.
-- 500 targeted instances project below noise (§5.3).
-- About 5% of training boxes carry a different class than xView. Training on xView's original labels instead (E15) did
-  **not** help: holdout40-clean 0.153 vs 0.176, supplied 0.137 vs 0.151, val (once) 0.091 vs 0.107; single seed.
-  Those label differences are not a main limiter.
+## AI assistance
 
-**(3) Can smarter inference help? Modestly, yes.**
-- Multi-label output plus a 3-model ensemble (B1h + E4 + E7, E13) is the only change that cleared the noise bar on
-  holdout40-clean: +0.032 (0.2086 vs 0.1765).
-- On val, scored once, it gives 0.107 → 0.135, which is within val's seed spread (0.043).
-- TTA (0.138 vs 0.151), the crop classifier (0.100–0.117; 0.610 vs the head's 0.690 on the same boxes) and
-  scale-adaptive inference (E12: +0.0004 on the corruption suite; val 0.091) did not help.
+This project was built with AI help: Claude Code for code, analysis and drafting, and a chat assistant for planning
+experiments. Predictions and decision rules marked "author's" in DETAILED_EXPERIMENTS.md were chosen and approved by
+the author before each run; other interpretations were drafted by Claude Code and reviewed by the author. The brief
+permits this, provided the author can explain and defend the work.
 
-**(4) Is the data the problem? Partly.**
-- **The data issues are real:**
-  - all images come from xView;
-  - 8 of 22 val images are altered (4 rescaled, 4 photometric);
-  - val drops 10.3% of xView's boxes;
-  - 216 of 350 confident holdout40 false positives are excluded truck types.
-- **But they cost little measured mAP50.** Correcting all of them diagnostically lifts B1h's val score only from 0.107
-  to 0.137 (§6.5).
-- **Fixing them in training did not raise mAP50:**
-  - E10 trained with the excluded truck types as extra classes. It halved val background errors (9380 → 4056) with no
-    mAP gain, and was excluded from the final system because its extra images touch val and holdout40 scenes;
-  - E15 scored lower on holdout40-clean.
+Details: docs/REPORT_FULL.md (top of the file).
 
-## 2. Dataset and baselines
+## 2. Data and baselines
 
-### 2.1 Dataset
+**The data.** 443 training photos (7,618 trucks) and 22 official-test photos (1,552 trucks).
+- Photos are large (about 3,200 × 2,900 pixels) and trucks tiny: about 22 pixels across in training, 25.5 in the
+  official test.
+- Two types dominate: cargo and box are 81% of training trucks. Liquid tankers have only 20 trucks in the official
+  test, so their score is very uncertain.
+- The official test is much more crowded: 70.5 trucks per photo on average, against 17.2 in training.
+- All photos turned out to come from the public xView dataset; this matters in §3.
 
-**Class definitions.** The dataset ships only class names, in `classmap.txt`, quoted verbatim:
-```
-0 Cargo Truck
-1 Truck w/Box
-2 Truck w/Flatbed
-3 Truck Tractor
-4 Truck w/Liquid
-```
-These names match xView's type names exactly (xView type ids 24 Cargo Truck, 25 Truck w/Box, 28 Truck w/Flatbed,
-26 Truck Tractor, 29 Truck w/Liquid). No further definition is supplied.
+**Baselines.**
 
-Full-dataset statistics (`figures/eda/summary.json`, `figures/eda/tables/*.csv`):
-
-| Class | train inst. | val inst. | train imgs | val imgs | train share | val share |
-|---|---|---|---|---|---|---|
-| Cargo Truck | 3773 | 800 | 368 | 19 | 0.495 | 0.515 |
-| Truck w/Box | 2366 | 493 | 261 | 17 | 0.311 | 0.318 |
-| Truck w/Flatbed | 662 | 122 | 195 | 14 | 0.087 | 0.079 |
-| Truck Tractor | 625 | 117 | 128 | 11 | 0.082 | 0.075 |
-| Truck w/Liquid | 192 | 20 | 99 | 8 | 0.025 | 0.013 |
-
-(`figures/eda/tables/class_counts.csv`)
-
-- 443 train images / 7618 boxes; 22 val images / 1552 boxes (`figures/eda/summary.json`).
-- **Val is much denser:** boxes per image mean 17.2 (median 7) in train vs 70.5 (median 76.5) in val
-  (`figures/eda/tables/boxes_per_image_stats.csv`).
-- **Images are large, objects tiny:** median width × height 3228 × 2891 px (train), 3114 × 2911.5 px (val)
-  (`figures/eda/tables/images.csv`); median sqrt(box area) 22.05 px train, 25.50 px val (`figures/eda/summary.json`);
-  77.2% of train boxes (5881/7618) are COCO-small (`figures/eda/tables/size_bins.csv`). Largest train box side 161 px
-  (`figures/eda/tables/boxes.csv`).
-- **Imbalance:** Cargo + Box are 81% of train instances; Liquid has 20 val instances, so its AP has very wide CIs.
-- **Label issues:** 1 empty train image (1938.png), 36 boxes with a side < 4 px (train 10, val 26)
-  (`figures/eda/tables/label_issues_summary.csv`). No near-duplicates within or across splits at pHash ≤ 8
-  (`figures/eda/summary.json`).
-- **Visual observations** (`analysis/notes/visual_inspection.md`, 42 images of a local 20-train/22-val subset, all
-  marked uncertain by the author): haze (val 2460, 2470, 2472), strong blur (val 2292, 2308, 2543), an apparently
-  finer or upsampled scale (val 2391), water speckle (val 1399, 1447, 1456), visible-but-unlabelled trucks in both
-  splits, and possibly offset GT boxes in 2470/2472. Val has more ports and dense truck yards than the train sample.
-  Truck w/Liquid median sqrt(area) is 41.5 px in val vs 25.5 px in train (from 20 val boxes;
-  `figures/domain_shift/tables/box_sizes_full_dataset.csv`).
-
-### 2.2 Baselines: B0 → B1 → B1h
-
-All runs: COCO-pretrained YOLO11s, SGD lr0 0.01, 50 epochs, seed 0, `last.pt`, sliced eval for tiled runs
-(DETAILED_EXPERIMENTS.md, B0/B1/B1h entries).
-
-| Run | Input | Train imgs | Iterations | eval max_det | val mAP50 (95% CI) | holdout40 mAP50 (95% CI) |
-|---|---|---|---|---|---|---|
-| B0 `b0_full640` | whole image → 640 | 443 | 1400 | 334 | 0.0020 (0.0009–0.0045) | – |
-| B1 `b1_tile1024` | 1024 tiles, overlap 256 | 443 | 11850 | 334 | 0.0715 (0.0419–0.1242) | – |
-| B1h `b1h_tile1024_holdout40` | as B1, 40 train imgs held out | 403 | 10750 | 902 | 0.1065 (0.0563–0.1653) | 0.1507 (0.0558–0.1874) |
-
-Sources: `results/<run>/eval/per_class.csv`, `results/<run>/training_summary.json`,
-`results/b1h_tile1024_holdout40/eval_holdout40/per_class.csv`.
-
-Per-class val AP50 (95% CI), `results/<run>/eval/per_class.csv`:
-
-| Class | B0 | B1 | B1h |
+| Step | What changed | Official test | Practice test |
 |---|---|---|---|
-| Cargo Truck | 0.002 (0.001–0.005) | 0.089 (0.047–0.150) | 0.131 (0.063–0.203) |
-| Truck w/Box | 0.008 (0.003–0.020) | 0.130 (0.035–0.226) | 0.180 (0.034–0.323) |
-| Truck w/Flatbed | 0.000 (no preds) | 0.053 (0.012–0.099) | 0.071 (0.007–0.155) |
-| Truck Tractor | 0.000 (no preds) | 0.006 (0.001–0.019) | 0.006 (0.000–0.022) |
-| Truck w/Liquid | 0.000 (no preds) | 0.079 (0.000–0.329) | 0.145 (0.005–0.416) |
+| B0 | whole photo shrunk to 640 px | 0.0020 | – |
+| B1 | cut into 1024-px tiles at full resolution | 0.0715 | – |
+| B1h | as B1, with 40 photos held back as the practice test | 0.1065 | 0.1507 |
 
-Caveats:
-- B0 vs B1 is equal epochs, not equal compute (1400 vs 11850 iterations; DETAILED_EXPERIMENTS.md B0).
-- B1 vs B1h differ in training set (443 vs 403), max_det (334 vs 902) and platform (Colab vs Kaggle;
-  `results/<run>/env/train_hardware.json`). B1h's seed-1 repeat scored 0.0634 val / 0.1333 holdout
-  (`results/b1h_seed1/eval/per_class.csv`, `eval_holdout40/per_class.csv`): a seed spread of 0.043 val and 0.017
-  holdout, as large as the B1→B1h difference. B1h's "best" status is within noise.
-- Scorer: ours equals pycocotools on every run (`results/<run>/eval/scorer_comparison.csv`).
+- **Tiling was the only large improvement.** Shrunk to 640 px, a 22-pixel truck becomes a few dots.
+- **B1 → B1h is within luck alone.** Retraining B1h scored 0.0634 on the official test and 0.1333 on the practice test,
+  a spread as large as the B1 → B1h difference.
+- Caveat: B0 and B1 used the same number of passes but very different amounts of training (1,400 vs 11,850 steps).
 
-### 2.3 Qualitative predictions
+Details: docs/REPORT_FULL.md §2.1–§2.4.
 
-Grids of TP / FN / FP (background, localisation, wrong class) and full-image overviews:
-`figures/b1_tile1024/grid_*.png`, `overview_{1211,1929,2308,2472}.png`;
-`figures/b1h_tile1024_holdout40/grid_*.png`, `overview_{1457,1929,20,2470}.png`; error crops in
-`figures/<run>/errors/crops_*.png`. Observations recorded from B1's grids (`analysis/notes/visual_inspection.md`):
-- Missed trucks include clearly visible white trailers in 2391 and visible tankers in 1362, as well as blurred (2543),
-  hazy (2460, 2472) and very dark (1399) cases.
-- Background FPs cluster in 1206, 1211, 2470, 2472, 2293 and 31; some of them look like unlabelled trucks (uncertain).
-- Class confusions are mostly Box ↔ Cargo, Tractor ↔ Box and Flatbed ↔ Cargo.
-- No duplicate errors at conf 0.25 (`crops_dupe.png` empty).
-
-### 2.4 Inference settings and the operating point
-- All reported mAP50 values use conf ≥ 0.001.
-- **mAP50 integrates over all confidence thresholds, so raising the threshold can only lower it.**
-  - On val: 0.106 at 0.001 → 0.082 at 0.1 → 0.062 at 0.25 → 0.004 at 0.8.
-  - On holdout40: 0.151 → 0.003 (`results/operating_points/`).
-- For a deployed detector, the F1-optimal threshold is **0.10 on val** (P 0.254, R 0.265, F1 0.259) and **0.25 on
-  holdout40** (P 0.346, R 0.332, F1 0.339). Figures: `figures/operating_points/`.
-- **Precision is understated:** detections of excluded truck types (§3.3b) and of the 178 xView boxes missing from
-  val's labels count as false positives.
-- **Final system on val** (`results/clean_repro_final/operating_points_final_val.csv`):
-  - mAP50 0.135 at conf 0.001.
-  - F1-optimal threshold **0.10** (P 0.263, R 0.298, F1 0.280).
-  - mAP50 falls to 0 by conf 0.7: fused scores are averaged over models, so they are lower than single-model scores.
-
-## 3. Failure diagnosis
-
-### 3.1 Error bins (TIDE order, val)
-
-Gain in mAP50 if each error type were fixed by the oracle (`figures/<run>/errors/tide_dAP.csv`):
-
-| Fix | B0 n / dAP50 | B1 n / dAP50 | B1h n / dAP50 |
-|---|---|---|---|
-| Cls | 100 / +0.102 | 621 / **+0.190** | 723 / **+0.147** |
-| Loc | 248 / +0.004 | 190 / +0.014 | 386 / +0.022 |
-| Both | 324 / +0.000 | 247 / +0.002 | 422 / +0.003 |
-| Dupe | 20 / +0.000 | 0 / 0 | 0 / 0 |
-| Bkg | 6287 / +0.007 | 4701 / +0.053 | 9380 / +0.077 |
-| Missed | 1205 / +0.005 | 584 / +0.041 | 419 / +0.044 |
-
-For the tiled runs, classification errors are the largest single loss, followed by background FPs and misses.
-Localisation is small.
+## 3. What the detector gets wrong
 
 ![mistakes](figures/simple/3_mistakes.png)
-*B1h on val: gain if each error type were fixed (Cls, Bkg, Missed, Loc).*
-
-### 3.2 Class-agnostic vs class-aware
-
-| B1h | mAP50 (class-aware) | class-agnostic AP50 | trucks found (any class, conf ≥ 0.001) |
-|---|---|---|---|
-| val | 0.1065 | 0.2551 | 1032/1552 = 0.665 |
-| holdout40 | 0.1507 | 0.3617 | 629/738 = 0.852 |
-
-Sources: `results/b1h_tile1024_holdout40/eval/class_agnostic.json`, `eval_holdout40/class_agnostic.json` (via
-DETAILED_EXPERIMENTS.md B1h). Ignoring the class roughly doubles AP. At conf 0.25 only 361/1552 (0.233) val GT are matched by
-any class (`results/b1h_tile1024_holdout40/eval/class_agnostic.json`).
-
-Class confusion at GT locations (B1h, pooled anchors; rows = GT, `figures/b1h_tile1024_holdout40/gt_oracle/confusion_pool.csv`):
-Cargo → Box 192 of 800; Box → Cargo 171 of 493; Tractor → Cargo 47 of 117; Liquid predicted correctly 2 of 20.
-**Classification, in particular Cargo vs Box, is the main bottleneck** (also §5.1).
-
-### 3.3 Size, density, image quality
-
-- **Size:** B1 misses 71–79% of val trucks in every 8–48 px bin (1434 of 1552 GT) at F1-optimal thresholds, vs 52%
-  at 48–96 px (n = 73) (`figures/b1_tile1024/errors/slices.csv`). B1h at conf 0.25: miss rate 0.94 / 0.90 / 0.86 /
-  0.76 / 0.56 for 8–16 / 16–24 / 24–32 / 32–48 / 48–96 px (`figures/b1h_tile1024_holdout40/errors/slices.csv`).
-  Size matters at the extremes but most trucks are missed regardless of size.
-- **Density:** B1h conf-0.25 miss rate 0.88 / 0.87 / 0.90 / 0.81 across per-image object-count bins
-  (`figures/b1h_tile1024_holdout40/errors/slices.csv`); no clear trend.
-- **Image quality: no evidence for an effect, from a weak test.**
-  - B1's 10 visually unflagged val images score 0.079 (0.037–0.179); the 12 flagged ones (haze, blur, dark, speckle)
-    score 0.063 (0.036–0.090). The CIs overlap (`figures/b1_tile1024/per_image/subset_map_val.csv`).
-  - The flags are subjective, and 10 vs 12 images could only detect a large effect.
-  - Not tested as a cause of the val/holdout40 gap (§3.4).
-- **Domain shift (train vs val): no evidence for it from this test, which is weak.**
-  - Domain-classifier AUCs: 0.336 (0.168–0.515) on image stats, 0.453 (0.334–0.564) on crop embeddings and
-    0.368 (0.209–0.549) per image. Every CI includes 0.5 (`figures/domain_shift/tables/domain_auc.csv`).
-  - It was computed on the local 20-train / 22-val subset only.
-  - The recall-gap analysis (§3.4) later found a scene-level gap between val and holdout40 that this classifier did
-    not detect, so domain shift is **not** ruled out.
-- **Pipeline checks:** in-sample train40 mAP50 0.4027 for B1 (`results/b1_tile1024/eval_train40/metrics.json`);
-  disabling tile merge drops B1 0.0715 → 0.0484 (`figures/b1_tile1024/merge_sensitivity.csv`); max_det 3000 adds
-  0.006 (`figures/b1_tile1024_maxdet3000/merge_sensitivity.csv`).
-
-### 3.3b Are the background false positives really false?
-- **Audit:** of the 60 most confident holdout40 predictions that match no label (IoU < 0.1; conf 0.53–0.80),
-  Claude Code judged by eye:
-
-  | verdict | count |
-  |---|---|
-  | truck-like and unlabelled | 46 |
-  | other vehicle | 3 |
-  | background | 4 |
-  | unclear | 7 |
-
-  (`figures/b1h_tile1024_holdout40/fp_audit_sheet.png`, `results/fp_audit/fp_audit.csv`; DETAILED_EXPERIMENTS.md
-  "Background false-positive audit".)
-- **Two explanations the crops cannot separate:**
-  - (a) vehicles of our five classes missing from the labels;
-  - (b) truck types the dataset excludes. xView, whose classes ours match, also has Pickup Truck, Utility Truck,
-    Trailer and a generic Truck class.
-- Either way the metric penalises detections of real vehicles, so **measured mAP50 is a lower bound** on how well
-  the model finds trucks.
-- **Limits:**
-  - One viewer, not blind to the hypothesis.
-  - Low-resolution crops.
-  - Only the top 60 of 11684 unmatched predictions.
-  - The effect on mAP50 is not quantified.
-
-### 3.3c Dataset construction audit (comparison with the public xView originals)
-
-Source: DETAILED_EXPERIMENTS.md "Data-integrity audit"; `results/xview_pixels/`, `results/xview_overlap/`.
-
-- **Provenance:** all 465 images are xView training images (stem and size; `match_summary.json`).
-- **Pixels:**
-  - All 403 train and 40 holdout40 images are byte-identical to xView.
-  - **8 of 22 val images are altered:**
-
-    | change | images |
-    |---|---|
-    | upscaled 2× | 2308, 2391 |
-    | downscaled 0.5× | 2384, 2460 |
-    | noise added | 2292 (noise ratio 2.73) |
-    | blur plus noise | 2543 (Laplacian ratio 0.66, noise ratio 1.72) |
-    | contrast halved | 1399 (contrast ratio 0.50) |
-    | contrast boosted | 2139 (ratio 1.41) |
-
-  - 2470 and 2472 are byte-identical; they are dark in the original imagery.
-  - Source: `pixels.csv`.
-- **Labels, one-to-one against xView's five types** (`label_compare_by_split.csv`, `label_changes_by_split.csv`):
-
-  | split | class changes vs xView | xView boxes missing from our labels | other |
-  |---|---|---|---|
-  | train | 341 / 6851 paired (5.0%), mostly xView Cargo/Box → our Flatbed, Tractor or Liquid | 384 | 378 shifted (IoU < 0.95) |
-  | holdout40 | 38 (5.2%) | 53 | |
-  | val | **0** | **178 (10.3%)** | |
-
-- **Link to E6b:** the rare classes' training labels are partly flipped Cargo/Box boxes. That is a plausible reason
-  repeating them did not help.
-- **Disclosure:** The val alterations and label differences were found by comparing against the public xView originals. Val labels and pixels were never used for training or for selecting anything, and E12's rules are chosen on synthetically degraded holdout40 only.
-
-### 3.4 Generalisation and sanity checks
-
-- **Seen vs unseen (B1h):** train40 0.378, holdout40 0.151, val 0.107
-  (`results/b1h_tile1024_holdout40/{eval_train40,eval_holdout40,eval}/metrics.json`). Holdout and val mAP50
-  CIs overlap. The main gap is between seen and unseen images; on top of it, val is harder than holdout40
-  (*corrected 2026-10-04: previously "not a val-specific problem"*). Why val has fewer trucks found (66% vs 85%):
-  - Re-weighting holdout40 to val's distribution of box size explains 3% of the gap, and image size 7%.
-  - Val recall is lower in every size bin from 8 to 48 px (for example, 24–32 px: 0.73 vs 0.94).
-  - In the densest bin (≥ 100 boxes per image) val is still 0.20 lower. Density cannot be compared at 60–100 boxes,
-    where holdout has no images.
-  - The gap is therefore a difference between the scenes themselves, not size, density or resolution, and these
-    analyses cannot name it. Val has only 22 images.
-  - *Corrected 5 Oct:* re-weighting holdout40 to val's per-image brightness explains 0.307 of the gap and RMS contrast
-    0.310 (`results/val_review/a_standardised.csv`). These probably overlap rather than add, since bright and
-    contrasty images coincide. Blur (−0.101) and noise (0.059) explain little. With 22 val images, the gap is partly
-    explained by brightness/contrast; the rest is unexplained.
-  - Sources: `results/recall_gap/standardised.csv`, `recall_by_factor.csv`; DETAILED_EXPERIMENTS.md "Val vs holdout40 recall
-    gap".
-- **Overfit test** (16 tiles, all 5 classes, augmentation off): AP50 0.355 / 0.987 / 1.000 at epochs 50 / 100 / 300;
-  final cls_loss 0.097 (`results/sanity/overfit/`). The model and pipeline can fit these labels.
-- **Label check:** the first check flagged 85 of 3439 tiles (`results/sanity/label_check.json`). With the checker
-  fixed to pair boxes by IoU, the re-run flags 0 of 3439 (`results/sanity/label_check_iou/label_check.json`). The IoU-paired
-  re-check found all 3,278 boxes in those tiles identical (`results/sanity/label_mismatch/summary.json`): an artefact
-  of coordinate-sort pairing in dense tiles, not a tiling error (annotation correctness was not tested here; see the FP audit). The author overrode the original NOT PASS before
-  the re-check; with it, both PASS criteria hold (DETAILED_EXPERIMENTS.md, SANITY).
-- Effective B1h settings: imgsz 1024, mosaic 1.0, scale 0.5, close_mosaic 10
-  (`results/b1h_tile1024_holdout40/train/args.yaml`).
-
-## 4. Experiment records
-
-Full entries are in DETAILED_EXPERIMENTS.md under the headings named below. "Pre-registered" means written before results.
-
-| Exp. | Observation | Hypothesis | Changes | Results | Conclusion | Next |
-|---|---|---|---|---|---|---|
-| **B0** (EXPERIMENTS "B0") | ~3200 px images, ~22 px trucks | Not recorded before the run; reconstructed afterwards: 640 letterbox makes trucks ~4–5 px, so B0 is a floor | whole image @640, 50 ep | val 0.0020 (0.0009–0.0045) | Almost no detection; tiling needed | B1 |
-| **B1** ("B1") | as B0; max box side 161 px < overlap 256 | Pre-registered: 0.40–0.60 mAP50; Cls dominant; Liquid worst | 1024 tiles, overlap 256, sliced eval | val 0.0715 (0.0419–0.1242) | Far below prediction; Cls dominant (correct); rejection condition (b) largely met (size not the main limiter) | test generalisation |
-| **B1h** ("B1h") | is val unusually hard? | No prediction written before this run | 40 train imgs held out; max_det 902 | val 0.1065, holdout 0.1507, train40 0.378 | Seen-vs-unseen gap is the main gap; val is additionally harder (§3.4); B1→B1h gain within seed noise | learning curves |
-| **LC** ("LC") | train/holdout gap | Pre-registered: curve still rising; 25% → 0.07–0.12 holdout | 25/50/75% subsets at equal iterations + seed 1 | §5.3 | Rising; 25% gave 0.061 | §5.4 |
-| **S54** ("S54") | – | Selection and rule pre-registered (`b02413c`); prediction never provided | smart vs random subsets | §5.4 | rule computed; no subset ≥ 90% | – |
-| **SANITY** ("SANITY") | train40 only 0.378 | settings / labels / capacity | args check, label check, overfit test | §3.4 | pipeline can fit; tiling preserves labels (re-check; annotation correctness not tested) | E1/E2 |
-| **E1/E2** ("E1 / E2") | B1h losses still falling | Pre-registered: E1 undertraining; E2 scale 0.5 hurts small trucks | E1 150 ep; E2 150 ep + scale 0.2 | below | E1 not supported (overfitting); E2 inconclusive, leaning not supported | E3/E4 |
-| **E3/E4** ("E3 / E4") | E1/E2 overfit | Pre-registered (author's): aerial pretraining (E3) / flipud 0.5 + mixup 0.1 (E4) reduce overfitting; holdout > 0.1507 + 0.017 | B1h recipe, 50 ep, `patience: 0`, holdout checkpoint curves | E3 0.082, E4 0.130 holdout40 | E3 rejected (reversed); E4 partly supported (gap shrank, no detectable mAP effect) | E7, E8 |
-| **E6b** ("E6b") | rare classes weakest | Pre-registered: repeat-factor sampling (t 0.3) raises Tractor/Flatbed | rare-class tiles repeated (+17.9% views), steps matched | holdout40 0.136 vs 0.151; Tractor 0.007 → 0.002, Flatbed 0.069 → 0.061 | not supported | E10, E15 |
-| **E7** ("E7") | E3 overfit fastest | Pre-registered: freezing the DOTA backbone limits overfitting | E3 with frozen backbone | holdout40 0.128 (E3 0.082, B1h 0.151) | recovers vs E3; lower than B1h by 0.023 | ensemble member (E13) |
-| **E10** ("E10") | most confident FPs are excluded truck types | Pre-registered: training on them as extra classes cuts background FPs and raises mAP | +202 xView images, 8 excluded types as extra classes | holdout40 0.126; val Bkg 9380 → 4056 | FPs supported; mAP not; excluded (geographic touches) | E13 |
-| **E12** ("E12") | 4 val images rescaled | Pre-registered: per-image scale rule recovers rescaled images | inference-only auto scale | corruption suite +0.0004; val 0.0906 | not adopted (within noise) | – |
-| **TTA** ("TTA") | Cls is the main loss | Pre-registered: TTA improves holdout40 | flips + 1.5×, inference-only | 0.138 vs 0.151 | rejected | crop classifier |
-| **Crop classifier** ("fp-crop") | Cls dominant | a dedicated classifier names types better | 96 px crops, 2× context | 0.610 vs head 0.690; holdout40 0.100 / 0.117 | not supported | two-stage |
-| **Two-stage** ("Two-stage") | E4 finds most trucks | Pre-registered: crop classifier on E4's boxes beats B1h by > 0.017 | relabel E4 boxes | 0.101 / 0.118 | fails its rule | E13 |
-| **E13** ("E13") | members err differently | Pre-registered: multi-label + WBF ensemble beats B1h on holdout40-clean | B1h + E4 + E7, multi-label, WBF | holdout40-clean 0.2086 vs 0.1765; val 0.1349 (once) | supported on holdout; within noise on val; final system | E15, E16 |
-| **E15** ("E15") | ~5% train class changes vs xView | Pre-registered: xView labels raise mAP | train on xView's original labels | holdout40-clean 0.153 vs 0.176; val 0.091 | not supported | E16 |
-| **E16** ("E16") | trucks ~22 px | Pre-registered: 2× upscaling beats B1h by > 0.017 on holdout40-clean | 512 tiles at imgsz 1024, steps matched | 0.155 vs 0.176; ensemble +0.010 | not supported; final unchanged | label completion (§6.4) |
-
-E1/E2 results (DETAILED_EXPERIMENTS.md "E1 / E2: Results"; `results/<run>/eval/per_class.csv`, `eval_holdout40/per_class.csv`,
-`eval_train40/metrics.json`):
-
-| | B1h (50 ep) | E1 (150 ep, early-stopped at 145) | E2 (150 ep, scale 0.2) |
-|---|---|---|---|
-| val mAP50 (95% CI) | 0.1065 (0.0563–0.1653) | 0.0680 (0.0355–0.1243) | 0.0620 (0.0326–0.1104) |
-| holdout40 mAP50 (95% CI) | 0.1507 (0.0558–0.1874) | 0.0923 (0.0302–0.1384) | 0.1112 (0.0344–0.1391) |
-| train40 mAP50 | 0.378 | 0.774 | 0.906 |
-| final train cls_loss | 1.596 | 0.795 | 0.543 |
-
-More training fits the training images far better while held-out mAP50 falls: overfitting, not undertraining.
-Val checkpoint curves peak mid-training (E1 0.100 at epoch 90, E2 0.107 at 40–50;
-`results/<run>/checkpoint_curve/checkpoint_curve.csv`); they were reported as curves only, never used to pick weights.
-E1's early stop was chosen by Ultralytics val (see Reproducibility, corrected row).
-
-![training longer](figures/simple/4_training_longer.png)
-*E2's val checkpoint curve (descriptive only): it peaks at epoch 50 and falls with longer training.*
-
-### 4.1 Every model: val mAP50 and per-class AP50 (brief §2.3)
-
-Sources: each row's `results/<run>/eval/per_class.csv` (final system: `results/clean_repro_final/per_class.csv`).
-
-| model | val mAP50 | Cargo | Box | Flatbed | Tractor | Liquid | note |
-|---|---|---|---|---|---|---|---|
-| B0 | 0.0020 | 0.002 | 0.008 | 0.000 | 0.000 | 0.000 |  |
-| B1 | 0.0715 | 0.089 | 0.130 | 0.053 | 0.006 | 0.079 |  |
-| B1h | 0.1065 | 0.131 | 0.180 | 0.071 | 0.006 | 0.145 |  |
-| B1h seed 1 | 0.0634 | 0.102 | 0.129 | 0.053 | 0.029 | 0.004 |  |
-| b1h_f25 | 0.0169 | 0.035 | 0.028 | 0.022 | 0.000 | 0.000 |  |
-| b1h_f50 | 0.0492 | 0.045 | 0.048 | 0.020 | 0.000 | 0.132 |  |
-| b1h_f50 seed 1 | 0.0573 | 0.054 | 0.034 | 0.015 | 0.001 | 0.183 |  |
-| b1h_f75 | 0.0846 | 0.119 | 0.188 | 0.040 | 0.007 | 0.069 |  |
-| b1h_f75 seed 1 | 0.0736 | 0.095 | 0.166 | 0.035 | 0.003 | 0.070 |  |
-| smart50 | 0.0562 | 0.081 | 0.132 | 0.032 | 0.004 | 0.032 |  |
-| smart75 | 0.0832 | 0.090 | 0.153 | 0.051 | 0.003 | 0.119 |  |
-| E1 | 0.0680 | 0.085 | 0.177 | 0.024 | 0.001 | 0.053 |  |
-| E2 | 0.0620 | 0.062 | 0.115 | 0.037 | 0.018 | 0.078 |  |
-| E3 | 0.0881 | 0.122 | 0.207 | 0.053 | 0.004 | 0.054 |  |
-| E4 | 0.0761 | 0.112 | 0.110 | 0.120 | 0.039 | 0.000 |  |
-| E6b | 0.0908 | 0.114 | 0.146 | 0.047 | 0.001 | 0.146 |  |
-| E7 | 0.0715 | 0.090 | 0.165 | 0.070 | 0.014 | 0.018 |  |
-| E10 | 0.0820 | 0.087 | 0.124 | 0.113 | 0.014 | 0.073 | caveat: 8 of its extra training images touch val images geographically |
-| E15 | 0.0908 | 0.104 | 0.125 | 0.088 | 0.028 | 0.109 |  |
-| **Final system (E13)** | 0.1349 | 0.171 | 0.215 | 0.096 | 0.028 | 0.165 | multi-label ensemble; val scored once |
-| E6 | — | | | | | | not evaluated: superseded by E6b (E6 repeated only Liquid tiles, +1.6% views); its CPU evaluation failed twice and was not retried |
-| E16 | — | | | | | | not scored on val: failed the pre-registered selection rule (+0.010 < 0.017; `results/e16_selection/`) |
-| E8 | — | | | | | | stopped at epoch 68 for GPU budget; never evaluated (no checkpoint scored on holdout40 or val) |
-| E9, E11 | — | | | | | | cancelled for budget, never trained |
-| E12 (auto rule on B1h) | 0.0906 | | | | | | inference rule, not adopted (see E12 entry); per-class not computed |
-| TTA, crop classifier | — | | | | | | holdout40 only by their pre-registered rules (val only if they passed; neither did) |
-
-Other dataset facts recorded with these runs:
-- 44 train–val and 56 train–holdout40 image pairs touch geographically (adjacent chips;
-  each overlap ≤ 3.2% of an image's area). This is a property of the supplied split.
-- The E10 label-conflict check found 10 trucks labelled with both a 5-class box and an excluded-type box, vs 9 inside
-  xView's own labels. That is negligible.
-
-
-### 4.2 Where the compute went
-
-The Kaggle T4 quota is 30 GPU-h per week. This week (refresh 10 Oct) used 24.75 h before E16 and 26.49 h after it (`kaggle quota`).
-Kernel times are from each kernel's log; "est." marks estimates.
-
-| group | runs | GPU-h |
-|---|---|---|
-| sanity | auric-sanity | ≤ 0.30 |
-| undertraining | E1, E2 (150 epochs each) | ~9.1 (est. from run.log: 4.7 + 4.4) |
-| overfitting remedies | E3, E4, E7, E8 (stopped) | 1.64 + 1.84 + 1.20 + ~2.3 est. = ~7.0 |
-| rare classes | E6, E6b | ~1.5 est. + 1.71 = ~3.2 |
-| data | E10, E15 | 1.90 + 1.76 = 3.66 |
-| inference and ensemble | E12 scale test, the superseded E12 run, E13 final | 0.51 + ~0.45 est. + 0.45 = ~1.4 |
-| resolution | E16 (training; selection on CPU) | 1.74 |
-| earlier week | B1h, b1h_seed1, LC (f25/f50/f75), S54 (smart50/75, f50/f75 seed 1) | ≈ 1.4–1.9 each (MORNING.md / train times); previous quota week |
-| Colab (not Kaggle) | B0, B1 | train 0.64 h, 2.34 h |
-
-- **All diagnosis and analysis ran as CPU-only Kaggle kernels (0 GPU-h).** That covers the audits, oracles, gap
-  breakdown, TTA, crop classifier, E12's corruption suite, operating points and clean-room checks.
-
-## 5. Research questions
-
-### 5.1 If locations were perfect
-
-Method (`analysis/gt_box_oracle.py`): at every val GT box, take the model's own class scores at the matching anchor
-and check whether the top class is right. This removes detection and measures classification alone.
-
-| Model | accuracy (1552 GT) | mean per-class accuracy | GT with an anchor at IoU ≥ 0.5 |
-|---|---|---|---|
-| B0 | 0.481 | 0.215 | 396 |
-| B1 | 0.553 | 0.387 | 1449 |
-| B1h | 0.601 | 0.436 | 1455 |
-
-Sources: `figures/{b0_full640,b1_tile1024,b1h_tile1024_holdout40}/gt_oracle/comparison.csv`, `summary.json`.
-Baselines: always "Cargo" = 0.515 (800/1552, `figures/eda/tables/class_counts.csv`); uniform guessing = 0.20 per class.
-
-With perfect locations B1h names the type correctly 60% of the time, barely above always answering Cargo; per class it
-is 44% vs 20% chance. The TIDE oracle agrees: fixing Cls adds +0.147, Loc +0.022, Missed +0.044
-(`figures/b1h_tile1024_holdout40/errors/tide_dAP.csv`). **Classification is the ceiling.** Fixing only localisation errors gives
-0.129 mAP50; fixing only classification errors gives 0.254; both are far from 0.75 (same file).
-
-**What this experiment cannot establish.**
-- **It does not capture the interaction between detection and classification.** The GT-box oracle reads the raw head's
-  class scores, max-pooled over every anchor whose decoded box has IoU ≥ 0.5 with the GT (`pool` mode; the reported
-  0.601). The detector's own box choice, NMS and tile merging therefore play no part. A
-  detector whose boxes were perfect might still score classes differently, for example after a box survives NMS
-  against a neighbour of another class. The TIDE oracle fixes errors one type at a time on real predictions, so it
-  also cannot model fixing two error types jointly.
-- **It measures this model's classifier, not the best achievable one.** 60% is what B1h's head does with perfect
-  locations. It says nothing about what a dedicated classifier, more context or higher resolution could achieve. The
-  crop-classifier experiment tested that: 0.610 on holdout40 GT crops vs the head's 0.690 on the same boxes.
-- **It cannot separate ambiguity in the data from weakness of the model.** Some Cargo vs Box confusions may be
-  genuinely ambiguous from above, or inconsistently labelled. The oracle cannot tell these apart from model errors.
-- **Small sample.** It is measured on the 22 val images (1552 boxes, but only 20 Liquid and 117 Tractor). Accuracy is
-  pooled over boxes and carries no CI, and per-class accuracy for the rare classes is unstable.
-- **Matching rule.** "Matching anchor" means IoU ≥ 0.5 with the anchor's decoded box. 97 of 1552 val GT boxes (6%)
-  had no such anchor for B1h (`comparison.csv`, "flagged") and are scored from the best available anchor.
-
-### 5.2 Resisting examples
-
-**Method** (`analysis/training_dynamics.py`):
-- Every GT box of the 403 B1h training images is tracked across B1h's checkpoints (epochs 10–50).
-- A box counts as detected when some prediction overlaps it at IoU ≥ 0.5 with conf ≥ 0.25, and as correct when the
-  top such prediction has its class.
-- Categories: learned-early, learned-late, forgotten, never-learned (detected, never correct) and never-detected.
-- The images were split in half beforehand (`b02413c`): an inspect half for exploration and a test half kept unread.
-  Five claims (C1–C5; C2 in two parts) from the inspect half were pre-registered (`95953f3`) and then tested on the test half.
-
-**Test-half categories** (3369 boxes): learned-late 1356, never-detected 1270, forgotten 319, never-learned 280,
-learned-early 144 (`results/s52_confirm/test/summary.json`). About 38% of training boxes are never detected even
-though the model trains on them.
-
-**Confirmed on the test half.**
-- Judged only against the claims committed in `95953f3`, before the test half was read.
-- That commit has five claims, C1–C5. C2 has two parts, C2a and C2b, each with its own criterion, so there are six
-  rows. All six pass, meaning all five claims hold (`results/s52_confirm/test/claims.csv`; image-bootstrap 95% CIs).
-
-| claim | finding | criterion | test half |
-|---|---|---|---|
-| C1 | Small boxes resist: never-detected share for boxes < 16 px minus for ≥ 32 px | > 0 | +0.631 (0.559–0.699) |
-| C2a | Truck w/Box is learned early more than any other class (margin) | > 0 | +0.118 (0.061–0.157) |
-| C2b | ...and forgotten more than any other class (margin) | > 0 | +0.157 (0.090–0.209) |
-| C3 | Truck w/Liquid is "found but never classified right" more than any other class (margin) | > 0 | +0.281 (0.164–0.375) |
-| C4 | Most never-detected boxes are "never confident", not invisible: share with an IoU ≥ 0.5 prediction at conf ≥ 0.001 | > 0.5 | 0.778 (0.716–0.848) |
-| C5 | Cargo Truck boxes often never detected | > 0.3 | 0.474 (0.427–0.532) |
-
-**Descriptive only (computed after the test half was opened; not pre-registered).** The rows below give the
-never-detected boxes with an epoch-50 prediction of any class at IoU ≥ 0.5, by confidence floor. The chance control
-places one random box per GT box (same image and size, IoU 0 with every GT box; seed 0). Sources:
-`analysis/s52_floor.py`, CPU-only kernel `auric-s52-floor`, `results/s52_floor/{inspect,test}/floor.csv`.
-
-| conf floor | inspect half (1288 boxes) | test half (1270 boxes) | chance, test half (3369 boxes) |
-|---|---|---|---|
-| ≥ 0.001 | 0.793 | 0.778 | 0.0009 |
-| ≥ 0.05 | 0.538 | 0.543 | 0.0009 |
-| ≥ 0.10 | 0.396 | 0.400 | 0.0006 |
-
-The inspect column reproduces the unsaved 3 Oct session numbers. About 40% of never-detected training boxes have a
-correctly placed prediction at conf ≥ 0.10, against well under 1% for random boxes of the same size. That is far
-above chance, and the effect is the same in both halves.
-
-**What resists learning** (interpretation written after the result; no author prediction recorded):
-1. **Small trucks.** Under 16 px they are mostly never detected at the operating threshold, even in training images.
-2. **Low confidence rather than invisibility.** Most of those boxes get a prediction, but below 0.25. This fits
-   §3/§5.1: the model localises far better than it classifies.
-3. **Unstable class boundaries.** Box is learned first and then forgotten most often, consistent with the Cargo ↔ Box
-   confusion in §3.2.
-4. **Rare classes.** Liquid (192 train boxes) is found but rarely named correctly.
-
-### 5.3 Value of 500 more labels
-
-Learning curve at equal iterations (~10,750), held-out = holdout40, seed 0 unless noted
-![more photos](figures/simple/5_more_photos.png)
-*Holdout40 mAP50 vs training images (seed 0), with the 0.75 target.*
-
-(`figures/learning_curve/learning_curve.csv`, `power_law_fit.csv`):
-
-| Train images | holdout mAP50 | holdout class-agnostic AP50 | val mAP50 |
-|---|---|---|---|
-| 101 (25%) | 0.061 | 0.160 | 0.017 |
-| 202 (50%) | 0.095 | 0.232 | 0.049 |
-| 302 (75%) | 0.105 | 0.293 | 0.085 |
-| 403 (100%), seed 0 / 1 | 0.151 / 0.133 | 0.362 / 0.362 | 0.106 / 0.063 |
-
-- The curve is still rising at 403 images (pre-registered prediction: correct; 25% point 0.061 vs predicted
-  0.07–0.12, CI 0.012–0.090 overlaps; DETAILED_EXPERIMENTS.md "LC").
-- Power-law fit on holdout mAP50 (403 point = mean of seeds, 0.142) extrapolates to **0.215 at 903 images (95% CI
-  0.076–0.276)**, a gain of +0.080 vs seed spread 0.017. **Every fit is flagged unreliable** (2.24× beyond the data;
-  several per-class fits non-monotone or failed) (`figures/learning_curve/power_law_fit.csv`). Only the direction is
-  trustworthy.
-- Per class (holdout, seed 0, 101 → 403 images; `figures/learning_curve/learning_curve.csv` via HANDOFF.md §6):
-  Box 0.236 → 0.509, Cargo 0.018 → 0.096, Flatbed 0.034 → 0.069, Liquid 0.015 → 0.073, Tractor 0.000 → 0.007.
-  Box benefits most; Tractor barely moves.
-- **Answer:** more labels should help, but the optimistic projection is far below 0.75. Classification needs its own
-  remedy.
-
-**Correction 2026-10-04: instances vs images.**
-- The brief asks about "500 additional labelled **instances**"; the extrapolation above adds 500 **images**
-  (403 → 903).
-- B1h trains on 7618 − 738 = 6880 boxes (`figures/eda/summary.json`;
-  `results/b1h_tile1024_holdout40/eval_holdout40/class_agnostic.json`, `n_gt`). That is 17.1 boxes per image, so 500
-  instances is about 7% more data, roughly 29 images (403 → 432).
-- With the same power-law fit (holdout mAP50 = a·n^b, a = 0.00424, b = 0.577; `power_law_fit.csv`), the prediction
-  is 0.1351 at 403 images and 0.1351 × (432/403)^0.577 ≈ 0.1406 at 432. That is a gain of about **+0.006**, below
-  the 0.017 seed spread.
-- **Answer to the question as asked:** 500 more instances from the same source would **not** materially improve the
-  system, and the effect would not be measurable against seed noise. The 903-image figure answers a different
-  question (500 more images, about 8,500 boxes).
-
-**Assumptions behind these estimates**
-1. **The power law holds beyond the measured range.** It was fitted on four points (101–403 images), with the 403
-   point averaged over two seeds. For 500 images it is extrapolated 2.24× beyond the data, and every fit is flagged
-   unreliable (`power_law_fit.csv`). For 500 instances it is only 7% beyond, which is much safer, but the gain is
-   then within noise.
-2. **New labels come from the same distribution:** the same scenes, sizes, class mix and labelling process as the
-   current training set, as the brief says. The recall-gap analysis (§3.4) shows val scenes differ from train. Labels
-   that resembled val, such as dense yards and ports, could help more than the curve predicts. Labels that repeat
-   existing scenes could help less.
-3. **Equal training iterations.** Every learning-curve point used about 10,750 iterations, so a larger set gets fewer
-   epochs per image. A real +500 run might be trained longer, although E1/E2 suggest more epochs hurt held-out
-   mAP50.
-4. **Per-class rankings rest on few held-out boxes.** Holdout40 has 321 Cargo, 297 Box, 56 Flatbed, 35 Tractor and 29
-   Liquid boxes (`results/b1h_tile1024_holdout40/eval_holdout40/per_class.csv`). The Tractor and Liquid curves are
-   near zero and noisy, and the Liquid power-law fit failed. "Box benefits most, Tractor least" is supported for Box;
-   for Tractor it means only that no effect is visible.
-5. **The class mix of new labels matches the current one** (50% Cargo, 31% Box). Targeted labels for rare or confused
-   classes were not modelled.
-6. **Sample count vs other limits.**
-   - The curve can only show limits that shrink with more data.
-   - The parts that do not shrink are invisible to it: classification ceiling (§5.1), val scene shift (§3.4) and
-     overfitting (E1/E2).
-   - Class-agnostic holdout AP rises 0.160 → 0.362 from 101 to 403 images, while Cargo AP stays below 0.10. This
-     suggests that detection is more sample-limited, and Cargo vs Box classification is limited by something other
-     than count.
-
-### 5.4 Smallest subset retaining ≥ 90%
-
-**The smallest successful subset we tested is the full training set (403 images); no tested smaller subset (202 or 302 images, smart or random) reached 90% on holdout40 or on val.**
-
-Pre-registered in commit `b02413c` before any S54 run (DETAILED_EXPERIMENTS.md "S54"): smart = class coverage (rarest class
-first) then greedy k-center on DINOv2-small embeddings; "recovers 90%" = held-out mAP50 ≥ 0.90 × 0.1420 = 0.128
-(0.1420 = mean of the two full-data seeds). **The author's prediction was never provided** (an unfilled placeholder);
-nothing was written before the runs. Implementation note: the coverage step adds the image with the most boxes of
-the needed class (`tools/make_smart_subsets.py`), which differs from the pre-registered wording "in order of rarest
-class contained".
-
-Held-out results (`figures/subset_compare/subset_compare.csv`):
-
-| Run | Size | Selection | seed | held-out mAP50 (95% CI) | held-out class-agn. AP50 | % of full |
-|---|---|---|---|---|---|---|
-| b1h_f50 | 202 | random | 0 | 0.095 (0.026–0.127) | 0.232 | 66.8 |
-| b1h_f50_seed1 | 202 | random | 1 | 0.082 (0.028–0.109) | 0.221 | 57.5 |
-| b1h_smart50 | 202 | smart | 0 | 0.105 (0.028–0.142) | 0.284 | 74.1 |
-| b1h_f75 | 302 | random | 0 | 0.105 (0.028–0.144) | 0.293 | 73.6 |
-| b1h_f75_seed1 | 302 | random | 1 | 0.123 (0.038–0.165) | 0.306 | 86.6 |
-| b1h_smart75 | 302 | smart | 0 | 0.104 (0.033–0.132) | 0.334 | 73.3 |
-
-Pre-registered rule (`figures/subset_compare/decision_rule.csv`): smart beats random on class-agnostic AP50 at both
-sizes (+0.052 at 202, +0.028 at 302, vs seed spreads 0.011 / 0.013), but **not** on mAP50 (+0.010 at 202 vs spread
-0.013; −0.019 at 302).
-
-**Answer and conclusion (written 2026-10-04, after the results; no prediction was recorded before the runs).**
-- **No tested subset reached the threshold.** "Recovers 90%" means holdout40 mAP50 ≥ 0.128; the best 50% or 75% run
-  was random seed 1 at 302 images, 0.1230 (`figures/subset_compare/subset_compare.csv`). The smallest qualifying
-  subset is therefore larger than 302 images and **was not found**.
-- **Smart vs random by size** (holdout40; `figures/subset_compare/decision_rule.csv`):
-
-  | size | metric | smart | random s0 / s1 | margin over best random | seed spread | beats both by > spread |
-  |---|---|---|---|---|---|---|
-  | 202 | class-agnostic AP50 (primary) | 0.284 | 0.232 / 0.221 | +0.052 | 0.011 | yes |
-  | 202 | mAP50 | 0.105 | 0.095 / 0.082 | +0.010 | 0.013 | no |
-  | 302 | class-agnostic AP50 (primary) | 0.334 | 0.293 / 0.306 | +0.028 | 0.013 | yes |
-  | 302 | mAP50 | 0.104 | 0.105 / 0.123 | −0.019 | 0.018 | no |
-
-  Smart selection finds more trucks (class-agnostic) but does not improve class-aware mAP50, the metric the threshold
-  uses. The primary metric was chosen before the runs, so the "smart wins" result is real by the pre-registered rule;
-  it does not answer the 90% question.
-- **Per class** (holdout40 AP50, `results/<run>/eval_holdout40/per_class.csv`; smart / random s0 / random s1):
-  - 202 images: Cargo 0.057 / 0.051 / 0.032; Box 0.412 / 0.371 / 0.345; Flatbed 0.036 / 0.014 / 0.021;
-    Tractor 0.001 / 0.000 / 0.002; Liquid 0.019 / 0.037 / 0.008.
-  - 302 images: Cargo 0.079 / 0.049 / 0.062; Box 0.421 / 0.422 / 0.439; Flatbed 0.013 / 0.038 / 0.033;
-    Tractor 0.006 / 0.001 / 0.035; Liquid 0.000 / 0.012 / 0.047.
-  - Smart is highest for Cargo at both sizes and for Box and Flatbed at 202. Otherwise it is not consistently ahead.
-    Tractor (35 holdout instances) and Liquid (29) are too few for any per-class conclusion; there is no per-class
-    seed spread.
-- **Disclosures:**
-  - The implemented coverage step adds the image with the **most boxes of the class still needed**
-    (`tools/make_smart_subsets.py`). The pre-registration says "in order of rarest class contained". The runs used
-    the implemented rule.
-  - No author prediction was recorded before the runs.
-  - The smart and seed-1 runs ran on a different Kaggle torch build (2.11.0) than the seed-0 random runs (2.10.0).
-
-**What is in the selected subsets, and what makes them useful?** (added 2026-10-04, after the results;
-`analysis/subset_characterise.py`, CPU-only kernel `auric-s54-char-merge`; `figures/subset_compare/subset_characterisation.csv`,
-`subset_class_coverage.csv`. The random seed-1 runs used the same image lists as seed 0.)
-
-| subset | images | boxes | boxes / image (mean, median) | images with ≥ 30 boxes | box size < 16 / 16–32 / ≥ 32 px |
-|---|---|---|---|---|---|
-| full pool | 403 | 6880 | 17.1, 7 | 14.4% | 23% / 54% / 23% |
-| random 202 | 202 | 3182 | 15.8, 6.5 | 11.4% | 23% / 55% / 23% |
-| smart 202 | 202 | **4211** | 20.8, 5 | 16.8% | 20% / 55% / 26% |
-| random 302 | 302 | 4842 | 16.0, 6 | 12.9% | 23% / 53% / 25% |
-| smart 302 | 302 | **6022** | 19.9, 7 | 18.2% | 22% / 53% / 24% |
-
-Class coverage, as boxes (images) and share of the pool's boxes of that class:
-
-| class | pool | random 202 | smart 202 | random 302 | smart 302 |
-|---|---|---|---|---|---|
-| Cargo Truck | 3452 (330) | 1758 (168) 51% | 1883 (165) 55% | 2599 (250) 75% | 2870 (250) 83% |
-| Truck w/Box | 2069 (238) | 848 (116) 41% | 1354 (111) 65% | 1457 (177) 70% | 1888 (178) 91% |
-| Truck w/Flatbed | 606 (178) | 285 (93) 47% | 421 (91) 69% | 371 (129) 61% | 550 (142) 91% |
-| Truck Tractor | 590 (117) | 205 (54) 35% | **438 (63) 74%** | 290 (85) 49% | **559 (97) 95%** |
-| Truck w/Liquid | 163 (90) | 86 (45) 53% | 115 (49) 71% | 125 (67) 77% | 155 (82) 95% |
-
-- **Smart subsets carry more labelled boxes for the same number of images:** +32% at 202 images, +24% at 302. Of
-  the 302-image smart subset, 95% of all Tractor and Liquid boxes in the pool are included. The coverage step picks
-  the image with the most boxes of a needed class, so it favours dense, multi-class images: 16.8% vs 11.4% of
-  images with ≥ 30 boxes at 202.
-- **Box sizes are essentially unchanged.** Selection did not favour larger or smaller trucks.
-- **Scene coverage: no difference measurable with this proxy.** Every subset, random included, covers all 20
-  k-means clusters of the DINOv2 embeddings. The proxy is too coarse to separate them.
-- **What makes them useful.** Smart subsets win on class-agnostic AP50 (the pre-registered primary metric), and the
-  simplest explanation is that they contain more labelled trucks, especially rare-class trucks, per image.
-- **This is a confound, not a demonstration that the selection is clever.** A random subset matched on box count
-  rather than image count was not run, so "smart" cannot be separated from "more boxes". It also did not help
-  class-aware mAP50: more Tractor boxes (438 vs 205) did not lift Tractor AP (0.001 vs 0.000 at 202).
-
-**The 90% rule on validation mAP50, as the brief specifies** (added 2026-10-04, after all results).
-- **Why two versions exist:**
-  - The brief defines success as 90% of the full-data *validation* mAP50.
-  - The rule above was pre-registered on holdout40 so that no decision would be made on val, which is the only test
-    set.
-  - Both are reported. The holdout40 version is the pre-registered one.
-- **Threshold:** 0.9 × 0.1065 (B1h, seed 0) = **0.0959**. Val mAP50 with image-bootstrap 95% CIs
-  (`figures/subset_compare/subset_compare.csv`):
-
-  | Run | Size | Selection | seed | val mAP50 (95% CI) | % of 0.1065 | ≥ 0.0959? |
-  |---|---|---|---|---|---|---|
-  | b1h_f50 | 202 | random | 0 | 0.049 (0.022–0.108) | 46% | no |
-  | b1h_f50_seed1 | 202 | random | 1 | 0.057 (0.023–0.111) | 54% | no |
-  | b1h_smart50 | 202 | smart | 0 | 0.056 (0.030–0.102) | 53% | no |
-  | b1h_f75 | 302 | random | 0 | 0.085 (0.048–0.145) | 79% | no |
-  | b1h_f75_seed1 | 302 | random | 1 | 0.074 (0.046–0.135) | 69% | no |
-  | b1h_smart75 | 302 | smart | 0 | 0.083 (0.041–0.145) | 78% | no |
-  | b1h_tile1024_holdout40 | 403 | full | 0 | 0.106 (0.056–0.165) | 100% | reference |
-  | b1h_seed1 | 403 | full | 1 | 0.063 (0.042–0.096) | 60% | **no** |
-
-- **Result on val:** no subset reaches 0.0959, the same answer as on holdout40.
-- **This is weak evidence.**
-  - Val's seed spread at full data is 0.043 (0.1065 vs 0.0634), four times the 0.011 gap between 90% and 100%.
-  - The full-data seed-1 model itself fails the rule (60%).
-  - Every subset's CI contains 0.0959.
-  - On val, the rule mostly measures which seed was drawn.
-
-**Next.** Fractions above 75% (for example 85% and 95%, about 343 and 383 images) were not tested.
-- The answer lies there, since 75% falls short (best 0.123) and 100% passes (0.151 / 0.133).
-- Each size needs three runs (smart plus two random seeds).
-- They were not run because E1/E2 showed the bottleneck is generalisation and classification, not the choice of
-  training images (§3.4). The remaining GPU budget (20.44 h until 10 Oct, before E3/E4) went to experiments that
-  could move mAP50 rather than refine a subset size.
-
-
-## 6. Final analysis and next experiment
-
-**Final system:** a multi-label WBF ensemble of B1h ep40 + E4 ep40 + E7 ep20 (E13). Val mAP50 **0.1349**, scored once.
-- On holdout40-clean, the ensemble before checkpoint choice scores 0.2086, vs B1h's 0.1765.
-- The checkpoints were chosen on holdout40, so holdout numbers after that choice are optimistic.
-- The val gain over B1h (+0.028) is within val's seed spread (0.043).
-- No single-model change beat B1h.
-
-### 6.1 Dominant limitations, with evidence
-
-**(1) Generalisation from 403 images.** Fitting faster hurts; regularising helps detection, not classification.
-
-| run | change vs B1h | train40 | holdout40 | gap | holdout40 class-agnostic |
-|---|---|---|---|---|---|
-| B1h | none | 0.378 | **0.151** | 0.227 | 0.362 |
-| E1 | 150 epochs | 0.774 | 0.092 | 0.682 | 0.259 |
-| E2 | 150 epochs, scale 0.2 | 0.906 | 0.111 | 0.795 | 0.278 |
-| E3 | DOTA init | 0.729 | 0.082 | 0.647 | 0.251 |
-| E7 | DOTA init, frozen backbone | 0.599 | 0.128 | 0.471 | 0.308 |
-| E4 | flipud + mixup | 0.266 | 0.130 | 0.135 | **0.400** |
-
-Sources: `results/<run>/{eval_train40,eval_holdout40}/{metrics.json,class_agnostic.json}`.
-holdout values are in DETAILED_EXPERIMENTS.md "E1 / E2: Results". Picture: `figures/story/scoreboard.png`.
+*Baseline on the official test: how much the score would rise if each kind of mistake were fixed.*
+
+- **Wrong type is the biggest mistake (+0.147)**, then false alarms (+0.077), missed trucks (+0.044) and slightly-off
+  boxes (+0.022). The bins overlap, so they don't add up to a ceiling.
+- **Ignoring the type, the baseline scores 0.255** on the official test against 0.107 with the type. It finds trucks
+  far better than it names them.
+- **Cargo ↔ box is the most frequent mix-up.** In the final system, 111 cargo trucks were called box and 60 box trucks
+  cargo. Tractor was named correctly for 5 of 117 trucks and liquid for 0 of 20.
+- **Many "false alarms" are real trucks.** 46 of the 60 most confident unmatched boxes on the practice test look like
+  real, unlabelled trucks (one viewer, not blind, top 60 only). 216 of 350 confident false alarms sit on xView trucks
+  of types outside the five classes.
+- **The official test is harder than the practice test.** The baseline finds 0.665 of official-test trucks against
+  0.852 on the practice test. Truck size explains 3% of that gap. Brightness and contrast each explain about 31%, and
+  these overlap; the rest is unexplained.
+- **8 of 22 official-test photos were altered** compared with their xView originals: 4 resized 2× or 0.5×, 2 given noise
+  or blur, 2 with changed contrast. All training photos are untouched.
+
+Details: docs/REPORT_FULL.md §3.1–§3.4.
+
+## 4. Experiments
+
+Every experiment changed one thing from the baseline, had its prediction and decision rule written down first, and
+was judged on the practice test. Each was trained once.
 
 ![memorise vs learn](figures/simple/2_memorise_vs_learn.png)
-*train40 (grey) vs holdout40 (blue) per run; the band is B1h ± 0.017 (seed spread).*
+*Photos it trained on (grey) vs the practice test (blue). The band is the baseline ± 0.017 (luck alone).*
 
-- **Fitting faster hurts.** E1, E2 and E3 all raised train40 and lowered holdout40, by more than the seed noise each
-  time.
-- **Freezing helps relative to E3.** E7 recovered +0.046 of E3's loss; vs B1h it is lower by 0.023, just beyond
-  the 0.017 seed spread; without Liquid, within noise (0.153 vs 0.170). *Corrected 5 Oct: previously "no detectable
-  effect".*
-- **Augmentation helps detection, not naming.** E4 overfits least, and it is the only run that finds *more* held-out
-  trucks than B1h (class-agnostic 0.400 vs 0.362). Its class-aware mAP50 is lower by 0.020, just beyond the 0.017 seed spread; without Liquid, within noise
-  (0.163 vs 0.170). *Corrected 5 Oct: previously "within seed noise".*
-- **B1h stops near the right point.** Its own holdout curve is flat from epoch 40 to 50 (0.154 → 0.151;
-  `results/b1h_tile1024_holdout40/checkpoint_curve_holdout/`).
-- Each run is a single seed.
+| Experiment | Idea | Result (practice test unless noted) | Verdict |
+|---|---|---|---|
+| E1 | train 3× longer | 0.092 vs 0.151; trained-on photos 0.774 | not supported: memorises |
+| E2 | 3× longer, gentler zoom | 0.111 vs 0.151; trained-on photos 0.906 | not supported |
+| E3 | start from aerial-photo weights | 0.082 vs 0.151 | rejected: memorises faster |
+| E4 | more photo variety (flips, mixing) | 0.130 vs 0.151 | lower by 0.020, just beyond luck alone; finds more trucks |
+| E7 | aerial weights, frozen | 0.128 vs 0.151 (E3: 0.082) | lower by 0.023, just beyond luck alone |
+| E6b | show rare types more often | 0.136 vs 0.151; rare types did not rise | not supported |
+| E8 | E4 for longer | stopped at 68 of 100 passes for budget | no result |
+| TTA | look at each tile four ways | 0.138 vs 0.151 | rejected (within luck alone) |
+| Crop classifier | a separate type classifier | 61% vs the detector's 69% on the same trucks | not supported |
+| Two-stage | that classifier on E4's boxes | 0.101 / 0.118 | fails its rule |
+| E10 | teach the left-out truck types | 0.126 vs 0.151; false alarms halved | mAP not supported; excluded |
+| E12 | adjust for resized photos | +0.0004 (within luck); official test 0.0906 | not adopted |
+| E15 | train on xView's original labels | 0.153 vs 0.176 (clean labels) | not supported |
+| **E13** | **three models voting** | **0.2086 vs 0.1765 (clean labels); official test 0.1349** | **supported; final system** |
+| E16 | enlarge tiles 2× | 0.155 vs 0.176 (clean labels); +0.010 as a 4th voter | not supported |
 
-**Final system, diagnosed** (val; DETAILED_EXPERIMENTS.md "Final-system diagnosis"):
-- Every class improves over B1h: Cargo 0.131 → 0.171, Box 0.180 → 0.215, Flatbed 0.071 → 0.096, Tractor
-  0.006 → 0.028, Liquid 0.145 → 0.165.
-- TIDE bins: Cls +0.082 (B1h +0.147), Bkg +0.094 (+0.077), Missed +0.024 (+0.044), Loc +0.026 (+0.022). The ensemble
-  roughly halves classification errors and misses, and background false positives become the largest bin.
-- At its best-F1 threshold (0.10) the main confusion is still Cargo ↔ Box: 111 Cargo predicted as Box and 60 Box as
-  Cargo. Tractor is named correctly for 5 of 117 boxes and Liquid for 0 of 20
-  (`figures/final_ensemble/errors_conf010/confusion_matrix_conf0.1.csv`).
-- Qualitative sheets: `figures/final_ensemble/errors/crops_{bkg,missed,cls}.png`.
+![training longer](figures/simple/4_training_longer.png)
+*E2's score on the official test by training pass (shown for description only, never used to choose): it peaks at 50
+passes and falls after.*
+
+**Every model on the official test** (scored once each; per-type numbers in docs/REPORT_FULL.md §4.1):
+
+| Model | Score | Model | Score |
+|---|---|---|---|
+| B0 | 0.0020 | E3 | 0.0881 |
+| B1 | 0.0715 | E4 | 0.0761 |
+| B1h (baseline) | 0.1065 | E6b | 0.0908 |
+| B1h, trained again | 0.0634 | E7 | 0.0715 |
+| E1 | 0.0680 | E10 | 0.0820 |
+| E2 | 0.0620 | E15 | 0.0908 |
+| E12 (rule on B1h) | 0.0906 | **Final system (E13)** | **0.1349** |
+
+The learning-curve and subset runs are listed there too. E6, E8, E9, E11 and E16 have no official-test score: E16
+failed its pre-registered selection rule (+0.010 < 0.017), and the others were superseded, stopped or cancelled.
+
+Details: docs/REPORT_FULL.md §4, §4.1, §4.2.
+
+## 5. The brief's four research questions
+
+### 5.1 If every truck's location were given, how much error remains?
+
+**Most of it: given perfect locations, the baseline names the right type only 60% of the time, against 52% for
+always answering "cargo".**
+- Method: read the model's own type scores at each true truck, so finding the truck no longer matters.
+- On the practice test the gap is much wider: 69% against 44%.
+- Fixing only location errors would lift the score to 0.129; fixing only type errors to 0.254.
+- Main caveat: this measures this model's type-naming, not the best possible; and 22 photos give only 20 liquid and
+  117 tractor trucks.
+
+Details: docs/REPORT_FULL.md §5.1.
+
+### 5.2 Which training examples resist learning, and why?
+
+**Mostly small trucks that the model sees but is never confident about, not trucks it cannot see.**
+- Every training truck was followed through training and sorted into learned early, learned late, forgotten, never
+  named right and never found.
+- Five claims were written down from half the photos and tested on the other, unread half. All five held.
+- About 38% of training trucks are never found at the usual confidence, yet 78% of those get a correctly placed guess
+  at very low confidence. Under 16 pixels, most trucks are never found.
+- Main caveat: the explanation (size, low confidence, unstable cargo/box boundary, rare types) was written after the
+  result.
+
+Details: docs/REPORT_FULL.md §5.2.
+
+### 5.3 Would 500 more labels materially help?
+
+**No: 500 more labelled trucks project to about +0.006, below luck alone (0.017).**
+- The score on the practice test rises with more photos (101 → 403), but slowly.
+
+![more photos](figures/simple/5_more_photos.png)
+*Practice-test score against the number of training photos, with the 0.75 target.*
+
+- 500 trucks is about 29 more photos (403 → 432). Even 500 more *photos* project only to about 0.215.
+- Box benefits most; tractor barely moves.
+- Main caveat: the projection is a curve fitted to four points and is flagged unreliable beyond the data; only its
+  direction is trustworthy.
+
+Details: docs/REPORT_FULL.md §5.3.
+
+### 5.4 What is the smallest subset that keeps 90% of the score?
+
+**None of the subsets we tested: the smallest that works is the full 403-photo training set.**
+- The selection method (cover every type, then maximise variety) was declared before training and compared with
+  random subsets of the same size.
+- At 202 and 302 photos no subset, clever or random, reached 90% (0.128) on the practice test; the best reached 0.123.
+- The clever subsets found more trucks than random ones, but they also simply contained more labelled trucks.
+- Main caveat: the official-test version of the answer is weak, because luck alone there (0.043) is larger than the
+  gap.
+
+Details: docs/REPORT_FULL.md §5.4.
+
+## 6. Final analysis
+
+### 6.1 Main limitations
+
+1. **Generalisation from 403 photos.** Every attempt to fit the training photos better made the practice-test score
+   worse.
+2. **Naming the type,** especially cargo vs box, and the rare tractor and liquid types.
 
 ![confusion](figures/simple/6_confusion.png)
-*Final system at conf 0.10, rows = true class, share of matched boxes; Cargo ↔ Box is the main confusion.*
-- The deeper analyses below use B1h, the ensemble's main member.
+*Final system: cargo ↔ box is the most frequent mix-up by number of trucks (111 and 60); rarer types are mislabelled
+at even higher rates. Percentages are among trucks the model found and placed correctly; trucks it missed are not
+counted.*
 
-**(2) Classification between look-alike types: weak on val, partly val-specific (supported).**
-*Corrected 5 Oct: re-graded from "plausible" now that the pixel comparison (§3.3c) and per-split counts are in.*
-*Corrected 2026-10-04: previously framed as a general ceiling.*
+3. **Incomplete labels:** the score punishes some correct finds (§3).
+4. **The official test differs from training:** altered photos and darker, lower-contrast scenes.
+5. **Small sample:** 22 official-test photos, and every experiment trained once.
 
-| at the true boxes (GT-box oracle, B1h head, pool) | val (1552 boxes) | holdout40 (738 boxes) |
-|---|---|---|
-| accuracy | 0.601 | 0.690 |
-| always "Cargo" | 0.515 (800/1552) | 0.435 (321/738) |
-| margin over always "Cargo" | +0.086 | +0.255 |
+Details: docs/REPORT_FULL.md §6.1.
 
-Sources: `figures/b1h_tile1024_holdout40/gt_oracle/comparison.csv`, `gt_oracle_holdout/comparison.csv`.
-- **Naming is decent on held-out images that resemble the training set and much weaker on val.**
-- That fits what was found about val:
-  - 4 rescaled images (2× / 0.5×).
-  - A scene-level recall gap (§3.4).
-  - Class changes relative to xView, per split: train 341 (5.0%), holdout40 38 (5.2%), val 0 (0%)
-    (DETAILED_EXPERIMENTS.md "E15", `label_compare_by_split.csv`). *Corrected 5 Oct: previously 4.3% pooled.*
-  - Val's classes are exactly xView's, so class flips cannot explain val's weaker naming. The pixel comparison
-    (§3.3c) found 8 of 22 val images altered, which remains a candidate.
-- Graded **supported** for "weaker on val"; the mechanism (altered images vs scene differences) is unresolved.
-- **A dedicated crop classifier is worse than the detector head on the same 738 holdout40 boxes** (0.610 vs 0.690;
-  `results/crop_classifier/summary.json`). Re-labelling detections with it lowers holdout40 mAP50 to 0.100 / 0.117.
-- TTA did not help either (0.138 vs 0.151; without Liquid 0.167 vs 0.170).
-- TIDE on holdout40 confirms that classification also dominates there: Cls +0.177, Bkg +0.130, Missed +0.014, Loc
-  +0.015 (`figures/b1h_tile1024_holdout40/errors_holdout/tide_dAP.csv`).
+### 6.2 How strong is each conclusion?
 
-**(3) Labels: the metric undercounts.**
-- 46 of the 60 most confident unmatched holdout40 predictions look like real, unlabelled trucks (§3.3b).
-- They are either our classes missing from the labels or excluded truck types (xView's pickups, utility trucks,
-  trailers, generic trucks).
-- Either way, measured mAP50 is a lower bound on detection quality, and the false-positive bin is partly an artefact
-  of incomplete labels.
-- Caveats: one viewer, not blind, low resolution, top 60 only.
+| Conclusion | Strength |
+|---|---|
+| The limit is generalisation; training harder hurts | strongly supported (four runs, one training each) |
+| Naming the type, not finding the truck, is the main loss | strongly supported on the official test |
+| Small trucks are seen but not confidently, rather than invisible | strongly supported (tested on unread half) |
+| Three models voting beats the baseline | supported on the practice test (+0.032); within luck on the official test |
+| Labels leave out real trucks, and the score undercounts | supported; size of the effect not measured |
+| The official test's scenes differ from training | plausible; partly explained by brightness/contrast |
+| 500 more labels would not materially help | supported as projected, with extrapolation caveats |
+| Rare-type resampling, original labels, 2× enlarging | not supported |
 
-**(4) Val scenes differ from training scenes.**
-- B1h finds 0.665 of val trucks vs 0.852 of holdout40 trucks, a gap of 0.187 (CI 0.043–0.307).
-- Box size explains 3% of the gap and image size 7%; density does not explain it where it can be compared (§3.4).
-- The remaining difference is at scene level, so val is harder than our own held-out images.
-- *Corrected 5 Oct:* partly explained by brightness/contrast (~31% each, overlapping; `results/val_review/a_standardised.csv`);
-  the rest unexplained (§3.4).
+Details: docs/REPORT_FULL.md §6.2.
 
-**(5) More data alone will not close the gap.**
-- 500 more instances in the current class mix project about +0.006 holdout mAP50.
-- 500 targeted instances of any single class project at most +0.016 (Liquid, an unreliable 4.1× extrapolation;
-  Box +0.011 among reliable fits). Both are below the 0.017 noise (§5.3).
-- Independently, roughly doubling Tractor boxes in the §5.4 subsets did not raise Tractor AP.
+### 6.3 What changed most
 
-Also confirmed: small trucks are mostly "never confident" rather than invisible (§5.2 C1, C4, pre-registered and
-confirmed on the unseen half).
+- **Tiling (B0 → B1)** was the only large change: 0.002 → 0.0715.
+- **Baseline → final system:** three models voting, 0.1065 → 0.1349 on the official test. It is the only change after
+  tiling that beat luck alone on the practice test. Its practice-test numbers after choosing the checkpoints are
+  optimistic, because the choice was made on that same set.
 
-### 6.2 Strength of each conclusion
+Details: docs/REPORT_FULL.md §6.3.
 
-| Conclusion | Status | Evidence |
-|---|---|---|
-| The binding limit is generalisation; fitting faster hurts | **strongly supported** (four runs, single seed each) | E1, E2, E3 vs B1h; E7 vs E3 |
-| Classification, not localisation, is the main loss on val | **strongly supported on val**; holdout40 margin much larger (§6.1 (2)) | §3.1 TIDE, §3.2 class-agnostic, §5.1 oracle |
-| A crop classifier or TTA does not fix classification | **supported** (single settings) | crop classifier 0.100 / 0.117; TTA 0.138 |
-| Small trucks are "never confident", not invisible | **strongly supported** (pre-registered, test half) | §5.2 C1, C4 |
-| Labels are incomplete, or exclude real truck types, and the score undercounts | **supported, size unquantified** | FP audit 46/60 |
-| Val has a scene-level shift from train | **plausible; partly explained by brightness/contrast (~31% each, overlapping); the rest unexplained** (*Corrected 5 Oct:* previously "mechanism unknown") | recall gap 0.187; `results/val_review/a_standardised.csv` |
-| 500 more instances would not materially help | **supported as projected; extrapolation caveats** | §5.3 |
-| Augmentation improves detection but not class-aware mAP50 | **plausible** (one run, two settings at once) | E4 |
-| Smart subsets beat random on detection | **supported by the pre-registered rule, confounded with box count** | §5.4 |
-| *Rejected:* B1 reaches 0.40–0.60 (pre-registered) | rejected (0.0715) | B1 |
-| *Rejected:* B1h is undertrained (E1) | rejected | E1 |
-| *Rejected:* aerial pretraining reduces overfitting (E3) | rejected, reversed | E3 |
-| *Rejected:* TTA improves holdout40 (pre-registered) | rejected: no detectable effect (−0.013, within noise) | TTA |
-| *Weakened:* scale 0.5 hurts small trucks (E2) | inconclusive, leaning not supported | E2 |
-| *Weakened:* "size isn't what limits detections" (B1) | weakened: size matters most below 16 px | §5.2 C1; DETAILED B1 note |
-| *Weakened:* "no domain shift" (B1 diagnosis) | weakened by the recall gap | §3.4 |
-| Rare-class resampling helps Tractor/Flatbed (E6b) | not supported (Tractor 0.007 → 0.002, Flatbed 0.069 → 0.061; overall no detectable effect) | E6b; E6 was too weak a test (+1.6% tile views) |
-| Multi-label ensemble (E13) improves on B1h | **supported on holdout40-clean** (+0.032, 0.2086 vs 0.1765); within noise on val (0.1349 vs 0.1065, seed spread 0.043) | E13; `results/e13_final/` |
-| 2× upscaling helps small trucks (E16) | not supported at matched steps (0.155 vs 0.176; +0.010 in ensemble) | E16; `results/e16_selection/` |
-| Training on excluded truck types reduces background FPs and helps mAP (E10) | FPs: supported on val (9380 → 4056); mAP: not supported (holdout40 0.126 vs 0.151) | E10 |
-| Supplied-label class changes limit the model (E15) | not supported (holdout40-clean 0.153 vs 0.176; val 0.091) | E15 |
-| Longer training helps when augmentation limits overfitting (E8) | not tested: E8 was stopped at epoch 68 for GPU budget | DETAILED "Budget decisions" |
+### 6.4 The next step, with one more day
 
-### 6.3 What changed most between the initial and final system
-- **B0 → B1, tiling: the only large change** (0.0020 → 0.0715 val mAP50). At 640 px a 22 px truck shrinks to a few
-  pixels. With 1024 tiles, 1449 of 1552 val trucks have a matching anchor, vs 396 at 640 px (§5.1).
-- **B1 → B1h:** 0.0715 → 0.1065, but within seed noise (B1h seed 1: 0.0634). The same recipe is kept.
-- **B1h → final system:** multi-label NMS and a WBF ensemble of B1h ep40 + E4 ep40 + E7 ep20 (E13). Holdout40-clean
-  0.1765 → 0.2086 for the ensemble before checkpoint choice; val 0.1065 → 0.1349. That is the only change after
-  tiling that cleared the noise bar on holdout40-clean.
-- *Corrected 2026-10-05: an earlier version said the final system was the B1 recipe without the held-out images.*
+**Relabel the 62 test photos properly**, adding the missing trucks and marking the left-out truck types as "don't
+count". It is cheap (no GPU) and removes one known source of error from future comparisons. It is not expected to move
+the score much: correcting the labels diagnostically predicts only about +0.02–0.03 for the baseline. Model changes
+are weaker candidates: none of nine single-model changes beat the baseline.
 
-### 6.4 Single highest-priority next step (one working day)
-
-**A label audit and completion pass on val and holdout40, then re-score B1h.**
-- Re-annotate missing trucks of the five classes.
-- Mark excluded truck types (pickups, utility trucks, trailers, generic trucks) as *ignore* regions, so detections on
-  them count neither as true nor as false positives.
-- Re-score B1h with the same scorer.
-
-**Why this beats the alternatives:**
-*Corrected 5 Oct: reframed as a measurement fix; earlier claims about what it would reveal are withdrawn.*
-- It is a measurement fix: cheap (62 images, no GPU), and it makes future model comparisons trustworthy. About three
-  quarters of the most confident "false alarms" look like real vehicles (46/60, §3.3b), so the current labels
-  penalise some correct detections.
-- It is not expected to move the score much: the xView-label proxy (§6.5 gap breakdown) predicts only about
-  +0.02–0.03 for B1h (0.1065 → 0.1237 with excluded types ignored; 0.1371 with all corrections;
-  `results/gap_breakdown/gap_breakdown.csv`).
-- The alternatives are weaker:
-  - More model changes: none of nine single-model changes beat B1h on holdout40 (E1, E2, E3, E4, E6b, E7, E10, E15,
-    E16; §4.1, DETAILED_EXPERIMENTS.md).
-  - A better classifier: the crop classifier did not help.
-  - More labels: projected below noise.
-  - All of them would be measured on the same flawed labels.
-  - Ensembling: the top xView solutions combined several detectors, for example the first-place RFL (Reduced Focal
-    Loss) solution, arXiv 1903.01347. E13's multi-label ensemble of existing models raised val to 0.1349 with no new
-    training. It is the final system.
-
-**What the final-system diagnosis adds to this choice.**
-- After the ensemble, background false positives are the largest error bin on val (+0.094, vs +0.082 for
-  classification).
-- On holdout40, 62% of confident false positives overlap excluded truck types (§3.3b).
-- This strengthens the case for label completion with ignore regions as the next step.
-
-**Resolution lever, tested (E16).** Training on 2×-upscaled 512 tiles did not help: single model 0.155 vs B1h 0.176
-on holdout40-clean (Liquid 0), and adding it to the final ensemble gave +0.010 (0.2464 vs 0.2364), below the 0.017
-bar. Val was not scored; the final system is unchanged (`results/e16_selection/`). So resolution is not the next lever
-either, which leaves label completion first.
+Details: docs/REPORT_FULL.md §6.4.
 
 ### 6.5 Why 0.75 was not reached
 
-- **Resolution is not the missing piece:** E16 (2× upscaled tiles) scored below B1h alone and added only +0.010
-  (within noise) to the ensemble.
+- **Published results are far lower:** the best result we found reported on 19 similar small xView vehicle types is
+  0.3065 (arXiv 2104.11854, Table IV).
+- **Even ignoring the type, the baseline reaches only 0.255** on the official test.
+- **The data issues are real but small:** correcting all of them lifts the baseline from 0.1065 to 0.1371.
+- **Simple 2× enlarging was tested (E16) and did not help;** learned super-resolution was not tested.
+- What remains is the difficulty of telling apart look-alike trucks about 22 pixels across, from 403 photos.
 
-The following points together suggest that 0.75 mAP50 is out of reach for this data and protocol, and that part of
-the measured gap is in the evaluation data rather than in the model.
-
-1. **Published benchmark.** On 19 small, visually similar xView vehicle classes, the best reported result is 0.3065
-   mAP (arXiv 2104.11854, Table IV). Our five classes are a subset of that kind of problem.
-2. **The class-agnostic ceiling.** Ignoring class entirely, B1h reaches 0.255 AP50 on val and 0.362 on holdout40
-   (`results/b1h_tile1024_holdout40/{eval,eval_holdout40}/class_agnostic.json`). Even perfect type naming would start
-   from there, far below 0.75.
-3. **What the "false positives" are.** 216 of B1h's 350 confident holdout40 false positives overlap xView boxes of
-   truck types outside the five classes (`results/xview_overlap/fp_rescore_summary.json`). The metric counts real
-   trucks as errors.
-4. **Altered val images.** 8 of 22 val images are altered versions of their xView originals: 4 rescaled 2× / 0.5×,
-   plus noise, blur + noise, and two contrast changes (§3.3c). Val also drops 10.3% of xView's boxes of the five
-   types.
-5. **xView leakage path.** All 465 images are xView training images, so any xView-pretrained model would have seen
-   every val image with labels. We therefore used COCO-pretrained weights only.
-6. **Levers tried.**
-   - Without detectable gains: longer training (E1/E2), aerial pretraining (E3, E7), augmentation (E4), resampling
-     (E6/E6b), extra xView data with excluded types (E10), xView-original labels (E15), TTA, and a crop classifier.
-   - Helped modestly: a multi-label ensemble (E13, val 0.1065 → 0.1349).
-   - Robust inference (E12) passed its holdout test by a negligible margin and lowered val (0.0906).
-
-**Error-repair sum (an indication, not a bound).** Fixing each TIDE error type on val in turn adds +0.147 (Cls),
-+0.077 (Bkg), +0.044 (Missed) and +0.022 (Loc) to 0.1065, about 0.40 in total
-(`figures/b1h_tile1024_holdout40/errors/tide_dAP.csv`). The bins can overlap, so the sum is not a strict bound. It
-still lies well below 0.75.
-
-**Gap breakdown** (diagnostic re-scoring of B1h's val predictions; xView labels are used only here, never for
-training or selection; `results/gap_breakdown/gap_breakdown.csv`):
-
-| row | val mAP50 | class-agnostic AP50 |
-|---|---|---|
-| plain | 0.1065 | 0.255 |
-| predictions on excluded truck types ignored | 0.1237 | 0.307 |
-| the 4 rescaled images run at their native scale | 0.1122 | 0.290 |
-| predictions on the val boxes dropped from xView's labels ignored | 0.1112 | 0.272 |
-| all three | **0.1371** | **0.373** |
-
-- Correcting the evaluation data's known issues raises B1h's val mAP50 by about 0.03.
-- Scored against xView's original holdout labels, B1h reaches 0.1765 (E15 entry).
-- Neither comes close to 0.75. The remaining distance is the detection and classification difficulty of about
-  22-pixel, look-alike trucks.
-- Resolution: 2× bilinear upscaling was tested (E16) and gave no gain at matched steps (holdout40-clean 0.155 vs
-  0.176; `results/e16_selection/`). Learned super-resolution, which improved mAP by 13–36% from 30 cm to 15 cm in
-  Shermeyer & Van Etten (arXiv 1812.04098), was not tested. *Corrected 5 Oct: previously "We did not test it."*
-
-**E12 (robust inference) was not adopted.**
-- Its holdout40 suite gain (+0.0004) is below the noise threshold.
-- Val (0.0906 vs 0.1065) had been scored before the decision; the pre-registration lacked a minimum-gain requirement.
-- It failed because per-image truck size varies as much across normal images as the rescaling does, so the rule kept
-  the rescaled images at 1× and shrank 7 normal ones (DETAILED_EXPERIMENTS.md "E12: decision").
-
-**Verified non-issues** (`results/review_checks/review_checks.json`):
-- Raising max_det from 902 to 3000 / 10000 changes holdout40 mAP50 by +0.0004 **for single-label B1h**. The
-  pycocotools cross-check uses the same maxDets (902). For the multi-label final system, max_det 3000 changes holdout40-clean by −0.0047, so 902 is
-  kept. Limitation: 27 of 40 holdout40 images reach the cap, which truncates low-confidence alternate-class copies
-  (`results/maxdet_check/maxdet_check.json`).
-- Class-agnostic merging lowers holdout40 to 0.129.
-- Tractor AP stays near 0 even at IoU 0.1 (0.010), so it is not a box-offset issue.
-- **Density, corrected to boxes per megapixel:** val 6.0 vs train 1.7 pooled (medians 4.8 vs 0.7).
-
-### 6.6 Retrospective
-- Every model choice after B1h was made on holdout40, never on val.
-- In hindsight, auditing the data's provenance first would still have saved time:
-  - we spent effort explaining val-specific anomalies (rescaled and altered images, the recall gap) that a source
-    comparison reveals in minutes;
-  - we could have tested E10 and E15 earlier.
-- It would not have changed the main conclusion: the measured cost of the data issues is about 0.03 mAP50 (§6.5).
-- **The costliest single test was E1/E2:** two 150-epoch runs, about 9 of about 30 GPU-h.
-  - A shorter run (for example 75 epochs with a holdout40 curve) would have answered "is it undertrained?".
-  - That would have freed budget for a larger model or a different detector family (§6.7).
-- In the first hour of a similar project, we would check:
-  1. **The data's source:** match images to public datasets by name, size and hash.
-  2. **Per-split image statistics:** size, brightness, contrast, blur and noise, train vs val.
-  3. **Label consistency against the source:** class and box agreement per split.
-
-### 6.7 What we did not try, and why
-
-| idea | why not tried | evidence on likely effect | what it would take |
-|---|---|---|---|
-| Larger model (yolo11m, E9) | cancelled for budget | E3 suggests stronger features memorise faster; capacity is not the binding limit (16-tile overfit 1.000) | ~5 GPU-h |
-| Different detector family (FPN two-stage, as the xView 1st place, arXiv 1903.01347) | time and budget | top xView entries reached ~0.3 mAP on many small classes (arXiv 2104.11854) | new pipeline + ~5 GPU-h per run |
-| P2 / stride-4 head (E11) | cancelled for budget | E16 tested the scale question by 2× bilinear upscaling: no gain at matched steps; learned super-resolution not tested | config change + ~2 GPU-h |
-| Rare-class loss reweighting (focal, class-balanced, reduced focal) | not prioritised | resampling (E6b) and more Tractor boxes (§5.4) did not help rare classes | ~2 GPU-h per variant |
-| Copy-paste of rare classes | not prioritised | same evidence as above | augmentation code + ~2 GPU-h |
-| Learning-rate / optimizer tuning | not prioritised | the limit is generalisation, not fitting (E1–E3) | ~2 GPU-h per point |
-| Multiple seeds per experiment | budget | seed spread 0.017 (holdout40) / 0.043 (val); most verdicts are single-seed | ×2–3 the GPU cost |
-| Geographically clean rerun of E10 | budget, and E10 showed no gain | E10 halved background errors without an mAP gain | ~2 GPU-h |
-| Learned super-resolution beyond E16's 2× upscaling | time | 13–36% mAP gain from super-resolution in arXiv 1812.04098 | SR model + retraining |
-
-**Refused on principle:**
-- **xView-pretrained weights:** all 465 images are xView training images, so these would leak every val label.
-- **Training or tuning on val:** all selection was on holdout40 (clean labels from E13 on).
-- **Augmentation copied from val's measured edits:** the E12 suite was kept generic.
-
-**Out of reach:**
-- More labelled data of these classes: all of xView adds only ~25% instances.
-- Finer imagery.
-- More compute: one T4 at about 30 GPU-h per week.
+Details: docs/REPORT_FULL.md §6.5–§6.7.
 
 ## 7. Deliverables
 
-See `SUBMISSION_CHECKLIST.md` and the README sections "Final model and prediction" and "Reproduce everything".
-Final weights: GitHub release `weights-final-v1` (3 checkpoints; the ensemble). The baseline B1h is in
-`weights-b1h-v1`.
-`predict.py` on CPU reproduced B1h's saved predictions for 2 val images (all paired; max confidence difference 3e-6;
-`results/predict_test/compare.json`).
+| Deliverable | Where |
+|---|---|
+| Final model (three checkpoints + checksums) | GitHub release `weights-final-v1`; command in [README.md](README.md) §5 |
+| Baseline model | GitHub release `weights-b1h-v1` |
+| Inference and scoring | `predict.py`, `eval.py`; clean-room run reproduced 0.1349 (`results/clean_repro_final/`) |
+| Training code and configs | `train.py`, `configs/`, [docs/REPRODUCE.md](docs/REPRODUCE.md) |
+| Environment | `requirements.txt`, `requirements-lock.txt` |
+| Experiment records | [DETAILED_EXPERIMENTS.md](DETAILED_EXPERIMENTS.md), [EXPERIMENTS.md](EXPERIMENTS.md) |
+| Requirement-by-requirement check | [docs/SUBMISSION_CHECKLIST.md](docs/SUBMISSION_CHECKLIST.md) |
+
+Details: docs/REPORT_FULL.md §7.

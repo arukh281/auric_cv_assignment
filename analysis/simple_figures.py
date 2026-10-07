@@ -173,7 +173,7 @@ def confusion(root, out):
     ax.set_ylabel("What the truck really was")
     for s in ax.spines.values():
         s.set_visible(False)
-    ax.set_title("Cargo and Box trucks get mixed up most")
+    ax.set_title("Cargo <-> Box is the most frequent mix-up")
     save(fig, out, "6_confusion")
 
 

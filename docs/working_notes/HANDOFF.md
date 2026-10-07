@@ -2,7 +2,7 @@
 
 Written 2026-10-03 from read-only inspection of the repo at commit `78337f2` (working tree clean). Every number below
 gives the file it was read from. "UNKNOWN" means it could not be established from files. This file replaces an older
-HANDOFF.md (commit `fc1e4b1`). It has not been committed.
+docs/working_notes/HANDOFF.md (commit `fc1e4b1`). It has not been committed.
 
 **One-line status:** the target is ≥ 0.75 mAP50 on val. The best measured val mAP50 is **0.1065** (run
 `b1h_tile1024_holdout40`). The target is not met, and every analysis so far points at classification and
@@ -42,7 +42,7 @@ generalisation, not the eval pipeline.
 - **DETAILED_EXPERIMENTS.md audit** (`ba8da62`): index table, six fields per entry, numbers checked against sources,
   visible corrections. The E1 no-mosaic epoch count changed 4 → 5, and the E1/E2 launch and sanity dates changed
   2 Oct → 3 Oct.
-- **REPORT.md:**
+- **docs/REPORT_FULL.md:**
   - §2–§4, §5.1, §5.3 and §5.4 drafted (`07213e4`), then reviewed line by line against the sources; no
     misstatements found.
   - Summary of the 0.75 miss added; §5.4 conclusion and Next written.
@@ -60,10 +60,10 @@ generalisation, not the eval pipeline.
   shift is the leading explanation (`results/recall_gap/`).
 - **Label checker:** the fixed checker flags 0 of 3439 tiles.
 - **`predict.py`:** reproduces the saved predictions exactly on CPU.
-- **REPORT.md:**
+- **docs/REPORT_FULL.md:**
   - The summary now grades every cause as ruled out / no evidence for / not tested.
   - The §6 skeleton has TODO-FINAL slots.
-- **SUBMISSION_CHECKLIST.md** quotes the brief verbatim. Open gaps from it:
+- **docs/SUBMISSION_CHECKLIST.md** quotes the brief verbatim. Open gaps from it:
   - §5.1 has no limits paragraph.
   - §5.3 assumptions are not listed explicitly.
   - §5.4 is missing two things: a characterisation of the selected examples and their class coverage.
@@ -163,8 +163,8 @@ version (s52-confirm v1 got `734299d`). New script kernels now start with `grep 
   in DETAILED_EXPERIMENTS.md: stronger augmentation or regularisation, a crop classifier for Cargo vs Box (planned as a
   CPU-only kernel), more data.
 - Write-ups still missing: §5.2 interpretation (and confirmation on the test half), §5.3 per-class "which classes
-  benefit", §5.4 conclusion, §6 final analysis, the full REPORT.md.
-- `STATUS.md` is stale. (`REPORT.md`'s `val: false` line was corrected on 4 Oct.)
+  benefit", §5.4 conclusion, §6 final analysis, the full docs/REPORT_FULL.md.
+- `docs/working_notes/STATUS.md` is stale. (`docs/REPORT_FULL.md`'s `val: false` line was corrected on 4 Oct.)
 - ~~`sanity_check.check_labels` coordinate-sort pairing~~ fixed (IoU pairing); re-run result pending.
 
 ---
@@ -179,11 +179,11 @@ auric_cv_assignment/
 ├── eval.py                  Val/train/holdout images -> sliced or full inference -> merge -> scorer -> metrics (+ pycocotools cross-check)
 ├── requirements.txt         Pinned non-torch deps (see §2)
 ├── README.md                How to run (Colab Terminal, Colab notebook, Kaggle notebook, Kaggle via CLI, local)
-├── REPORT.md                Technical report, IN PROGRESS (pretrained-weights choice, reproducibility table, metric, error taxonomy)
+├── docs/REPORT_FULL.md                Technical report, IN PROGRESS (pretrained-weights choice, reproducibility table, metric, error taxonomy)
 ├── DETAILED_EXPERIMENTS.md           Experiment log: B0, B1, B1h, Plan, LC (§5.3), §5.1, S54 (§5.4) pre-registration
-├── STATUS.md                STALE: Phase-2 status from 2 Oct (pre-training)
-├── MORNING.md               Overnight report 2–3 Oct (§5.2 inspect-half counts, §5.4 runs, GPU hours, commits)
-├── HANDOFF.md               This file
+├── docs/working_notes/STATUS.md                STALE: Phase-2 status from 2 Oct (pre-training)
+├── docs/working_notes/MORNING.md               Overnight report 2–3 Oct (§5.2 inspect-half counts, §5.4 runs, GPU hours, commits)
+├── docs/working_notes/HANDOFF.md               This file
 ├── configs/
 │   ├── data.yaml            Ultralytics dataset config (5 classes)
 │   ├── b0.yaml              B0: whole image letterboxed to 640
@@ -255,11 +255,11 @@ auric_cv_assignment/
 ### Git
 
 - Branch `main`; remote GitHub `arukh281/auric_cv_assignment` (public; corrected 2026-10-04). 45 commits, HEAD `78337f2` (2026-10-03 06:59 +0530).
-- Working tree clean at the time of writing, apart from this HANDOFF.md.
+- Working tree clean at the time of writing, apart from this docs/working_notes/HANDOFF.md.
 - Most recent commits (newest first):
 
 ```
-78337f2 MORNING.md: overnight report
+78337f2 docs/working_notes/MORNING.md: overnight report
 7deafdb Results: b1h_f75_seed1; S54 subset comparison table + pre-registered rule output
 3140888 Results: b1h_smart75, b1h_f50_seed1
 40067b8 Results: b1h_smart50
@@ -348,7 +348,7 @@ has not been opened or summarised. The §5.2 prediction files on Kaggle (`/kaggl
 ## 4. Training runs
 
 Common to every run (from `configs/*.yaml`):
-- **Model:** YOLO11s initialised from COCO-pretrained `yolo11s.pt` (xView weights deliberately not used: REPORT.md).
+- **Model:** YOLO11s initialised from COCO-pretrained `yolo11s.pt` (xView weights deliberately not used: docs/REPORT_FULL.md).
 - **Optimiser:** SGD, lr0 0.01, momentum 0.937. AMP on, `cache: disk`, `deterministic: true`, batch 16.
 - **Augmentation:** Ultralytics 8.4.171 defaults; no class weighting or resampling in any config. The defaults seen in the B1h
   smoke-kernel log during this session include hsv_h 0.015, hsv_s 0.7, hsv_v 0.4, fliplr 0.5, mosaic 1.0, scale 0.5,
@@ -458,15 +458,15 @@ The test half is untouched apart from its per-box table, which was written and c
 
 | Section | Status | Evidence | Missing |
 |---|---|---|---|
-| 2. Dataset observations, baseline, mAP + per-class for every model, qualitative predictions | PARTIAL | EDA (`figures/eda/`), visual notes, configs/scripts/tests, `per_class.csv` for all 11 runs, grids/overviews (`figures/<run>/grid_*.png`, `overview_*.png`, `errors/crops_*.png`) | Written prose in REPORT.md; EXPERIMENTS B0/B1 "Results" fields still say "Pending Colab" |
-| 3. Failure diagnosis | PARTIAL | TIDE bins with dAP50, sliced FN/FP rates, confusion matrices, competing explanations tested (scoring, merge, max_det, domain shift, image quality, generalisation via B1h) | Consolidated write-up in REPORT.md; FP population (background FPs 4701 B1 / 9380 B1h) not discussed in prose |
+| 2. Dataset observations, baseline, mAP + per-class for every model, qualitative predictions | PARTIAL | EDA (`figures/eda/`), visual notes, configs/scripts/tests, `per_class.csv` for all 11 runs, grids/overviews (`figures/<run>/grid_*.png`, `overview_*.png`, `errors/crops_*.png`) | Written prose in docs/REPORT_FULL.md; EXPERIMENTS B0/B1 "Results" fields still say "Pending Colab" |
+| 3. Failure diagnosis | PARTIAL | TIDE bins with dAP50, sliced FN/FP rates, confusion matrices, competing explanations tested (scoring, merge, max_det, domain shift, image quality, generalisation via B1h) | Consolidated write-up in docs/REPORT_FULL.md; FP population (background FPs 4701 B1 / 9380 B1h) not discussed in prose |
 | 4. Experiment records | PARTIAL | DETAILED_EXPERIMENTS.md entries for B0, B1, B1h, LC, §5.1, S54 | B0 Hypothesis "TODO (me)"; B0/B1 "Results: Pending" and "Next step: Pending results"; B1h lacks Observation/Hypothesis/Changes fields; S54 has no Results/Conclusion |
-| 5.1 Perfect locations | DONE (draft) | EXPERIMENTS §5.1, `gt_oracle/` for B0/B1/B1h | Move into REPORT.md |
+| 5.1 Perfect locations | DONE (draft) | EXPERIMENTS §5.1, `gt_oracle/` for B0/B1/B1h | Move into docs/REPORT_FULL.md |
 | 5.2 Resisting examples | PARTIAL | categories + counts + crops for the inspect half; confidence-floor analysis (unsaved) | Interpretation; confirmatory check on the test half; save the confidence-floor numbers |
 | 5.3 500 more labels | PARTIAL | LC entry with conclusion; per-class holdout AP50 in `learning_curve.csv` | "Which classes benefit most/least" not written (per-class holdout curves: Box 0.236→0.509, Cargo 0.018→0.096, Flatbed 0.034→0.069, Tractor 0.000→0.007, Liquid 0.015→0.073 from 101→403 images, seed 0) |
 | 5.4 Smallest subset ≥ 90% | PARTIAL | pre-registration (b02413c), runs, `figures/subset_compare/` | Conclusion; the author's prediction was never written (EXPERIMENTS S54 says "none provided"); no tested subset reached 0.128 |
 | 6. Final analysis + next experiment | NOT STARTED | – | everything |
-| 7. Deliverables | PARTIAL | eval/train code, configs, requirements, README, tests | REPORT.md incomplete; final weights not in the repo (Kaggle output only); STATUS.md stale; target 0.75 not reached |
+| 7. Deliverables | PARTIAL | eval/train code, configs, requirements, README, tests | docs/REPORT_FULL.md incomplete; final weights not in the repo (Kaggle output only); docs/working_notes/STATUS.md stale; target 0.75 not reached |
 
 §5.4 numbers (`figures/subset_compare/decision_rule.csv`, held-out):
 
@@ -491,7 +491,7 @@ The 90% threshold is 0.128 held-out mAP50. No 50% or 75% run reached it; the hig
 - **LC conclusion:** "More data should help, but additional labels alone are unlikely to achieve the target.
   Classification needs a separate improvement strategy."
 - **Plan table** (DETAILED_EXPERIMENTS.md "Plan from here"): item 4, "Final analysis + report + README", is outstanding.
-- **REPORT.md** is labelled "Technical report (in progress)". Sections "dataset observations, baselines, experiment chain,
+- **docs/REPORT_FULL.md** is labelled "Technical report (in progress)". Sections "dataset observations, baselines, experiment chain,
   failure analysis, research investigations 5.1–5.4, final analysis" are noted there as to come.
 - **§5.2:** the test half is reserved for confirming whatever is found on the inspect half. No hypothesis is written yet.
 - **`analysis/notes/visual_inspection.md`:** possible label noise (unlabelled trucks; offset GT in 2470/2472), recorded as observations, not tested.
@@ -508,16 +508,16 @@ The 90% threshold is 0.128 held-out mAP50. No 50% or 75% run reached it; the hig
 5. **B0 vs B1 is "equal epochs, not equal compute"** (1400 vs 11850 iterations; DETAILED_EXPERIMENTS.md).
 6. **Ultralytics val cross-check** was only ever done on B0, where AP is near zero. Our scorer matches pycocotools on every run.
 7. **Per-epoch Ultralytics val** during tiled training runs on un-sliced full images. It is curves only, not comparable with the reported metric.
-8. **REPORT.md contradicts the configs.** It says `val: false`, but the configs set `val: true` (per-epoch curves only; `last.pt` is still reported).
-9. **STATUS.md is stale** (Phase 2, pre-training).
+8. **docs/REPORT_FULL.md contradicts the configs.** It says `val: false`, but the configs set `val: true` (per-epoch curves only; `last.pt` is still reported).
+9. **docs/working_notes/STATUS.md is stale** (Phase 2, pre-training).
 10. **DETAILED_EXPERIMENTS.md has placeholder text:** B0 Hypothesis "TODO (me)"; B0/B1 "Results: Pending Colab"; "Next step: Pending results".
 11. **`figures/b1_tile1024_maxdet3000/merge_sensitivity.csv` predates the merge_sensitivity fix.** Its `default` column is all False and it has no `max_det` column. The max_det used (3000) is inferred from the folder name; the exact command is UNKNOWN.
 12. **The §5.2 never-detected confidence-floor numbers are not saved in any repo file** (see §5).
 13. **§5.2 categories depend on the conf 0.25 threshold.** 79.3% of inspect-half "never-detected" boxes have an IoU ≥ 0.5 prediction at a lower confidence (unsaved analysis above).
 14. **No §5.4 prediction was pre-registered.** The instruction contained an unfilled placeholder. smart50 results existed by 04:24 on 3 Oct, before any prediction could be added.
-15. **Smart-selection coverage step.** "Add the unselected image with the most class-c boxes" is an implementation choice (`tools/make_smart_subsets.py` docstring). The pre-registration said "add images in order of rarest class contained". The runs used the implemented rule; the mismatch is disclosed in REPORT.md §5.4 and the S54 entry (4 Oct), and no author prediction was recorded.
+15. **Smart-selection coverage step.** "Add the unselected image with the most class-c boxes" is an implementation choice (`tools/make_smart_subsets.py` docstring). The pre-registration said "add images in order of rarest class contained". The runs used the implemented rule; the mismatch is disclosed in docs/REPORT_FULL.md §5.4 and the S54 entry (4 Oct), and no author prediction was recorded.
 16. **All learning-curve power-law fits are flagged unreliable.** The extrapolation to 903 images is 2.24× beyond the data, and some upper interval limits exceed 1 (`figures/learning_curve/power_law_fit.csv`).
-17. **Kaggle GPU accounting is uncertain.** `kaggle quota` reported 0.00 h used on the morning of 3 Oct (refresh 2026-10-10). MORNING.md's ~8.3 GPU-h for the night is an upper-bound estimate from poll times.
+17. **Kaggle GPU accounting is uncertain.** `kaggle quota` reported 0.00 h used on the morning of 3 Oct (refresh 2026-10-10). docs/working_notes/MORNING.md's ~8.3 GPU-h for the night is an upper-bound estimate from poll times.
 18. **Weights are not in the repo.** Drive (B0/B1) availability is UNKNOWN. Kaggle kernel outputs hold the rest.
 19. **The local dataset is a subset.** `data` points at `data_small` (20 train / 22 val). Do not re-run `analysis/eda.py` locally (it would overwrite full-data tables). Several tests use these local files.
 20. **Exact command lines (`command.txt`) were not copied** into `results/`. (Corrected 2026-10-04: B1h's `train/args.yaml` is now at `results/b1h_tile1024_holdout40/train/args.yaml` and confirms the augmentation values.)

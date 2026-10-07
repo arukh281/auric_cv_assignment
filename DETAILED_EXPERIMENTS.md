@@ -11,7 +11,7 @@ mAP50 = COCO 101-point AP50 averaged over the 5 classes, on `last.pt`. val = 22-
 train images never trained on by B1h-family runs (`splits/holdout40_seed0.txt`); train40 = 40 sampled seen train
 images. Sources: `results/<run>/eval/metrics.json`, `results/<run>/eval_holdout40/metrics.json`,
 `results/<run>/eval_train40/metrics.json` (`mAP50`). "—" = not evaluated; UNKNOWN = should exist but cannot be sourced
-from a repo file. GPU-h: Kaggle kernel hours where recorded (MORNING.md table for the 3 Oct runs; the GPU-hours tables
+from a repo file. GPU-h: Kaggle kernel hours where recorded (docs/working_notes/MORNING.md table for the 3 Oct runs; the GPU-hours tables
 in this file for SANITY/E1/E2), else UNKNOWN with the training time from `results/<run>/train/results.csv` (`time`
 column) in brackets, which is a lower bound.
 
@@ -24,10 +24,10 @@ column) in brackets, which is a lower bound.
 | `b1h_f25` | learning curve, 101 images | done | 0.0169 | 0.0606 | — | UNKNOWN (train 1.49 h) | [LC](#lc-learning-curves-53-runs-b1h_f25--b1h_f50--b1h_f75--b1h_seed1) |
 | `b1h_f50` | learning curve, 202 images | done | 0.0492 | 0.0948 | — | UNKNOWN (train 1.41 h) | [LC](#lc-learning-curves-53-runs-b1h_f25--b1h_f50--b1h_f75--b1h_seed1) |
 | `b1h_f75` | learning curve, 302 images | done | 0.0846 | 0.1045 | — | UNKNOWN (train 1.35 h) | [LC](#lc-learning-curves-53-runs-b1h_f25--b1h_f50--b1h_f75--b1h_seed1) |
-| `b1h_f50_seed1` | random 202, seed 1 (§5.4 noise) | done | 0.0573 | 0.0816 | — | ≤ 1.6 (MORNING.md) | [S54](#s54-smart-vs-random-subsets-54-runs-b1h_smart50--b1h_smart75--b1h_f50_seed1--b1h_f75_seed1) |
-| `b1h_f75_seed1` | random 302, seed 1 (§5.4 noise) | done | 0.0736 | 0.1230 | — | ≤ 1.75 (MORNING.md) | [S54](#s54-smart-vs-random-subsets-54-runs-b1h_smart50--b1h_smart75--b1h_f50_seed1--b1h_f75_seed1) |
-| `b1h_smart50` | smart-selected 202 images (§5.4) | done; no author conclusion | 0.0562 | 0.1052 | — | ≤ 1.7 (MORNING.md) | [S54](#s54-smart-vs-random-subsets-54-runs-b1h_smart50--b1h_smart75--b1h_f50_seed1--b1h_f75_seed1) |
-| `b1h_smart75` | smart-selected 302 images (§5.4) | done; no author conclusion | 0.0832 | 0.1040 | — | ≤ 1.9 (MORNING.md) | [S54](#s54-smart-vs-random-subsets-54-runs-b1h_smart50--b1h_smart75--b1h_f50_seed1--b1h_f75_seed1) |
+| `b1h_f50_seed1` | random 202, seed 1 (§5.4 noise) | done | 0.0573 | 0.0816 | — | ≤ 1.6 (docs/working_notes/MORNING.md) | [S54](#s54-smart-vs-random-subsets-54-runs-b1h_smart50--b1h_smart75--b1h_f50_seed1--b1h_f75_seed1) |
+| `b1h_f75_seed1` | random 302, seed 1 (§5.4 noise) | done | 0.0736 | 0.1230 | — | ≤ 1.75 (docs/working_notes/MORNING.md) | [S54](#s54-smart-vs-random-subsets-54-runs-b1h_smart50--b1h_smart75--b1h_f50_seed1--b1h_f75_seed1) |
+| `b1h_smart50` | smart-selected 202 images (§5.4) | done; no author conclusion | 0.0562 | 0.1052 | — | ≤ 1.7 (docs/working_notes/MORNING.md) | [S54](#s54-smart-vs-random-subsets-54-runs-b1h_smart50--b1h_smart75--b1h_f50_seed1--b1h_f75_seed1) |
+| `b1h_smart75` | smart-selected 302 images (§5.4) | done; no author conclusion | 0.0832 | 0.1040 | — | ≤ 1.9 (docs/working_notes/MORNING.md) | [S54](#s54-smart-vs-random-subsets-54-runs-b1h_smart50--b1h_smart75--b1h_f50_seed1--b1h_f75_seed1) |
 | E1 `e1_b1h_150ep` | undertraining test: 150 epochs | done (stopped at 145 by val-driven early stopping) | 0.0680 | 0.0923 | 0.7737 | ~4.7 (estimate) | [E1/E2](#e1--e2-is-b1h-undertrained-and-does-scale-05-hurt-small-trucks-configse1_b1h_150epyaml-configse2_b1h_150ep_scale02yaml), [results](#e1--e2-results-4-oct-2026) |
 | E2 `e2_b1h_150ep_scale02` | scale 0.2 vs 0.5, 150 epochs | done | 0.0620 | 0.1112 | 0.9056 | ~4.4 (estimate) | [E1/E2](#e1--e2-is-b1h-undertrained-and-does-scale-05-hurt-small-trucks-configse1_b1h_150epyaml-configse2_b1h_150ep_scale02yaml), [results](#e1--e2-results-4-oct-2026) |
 | SANITY (`auric-sanity`) | settings, tile-label check, 16-tile overfit test | done; NOT PASS, overridden; PASS after re-check | — (overfit AP50 1.000 on its 16 training tiles, `results/sanity/overfit/eval_ep300/metrics.json`) | — | — | ≤ 0.30 | [SANITY](#sanity-why-does-b1h-reach-only-038-map50-on-its-own-training-images-kernel-aradhya1211auric-sanity-code-f2388f1), [override](#sanity--e1e2-override-of-not-pass-authors-decision-3-oct-2026-1122-pm-ist) |
@@ -352,7 +352,7 @@ A comparison between two runs revealed that the random seed affects classificati
 
 **Corrected 2026-10-04:** the brief asks about 500 labelled *instances*, not images. 500 instances is about 29 images at
 17.1 boxes per image (6880 boxes / 403 images). The same fit gives about +0.006 holdout mAP50 (403 → 432 images), below the
-0.017 seed spread. The 903-image extrapolation below answers "500 more images". See REPORT.md §5.3.
+0.017 seed spread. The 903-image extrapolation below answers "500 more images". See docs/REPORT_FULL.md §5.3.
 
 
 The learning curve suggests that more labelled data would improve performance, particularly truck detection. However, extrapolating beyond the current 403 images is uncertain, and even an optimistic projection falls well short of the target mAP50 of 0.75.
@@ -366,11 +366,11 @@ By my pre-registered rule: the projected held-out gain at +500 images (+0.080 mA
 | question | verdict | basis |
 |---|---|---|
 | (a) Pre-registered: 500 more **images** (403 → 903) | helps by the pre-registered rule (+0.080 > 0.017 noise); direction only, because the fit extrapolates 2.24× and is flagged unreliable | `figures/learning_curve/power_law_fit.csv` |
-| (b) The brief: 500 more **instances** (~29 images, current class mix) | **no**: +0.006, below the 0.017 noise | same fit at 403 → 432 images; REPORT.md §5.3 |
+| (b) The brief: 500 more **instances** (~29 images, current class mix) | **no**: +0.006, below the 0.017 noise | same fit at 403 → 432 images; docs/REPORT_FULL.md §5.3 |
 | (b′) 500 targeted instances of one class | pending (`auric-lc-per-class`) | — |
 
 *Update 5 Oct:* (b′) is no longer pending. 500 targeted instances project Box +0.011 (reliable fit), Liquid +0.016
-(unreliable, a 4.1× extrapolation) and no gain for Tractor; all below the 0.017 noise. See REPORT.md §5.3 and
+(unreliable, a 4.1× extrapolation) and no gain for Tractor; all below the 0.017 noise. See docs/REPORT_FULL.md §5.3 and
 `figures/learning_curve/power_law_fit.csv`.
 
 ### Smallest useful training subset
@@ -466,7 +466,7 @@ Box (now planned as the E3/E4 side kernel (b)).
 
 **Subset characterisation (added 2026-10-04):** smart subsets hold +32% (202) / +24% (302) more boxes than
 random ones of the same image count, 74% / 95% of the pool's Tractor boxes vs 35% / 49%, and more dense images; box sizes
-are unchanged. This confounds smart vs random: no box-count-matched random subset was run. Details: REPORT.md §5.4,
+are unchanged. This confounds smart vs random: no box-count-matched random subset was run. Details: docs/REPORT_FULL.md §5.4,
 `figures/subset_compare/subset_characterisation.csv`, `subset_class_coverage.csv`.
 
 **Validation-mAP50 version (brief's definition, added 2026-10-04):** threshold 0.9 × 0.1065 = 0.0959; no subset reaches
@@ -784,7 +784,7 @@ AP50 by size was not computed. E1's `errors/` and `figures/` folders were missin
   boxes by sorting coordinates. In dense tiles, near-equal coordinates (float round-trip of the YOLO text) reorder and
   mis-pair; IoU pairing finds every label identical.
 - With this, both criteria of the sanity PASS rule hold: 0 real label mismatches, and overfit AP50 1.000.
-- **Next** (field added 2026-10-04 audit, from HANDOFF.md "Open items"): fix `analysis/sanity_check.check_labels` to
+- **Next** (field added 2026-10-04 audit, from docs/working_notes/HANDOFF.md "Open items"): fix `analysis/sanity_check.check_labels` to
   pair by IoU as `analysis/label_mismatch.py` does. Not done yet (the lexsort pairing is still in
   `analysis/sanity_check.py`).
 - *Update 2026-10-04:* done. The checker was fixed in `cc152a5`, and its re-run gives 0 of 3439 tiles mismatched

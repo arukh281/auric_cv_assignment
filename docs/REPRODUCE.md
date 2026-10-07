@@ -146,7 +146,7 @@ weights) are copied into `results/<run>/` and `figures/<run>/`.
 | `scripts/kaggle_setup.sh`, `scripts/kaggle_push_results.sh`, `notebooks/kaggle_train.ipynb` | Kaggle: setup, push of small result files, end-to-end notebook |
 | `runs/<run>/` | Config, command, env, metrics, training curves per run. Not in git (`.gitignore`); kept on Drive with the weights |
 | `analysis/merge_sensitivity.py` | Re-scores saved raw tile predictions under other merge settings (no re-inference) |
-| `DETAILED_EXPERIMENTS.md`, `REPORT.md` | Experiment log and report |
+| `DETAILED_EXPERIMENTS.md`, `docs/REPORT_FULL.md` | Experiment log and report |
 
 ## Dataset
 Expected layout (the `cv_dataset.zip` root):

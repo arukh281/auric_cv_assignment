@@ -1,6 +1,6 @@
 # B0: naive reference. Whole image letterboxed to 640 px (a ~3000 px image shrinks ~5x, a 22 px truck to ~4-5 px).
 name: b0_full640
-model: yolo11s.pt          # COCO-pretrained Ultralytics release weights (NOT xView-pretrained; see REPORT.md)
+model: yolo11s.pt          # COCO-pretrained Ultralytics release weights (NOT xView-pretrained; see docs/REPORT_FULL.md)
 seed: 0
 deterministic: true
 epochs: 50                 # equal schedule for B0 and B1; B1 still does more iterations per epoch (tiles), see training_summary.json

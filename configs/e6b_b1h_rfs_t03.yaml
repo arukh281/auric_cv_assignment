@@ -4,7 +4,7 @@
 # B1: native-resolution tiles. Train on 1024 px train tiles at imgsz 1024 (no downscaling);
 # evaluate by slicing full-res val images with the same geometry and merging, scored on full-image labels.
 name: e6b_b1h_rfs_t03
-model: yolo11s.pt          # COCO-pretrained Ultralytics release weights (NOT xView-pretrained; see REPORT.md)
+model: yolo11s.pt          # COCO-pretrained Ultralytics release weights (NOT xView-pretrained; see docs/REPORT_FULL.md)
 holdout_list: splits/holdout40_seed0.txt   # relative to the repo root
 seed: 0
 deterministic: true

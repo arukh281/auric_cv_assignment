@@ -5,15 +5,16 @@
 I built a program that finds trucks in overhead satellite photos and sorts each one into five types: cargo, box,
 flatbed, tractor and liquid tanker. The goal was a score of 0.75 (out of 1) on the official test of 22 photos. My final
 system scores 0.135 (exactly 0.1349), so I did not reach the goal. The main reason is that, from only 403 training photos,
-the program learns to find trucks but often names the wrong type on photos it hasn't seen.
+the program finds many of the trucks but often names the wrong type on photos it hasn't seen.
 
 ## 2. Read this first
 
 | Document | Read it when you want… |
 |---|---|
-| [REPORT.md](REPORT.md) | The report: a summary at the top (about 10 minutes), then all the evidence, section by section |
+| [REPORT.md](REPORT.md) | The short report: about 10 minutes, every section linked to the full evidence |
 | [EXPERIMENTS.md](EXPERIMENTS.md) | The story in plain words, with simple charts |
 | [DETAILED_EXPERIMENTS.md](DETAILED_EXPERIMENTS.md) | The full log: every run, with its prediction written down *before* the result |
+| [docs/REPORT_FULL.md](docs/REPORT_FULL.md) | All the evidence: full tables, sources and caveats |
 | [docs/REPRODUCE.md](docs/REPRODUCE.md) | Every command, for Colab, Kaggle and a laptop |
 
 ## 3. How I approached it
@@ -31,6 +32,11 @@ the program learns to find trucks but often names the wrong type on photos it ha
 
 ```
 .
+├── README.md           this file
+├── REPORT.md           the short report
+├── EXPERIMENTS.md      the story, in plain words
+├── DETAILED_EXPERIMENTS.md   the full experiment log
+├── requirements.txt    packages to install (requirements-lock.txt: exact versions used)
 ├── train.py            train one model from a config file
 ├── eval.py             score a model: photos → predictions → score
 ├── predict.py          run the final system (or any model) on a folder of photos
@@ -44,7 +50,7 @@ the program learns to find trucks but often names the wrong type on photos it ha
 ├── results/            numbers from every run (CSV/JSON, no model files)
 ├── figures/            charts; figures/simple/ holds the plain-language ones
 ├── notebooks/          Colab and Kaggle notebooks
-└── docs/               the full command reference (REPRODUCE.md)
+└── docs/               full report, command reference, submission checklist, working notes
 ```
 
 | Where to look for… | Files |
@@ -110,4 +116,4 @@ Other experiments run the same way from their config; see [docs/REPRODUCE.md](do
 
 I built this with AI help: Claude Code wrote code, ran analyses and drafted text, and a chat assistant helped plan
 experiments. Predictions and decision rules marked "author's" were mine, set before each run; other interpretations
-were drafted by Claude Code and reviewed by me. Details are in [REPORT.md](REPORT.md).
+were drafted by Claude Code and reviewed by me. Details are in [docs/REPORT_FULL.md](docs/REPORT_FULL.md).
